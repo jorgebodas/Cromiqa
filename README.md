@@ -105,6 +105,20 @@ src/
 action and selected states. Manrope for headings, Inter for UI. Mobile-first with a bottom tab bar;
 visible focus rings, labelled controls, keyboard-accessible dialogs, reduced-motion support.
 
+## Private preview gate
+
+Production builds show an **Acceso privado** screen until the correct password is entered
+(`src/access/AccessGate.tsx`). Only a salted SHA-256 hash is in the code, never the password. Ticking
+*Recordar este dispositivo* keeps the device unlocked; *Panel demo → Bloquear este dispositivo* locks it again.
+
+- **Change the password:** compute `sha256("cromiqa-gate-v1:" + newPassword)` and set it as
+  `DEFAULT_HASH` (or build with `VITE_ACCESS_HASH`). Every device is locked again automatically.
+- **Disable the gate:** build with `VITE_ACCESS_GATE=off`. It is always off in `npm run dev`.
+- **Limits:** this is a curtain, not security. The site is static and the repo is public, so the
+  code (and fictional demo data) can be read by anyone technical or on GitHub. For real access
+  control, put the domain behind an identity proxy such as Cloudflare Access (free tier: email
+  one-time codes) and/or make the repo private (GitHub Pages on private repos needs a paid plan).
+
 ## Deployment & domain
 
 `.github/workflows/deploy.yml` runs type check, unit tests, build and Playwright (desktop + mobile) on

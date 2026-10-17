@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FlaskConical, RotateCcw, Trash2, UserRound, Wrench } from 'lucide-react';
+import { FlaskConical, Lock, RotateCcw, Trash2, UserRound, Wrench } from 'lucide-react';
+import { gateEnabled, lockDevice } from '@/access/AccessGate';
 import type { ID } from '@/domain/types';
 import { STATUS_ORDER, STATUSES, categoryLabel } from '@/domain/catalog';
 import { relativeTime } from '@/domain/utils';
@@ -237,6 +238,11 @@ export function DemoPanelPage() {
             <Button variant="danger" icon={<Trash2 className="size-4" aria-hidden />} onClick={() => setConfirm('full')} data-testid="reset-demo">
               Reset demo (todo)
             </Button>
+            {gateEnabled && (
+              <Button variant="secondary" icon={<Lock className="size-4" aria-hidden />} onClick={lockDevice}>
+                Bloquear este dispositivo
+              </Button>
+            )}
           </div>
           <p className="mt-3 text-xs text-muted">
             “Restaurar escenarios” recupera los datos originales y mantiene la cuenta activa. “Reset demo” además vuelve a modo invitado y borra borradores.

@@ -1,0 +1,114 @@
+name: CI & deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      custom_domain:
+        description: 'Publish the CNAME file: auto (only when DNS points to GitHub Pages), always, never'
+        type: choice
+        options: [auto, always, never]
+        default: auto
+  schedule:
+    # Daily re-check: attaches cromiqa.com automatically once DNS propagates.
+    - cron: '17 6 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Type check
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm test
+      - name: Production build
+        run: npm run build
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: End-to-end tests (desktop + mobile)
+        run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site
+          path: dist
+          retention-days: 7
+
+  deploy:
+    needs: test
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # push the built site to the gh-pages branch
+    env:
+      DOMAIN: cromiqa.com
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: site
+          path: site
+
+      - name: Check DNS for the custom domain
+        id: dns
+        run: |
+          MODE="${{ github.event.inputs.custom_domain || 'auto' }}"
+          echo "Mode: $MODE"
+          echo "--- $DOMAIN A";      dig +short "$DOMAIN" A || true
+          echo "--- $DOMAIN AAAA";   dig +short "$DOMAIN" AAAA || true
+          echo "--- www.$DOMAIN";    dig +short "www.$DOMAIN" CNAME || true
+          echo "--- $DOMAIN NS";     dig +short "$DOMAIN" NS || true
+          PAGES_IPS="185.199.108.153 185.199.109.153 185.199.110.153 185.199.111.153"
+          READY=false
+          for ip in $(dig +short "$DOMAIN" A); do
+            case " $PAGES_IPS " in *" $ip "*) READY=true ;; esac
+          done
+          if [ "$MODE" = "always" ]; then PUBLISH=true
+          elif [ "$MODE" = "never" ]; then PUBLISH=false
+          else PUBLISH=$READY; fi
+          echo "dns_ready=$READY" >> "$GITHUB_OUTPUT"
+          echo "publish_cname=$PUBLISH" >> "$GITHUB_OUTPUT"
+          echo "DNS points to GitHub Pages: $READY · publishing CNAME: $PUBLISH"
+
+      - name: Prepare site
+        run: |
+          touch site/.nojekyll
+          if [ "${{ steps.dns.outputs.publish_cname }}" = "true" ]; then
+            echo "$DOMAIN" > site/CNAME
+            echo "::notice::Publishing CNAME → https://$DOMAIN"
+          else
+            rm -f site/CNAME
+            echo "::warning::$DOMAIN does not point to GitHub Pages yet. Serving at https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/ until DNS is configured (see README → Dominio)."
+          fi
+
+      - name: Publish to gh-pages
+        working-directory: site
+        run: |
+          git init -q -b gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Deploy ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" gh-pages
+          echo "### Deployed ${GITHUB_SHA::7}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Custom domain DNS ready: ${{ steps.dns.outputs.dns_ready }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- CNAME published: ${{ steps.dns.outputs.publish_cname }}" >> "$GITHUB_STEP_SUMMARY"

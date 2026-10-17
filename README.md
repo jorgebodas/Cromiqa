@@ -175,6 +175,12 @@ Verified domains* to prevent takeovers.
 
 ## Next steps
 
+**Pending (owner):** activate the lead forms with a dedicated address (e.g. `hola@cromiqa.com` on
+Hostinger, or a new Gmail forwarding to the personal one) so no personal email is published:
+1. Create the address. 2. Demo panel → *Formularios de la página Próximamente* → *Enviar activación*.
+3. Confirm FormSubmit's email. 4. Set `DEFAULT_LEAD_EMAIL` in `src/marketing/leads.ts` to that
+address (or FormSubmit's alias if provided) and deploy. Until then the forms stay hidden.
+
 1. Supabase backend implementing `CromiqaBackend` (auth with magic link, RLS per role).
 2. Real onboarding + identity/insurance checks for mechanics before any "verified" badge.
 3. Notifications (email/WhatsApp) for new requests and proposals; calendar slots instead of free dates.

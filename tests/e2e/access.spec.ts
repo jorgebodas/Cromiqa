@@ -1,21 +1,42 @@
 import { expect, test } from '@playwright/test';
 
-// The password is not stored in the repo; tests only need a wrong one and the stored hash.
-const HASH = 'f3e8217e50e7dab64ebd5b8438a2eaec49498479bdaf690fa665ea5d779a1783';
+// The password is never in the repo; tests use a wrong one and the stored hash.
+const HASH = 'a4c7c39e9911444f184e4b3cbb271dfc46954288f89badfa62474431144684b3';
 
-test('private gate blocks the app until unlocked', async ({ page }) => {
-  await page.goto('./#/mecanicos');
+test.beforeEach(async ({ page }) => {
+  await page.goto('./');
   await page.evaluate(() => localStorage.clear());
+});
+
+test('visitors only see the coming-soon page', async ({ page }) => {
+  await page.goto('./#/mecanicos');
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Acceso privado' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Tu bici, en buenas manos.');
+  await expect(page.getByText('Próximamente · Madrid sureste')).toBeVisible();
+  await expect(page.getByText('Entorno de demostración')).toHaveCount(0);
   await expect(page.getByText('Mecánicos para tu bici')).toHaveCount(0);
+});
 
-  await page.getByLabel('Contraseña').fill('no-es-esta');
-  await page.getByRole('button', { name: 'Entrar' }).click();
-  await expect(page.getByText('Contraseña incorrecta.')).toBeVisible();
+test('hidden top-right corner opens the login; wrong password is rejected', async ({ page }) => {
+  await page.reload();
+  const vp = page.viewportSize()!;
+  await page.mouse.click(vp.width - 10, 10);
+  const dialog = page.getByRole('dialog', { name: 'Acceso privado' });
+  await expect(dialog).toBeVisible();
+  await dialog.getByLabel('Contraseña').fill('no-es-esta');
+  await dialog.getByRole('button', { name: 'Entrar' }).click();
+  await expect(dialog.getByText('Contraseña incorrecta.')).toBeVisible();
+});
 
-  // A remembered device (stored hash) goes straight in, keeping the deep link.
+test('secret link opens the login directly', async ({ page }) => {
+  await page.goto('./#/entrar');
+  await page.reload();
+  await expect(page.getByRole('dialog', { name: 'Acceso privado' })).toBeVisible();
+});
+
+test('a remembered device goes straight into the prototype', async ({ page }) => {
   await page.evaluate((h) => localStorage.setItem('cromiqa:access', h), HASH);
+  await page.goto('./#/mecanicos');
   await page.reload();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Mecánicos para tu bici');
 });

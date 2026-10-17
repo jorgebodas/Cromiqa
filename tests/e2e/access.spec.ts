@@ -41,11 +41,10 @@ test('a remembered device goes straight into the prototype', async ({ page }) =>
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Mecánicos para tu bici');
 });
 
-test('lead forms stay hidden until an email is configured', async ({ page }) => {
+test('lead forms are visible on the public page', async ({ page }) => {
   await page.reload();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Tu bici, en buenas manos.');
-  await expect(page.getByTestId('waitlist-form')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Quiero unirme' })).toHaveCount(0);
+  await expect(page.getByTestId('waitlist-form')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Quiero unirme' })).toBeVisible();
 });
 
 test('share card and SEO tags are present', async ({ page, request }) => {

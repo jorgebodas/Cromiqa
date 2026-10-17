@@ -3,7 +3,8 @@
 // public page never shows a form that cannot deliver.
 // FormSubmit sends one activation email on the first submission; after activating you can
 // replace the address with the random alias it provides to keep your email out of the code.
-const DEFAULT_LEAD_EMAIL = '';
+// Temporary: owner's personal inbox until a dedicated Cromiqa address exists (see README → Next steps).
+const DEFAULT_LEAD_EMAIL = 'jorgebodasguerra@gmail.com';
 export const LEAD_EMAIL = (import.meta.env.VITE_LEAD_EMAIL || DEFAULT_LEAD_EMAIL).trim();
 export const leadsEnabled = LEAD_EMAIL.length > 0;
 

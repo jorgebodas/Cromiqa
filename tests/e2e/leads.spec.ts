@@ -55,3 +55,18 @@ test('mechanic form uses progressive disclosure and validates', async ({ page })
   await expect(page.getByText('¡Gracias!')).toBeVisible();
   expect(bodies[0]).toMatchObject({ nombre: 'Rosa Gil', taller: 'Taller Rosa', zona: 'Arganda del Rey', tipo: 'Mecánico', telefono: '—' });
 });
+
+test('demo panel sends the FormSubmit activation from the browser', async ({ page }) => {
+  const urls: string[] = [];
+  await page.route('https://formsubmit.co/ajax/**', async (route) => {
+    urls.push(route.request().url());
+    await route.fulfill({ json: { success: 'false', message: 'This form needs Activation.' } });
+  });
+  await page.evaluate(() => localStorage.setItem('cromiqa:access', 'a4c7c39e9911444f184e4b3cbb271dfc46954288f89badfa62474431144684b3'));
+  await page.goto('./#/demo');
+  await page.reload();
+  await page.getByLabel('Email donde recibir los registros').fill('owner@example.com');
+  await page.getByRole('button', { name: 'Enviar activación' }).click();
+  await expect(page.getByText('Revisa tu bandeja')).toBeVisible();
+  expect(urls[0]).toBe('https://formsubmit.co/ajax/owner%40example.com');
+});

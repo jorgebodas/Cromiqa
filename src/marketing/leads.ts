@@ -34,3 +34,23 @@ export function alreadySubmitted(kind: LeadKind) {
     return false;
   }
 }
+
+/**
+ * Sends FormSubmit's one-time activation request for `email` from the owner's browser.
+ * The address is typed at runtime and never stored or committed.
+ */
+export async function requestLeadActivation(email: string) {
+  const res = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(email.trim())}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({
+      tipo: 'Activación',
+      mensaje: 'Activación de los formularios de Cromiqa (lista de espera y mecánicos).',
+      _subject: 'Cromiqa · Activa el formulario de registros',
+      _template: 'table',
+    }),
+  });
+  const data = (await res.json().catch(() => ({}))) as { success?: string | boolean; message?: string };
+  if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
+  return data.message ?? '';
+}

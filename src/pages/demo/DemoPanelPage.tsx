@@ -2,13 +2,14 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FlaskConical, Lock, RotateCcw, Trash2, UserRound, Wrench } from 'lucide-react';
 import { gateEnabled, lockDevice } from '@/access/AccessGate';
+import { isEmail, leadsEnabled, requestLeadActivation } from '@/marketing/leads';
 import type { ID } from '@/domain/types';
 import { STATUS_ORDER, STATUSES, categoryLabel } from '@/domain/catalog';
 import { relativeTime } from '@/domain/utils';
 import { useApp } from '@/state/store';
 import { useSwitchAccount } from '@/components/layout/AccountSwitcher';
 import { StatusBadge } from '@/components/domain/Status';
-import { Avatar, Badge, Button, Card, Dialog, PageHeader, cx } from '@/components/ui';
+import { Avatar, Badge, Button, Card, Dialog, Field, Input, PageHeader, cx } from '@/components/ui';
 
 const SCENARIOS: { id: string; title: string; steps: string; start: { label: string; user?: ID | null; to: string } }[] = [
   {
@@ -54,6 +55,48 @@ function storageSizeKb() {
   } catch {
     return 0;
   }
+}
+
+function LeadActivation() {
+  const [email, setEmail] = useState('');
+  const [state, setState] = useState<{ tone: 'ok' | 'error'; text: string }>();
+  const [sending, setSending] = useState(false);
+  const send = async () => {
+    if (!isEmail(email)) return setState({ tone: 'error', text: 'Escribe un email válido.' });
+    setSending(true);
+    setState(undefined);
+    try {
+      await requestLeadActivation(email);
+      setState({ tone: 'ok', text: 'Enviado. Revisa tu bandeja (y spam): FormSubmit te pedirá confirmar y te dará un alias aleatorio.' });
+      setEmail('');
+    } catch (e) {
+      setState({ tone: 'error', text: `No se pudo enviar (${e instanceof Error ? e.message : 'error'}). Inténtalo de nuevo.` });
+    } finally {
+      setSending(false);
+    }
+  };
+  return (
+    <Card className="p-5 sm:p-6">
+      <h2 className="font-bold">Formularios de la página “Próximamente”</h2>
+      <p className="mt-1 text-sm text-muted">
+        Estado: {leadsEnabled ? 'activos y visibles para el público.' : 'ocultos hasta configurar el alias de FormSubmit.'} Para
+        activarlos sin publicar tu email, envía aquí la activación. El email no se guarda.
+      </p>
+      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end">
+        <Field label="Email donde recibir los registros" className="flex-1">
+          <Input type="email" inputMode="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} name="activation-email" />
+        </Field>
+        <Button variant="dark" className="h-12" loading={sending} onClick={send}>
+          Enviar activación
+        </Button>
+      </div>
+      {state && (
+        <p role={state.tone === 'error' ? 'alert' : 'status'} className={cx('mt-3 text-sm', state.tone === 'error' ? 'text-danger' : 'text-success')}>
+          {state.text}
+        </p>
+      )}
+    </Card>
+  );
 }
 
 export function DemoPanelPage() {
@@ -222,6 +265,10 @@ export function DemoPanelPage() {
             </tbody>
           </table>
         </div>
+      </section>
+
+      <section className="mt-12">
+        <LeadActivation />
       </section>
 
       <section aria-labelledby="reset" className="mt-12">

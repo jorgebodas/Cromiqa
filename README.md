@@ -126,6 +126,18 @@ http before the HTTPS certificate exists. *Recordar este dispositivo* keeps the 
   control, put the domain behind an identity proxy such as Cloudflare Access (free tier: email
   one-time codes) and/or make the repo private (GitHub Pages on private repos needs a paid plan).
 
+## Marketing page
+
+- **Lead forms** (`src/marketing/`): *Avísame cuando abra* (email + zone) and *¿Eres mecánico?*
+  (progressive disclosure). Submissions go to FormSubmit's AJAX API and arrive by email. They are
+  **hidden until `DEFAULT_LEAD_EMAIL` in `src/marketing/leads.ts` is set** (or `VITE_LEAD_EMAIL`), so
+  the page never shows a form that cannot deliver. First submission triggers a one-time FormSubmit
+  activation email; afterwards you can swap the address for FormSubmit's random alias.
+  A honeypot field filters basic bots.
+- **SEO & sharing:** indexable (no `noindex`), meta description, Open Graph/Twitter card
+  (`public/og-image.png`), Organization JSON-LD, `robots.txt`, `sitemap.xml`, `apple-touch-icon.png`.
+  Regenerate images with `node scripts/generate-share-images.mjs`.
+
 ## Deployment & domain
 
 `.github/workflows/deploy.yml` runs type check, unit tests, build and Playwright (desktop + mobile) on

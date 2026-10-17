@@ -40,3 +40,18 @@ test('a remembered device goes straight into the prototype', async ({ page }) =>
   await page.reload();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Mecánicos para tu bici');
 });
+
+test('lead forms stay hidden until an email is configured', async ({ page }) => {
+  await page.reload();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Tu bici, en buenas manos.');
+  await expect(page.getByTestId('waitlist-form')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Quiero unirme' })).toHaveCount(0);
+});
+
+test('share card and SEO tags are present', async ({ page, request }) => {
+  await page.reload();
+  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', 'https://cromiqa.com/og-image.png');
+  await expect(page.locator('meta[name="robots"]')).toHaveCount(0);
+  expect((await request.get('./og-image.png')).headers()['content-type']).toContain('image/png');
+  expect(await (await request.get('./robots.txt')).text()).toContain('Sitemap: https://cromiqa.com/sitemap.xml');
+});

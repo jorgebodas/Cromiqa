@@ -4,7 +4,7 @@
 // security: it keeps casual visitors out, but the bundle is public (see README).
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Button, Checkbox, Dialog, Field, Input } from '@/components/ui';
-import { ComingSoonPage } from './ComingSoonPage';
+import { ComingSoonPage } from '@/marketing/ComingSoonPage';
 import { sha256Hex } from './sha256';
 
 const SALT = 'cromiqa-gate-v1:';

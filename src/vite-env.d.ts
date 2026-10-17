@@ -4,3 +4,7 @@ interface ImportMetaEnv {
   readonly VITE_ACCESS_HASH?: string;
   readonly VITE_ACCESS_GATE?: string;
 }
+
+interface ImportMetaEnv {
+  readonly VITE_LEAD_EMAIL?: string;
+}

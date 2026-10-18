@@ -21,6 +21,7 @@ test('waitlist opens from the dock, validates, submits and confirms', async ({ p
   await expect(page.getByRole('button', { name: 'Soy mecánico' })).toBeHidden();
   const form = page.getByTestId('waitlist-form');
   await expect(form.getByLabel('Tu email')).toBeFocused();
+  await expect(form.getByText('Escribe un email válido.')).toHaveCount(0); // opening doesn't submit
 
   await page.getByRole('button', { name: 'Confirmar' }).click();
   await expect(form.getByText('Escribe un email válido.')).toBeVisible();
@@ -54,7 +55,8 @@ test('waitlist shows an error when the service fails', async ({ page }) => {
   await expect(form.getByText('No hemos podido enviarlo.')).toBeVisible();
 });
 
-test('dock morphs: close button and confirm replace the other call to action', async ({ page }) => {
+test('dock morphs in place: "Avísame" becomes "Confirmar" and "Soy mecánico" becomes close', async ({ page }) => {
+  const start = (await page.getByRole('button', { name: 'Avísame' }).boundingBox())!;
   await page.getByRole('button', { name: 'Avísame' }).click();
   await expect(page.getByTestId('waitlist-form')).toBeVisible();
   await page.getByRole('button', { name: 'Cerrar' }).click();
@@ -62,9 +64,13 @@ test('dock morphs: close button and confirm replace the other call to action', a
 
   await page.getByRole('button', { name: 'Soy mecánico' }).click();
   await expect(page.getByTestId('mechanic-form')).toBeVisible();
-  const close = await page.getByRole('button', { name: 'Cerrar' }).boundingBox();
-  const confirm = await page.getByRole('button', { name: 'Confirmar' }).boundingBox();
-  expect(close!.x).toBeGreaterThan(confirm!.x); // mirrored: close on the right
+  await expect(page.getByRole('button', { name: 'Avísame' })).toHaveCount(0);
+  await page.waitForTimeout(700); // let the spring settle
+  const close = (await page.getByRole('button', { name: 'Cerrar' }).boundingBox())!;
+  const confirm = (await page.getByRole('button', { name: 'Confirmar' }).boundingBox())!;
+  expect(close.x).toBeGreaterThan(confirm.x); // close on the right
+  expect(close.width).toBeLessThan(64); // round
+  expect(Math.abs(confirm.y - start.y)).toBeLessThan(2); // same row the buttons started on
   await page.keyboard.press('Escape');
   await expect(page.getByRole('button', { name: 'Avísame' })).toBeVisible();
 });

@@ -10,9 +10,9 @@ const GAP = 12; // px
 const SPRING = 'cubic-bezier(.2,1.2,.3,1)';
 
 /**
- * Two floating calls to action. Choosing one slides the other away, turns the chosen one
- * into a round close button, and grows a "Confirmar" button into the freed space while
- * the form card rises above. Mirrored for the right-hand button.
+ * Two floating calls to action that morph in place: the left one ("Avísame") stretches
+ * into "Confirmar" and the right one ("Soy mecánico") shrinks into a round close button,
+ * whichever was chosen, while the form card rises above. Closing plays it in reverse.
  */
 export function LeadDock() {
   const [open, setOpen] = useState<LeadKind | null>(null);
@@ -29,36 +29,24 @@ export function LeadDock() {
   }, [open]);
 
   const choose = (kind: LeadKind) => {
-    if (open) return setOpen(null);
     setShown(kind);
     setForm({ sending: false, done: false });
     setOpen(kind);
     setOpenSeq((n) => n + 1);
   };
 
-  // Geometry of the bottom row for each state (left / width of each control).
+  // Geometry of the bottom row (left / width of each button), closed vs open.
   const half = `calc(50% - ${GAP / 2}px)`;
-  const rest = `calc(100% - ${CLOSE + GAP}px)`;
   const pos = {
-    waitlist:
-      open === 'waitlist' ? { left: '0px', width: `${CLOSE}px` } : open === 'mechanic' ? { left: '-60%', width: half } : { left: '0px', width: half },
-    mechanic:
-      open === 'mechanic'
-        ? { left: `calc(100% - ${CLOSE}px)`, width: `${CLOSE}px` }
-        : open === 'waitlist'
-          ? { left: '110%', width: half }
-          : { left: `calc(50% + ${GAP / 2}px)`, width: half },
-    confirm:
-      open === 'waitlist'
-        ? { left: `${CLOSE + GAP}px`, width: rest }
-        : open === 'mechanic'
-          ? { left: '0px', width: rest }
-          : { left: '50%', width: '0px' },
+    primary: open ? { left: '0px', width: `calc(100% - ${CLOSE + GAP}px)` } : { left: '0px', width: half },
+    secondary: open ? { left: `calc(100% - ${CLOSE}px)`, width: `${CLOSE}px` } : { left: `calc(50% + ${GAP / 2}px)`, width: half },
   };
-  const move: CSSProperties = { transition: `left 520ms ${SPRING}, width 520ms ${SPRING}, opacity 260ms ease, transform 300ms ease, background-color 250ms ease, color 250ms ease` };
-
-  const toggleClass =
+  const move: CSSProperties = { transition: `left 560ms ${SPRING}, width 560ms ${SPRING}, transform 300ms ease` };
+  const buttonClass =
     'absolute top-0 flex h-14 items-center justify-center overflow-hidden rounded-[28px] text-[15px] font-semibold text-ink active:scale-[0.97]';
+  // Labels cross-fade with a slight blur so one word melts into the next.
+  const label = (visible: boolean) =>
+    cx('col-start-1 row-start-1 flex items-center justify-center gap-2 whitespace-nowrap transition-[opacity,transform,filter] duration-300', visible ? 'scale-100 opacity-100 blur-0' : 'scale-90 opacity-0 blur-[3px]');
 
   return (
     <>
@@ -66,7 +54,7 @@ export function LeadDock() {
         aria-hidden
         onClick={() => setOpen(null)}
         className={cx(
-          'fixed inset-0 z-20 bg-paper/40 backdrop-blur-[4px] transition-opacity duration-300',
+          'fixed inset-0 z-20 bg-paper/25 backdrop-blur-[2px] transition-opacity duration-300',
           open ? 'opacity-100' : 'pointer-events-none opacity-0',
         )}
       />
@@ -101,66 +89,52 @@ export function LeadDock() {
             </div>
           </div>
 
-          {/* Bottom row: two floating glass buttons that morph */}
+          {/* Bottom row: two floating glass buttons that morph in place */}
           <div className="relative h-14">
             <button
-              type="button"
-              onClick={() => choose('waitlist')}
-              aria-expanded={open === 'waitlist'}
-              aria-controls="lead-panel"
-              aria-label={open === 'waitlist' ? 'Cerrar' : undefined}
-              tabIndex={open === 'mechanic' ? -1 : 0}
-              aria-hidden={open === 'mechanic' || undefined}
-              className={cx(
-                toggleClass,
-                open === 'waitlist' ? 'glass' : 'glass-lime',
-                open === 'mechanic' && 'pointer-events-none opacity-0',
-              )}
-              style={{ ...move, ...pos.waitlist }}
-            >
-              <span className={cx('whitespace-nowrap transition-all duration-200', open === 'waitlist' ? 'scale-75 opacity-0' : 'opacity-100')}>
-                Avísame
-              </span>
-              <X className={cx('absolute size-5 transition-all duration-300', open === 'waitlist' ? 'rotate-0 opacity-100' : '-rotate-90 opacity-0')} aria-hidden />
-            </button>
-
-            <button
-              type="submit"
+              type={open ? 'submit' : 'button'}
               form={open ? FORM_ID[open] : undefined}
-              disabled={!open || form.sending}
-              tabIndex={open ? 0 : -1}
+              disabled={form.sending}
               onClick={(e) => {
+                if (!open) {
+                  // The button turns into a submit button as it opens; don't let this click submit.
+                  e.preventDefault();
+                  return choose('waitlist');
+                }
                 if (form.done) {
                   e.preventDefault();
                   setOpen(null);
                 }
               }}
-              className={cx(
-                'glass-lime absolute top-0 flex h-14 items-center justify-center gap-2 overflow-hidden whitespace-nowrap rounded-[28px] text-[15px] font-semibold text-ink active:scale-[0.98]',
-                open ? 'opacity-100' : 'pointer-events-none opacity-0',
-              )}
-              style={{ ...move, ...pos.confirm }}
-              aria-hidden={!open || undefined}
+              aria-expanded={open ? undefined : false}
+              aria-controls={open ? undefined : 'lead-panel'}
+              className={cx(buttonClass, 'glass-lime')}
+              style={{ ...move, ...pos.primary }}
             >
-              {form.sending && <Loader2 className="size-4 animate-spin" aria-hidden />}
-              {form.done ? 'Listo' : 'Confirmar'}
+              <span className="grid">
+                <span className={label(!open)} aria-hidden={!!open || undefined}>
+                  Avísame
+                </span>
+                <span className={label(!!open)} aria-hidden={!open || undefined}>
+                  {form.sending && <Loader2 className="size-4 animate-spin" aria-hidden />}
+                  {form.done ? 'Listo' : 'Confirmar'}
+                </span>
+              </span>
             </button>
 
             <button
               type="button"
-              onClick={() => choose('mechanic')}
-              aria-expanded={open === 'mechanic'}
+              onClick={() => (open ? setOpen(null) : choose('mechanic'))}
+              aria-expanded={!!open}
               aria-controls="lead-panel"
-              aria-label={open === 'mechanic' ? 'Cerrar' : undefined}
-              tabIndex={open === 'waitlist' ? -1 : 0}
-              aria-hidden={open === 'waitlist' || undefined}
-              className={cx(toggleClass, 'glass', open === 'waitlist' && 'pointer-events-none opacity-0')}
-              style={{ ...move, ...pos.mechanic }}
+              aria-label={open ? 'Cerrar' : undefined}
+              className={cx(buttonClass, 'glass')}
+              style={{ ...move, ...pos.secondary }}
             >
-              <span className={cx('whitespace-nowrap transition-all duration-200', open === 'mechanic' ? 'scale-75 opacity-0' : 'opacity-100')}>
+              <span className={cx('whitespace-nowrap transition-[opacity,transform,filter] duration-300', open ? 'scale-75 opacity-0 blur-[3px]' : 'opacity-100')}>
                 Soy mecánico
               </span>
-              <X className={cx('absolute size-5 transition-all duration-300', open === 'mechanic' ? 'rotate-0 opacity-100' : 'rotate-90 opacity-0')} aria-hidden />
+              <X className={cx('absolute size-5 transition-all duration-300', open ? 'rotate-0 opacity-100' : 'rotate-90 opacity-0')} aria-hidden />
             </button>
           </div>
         </div>

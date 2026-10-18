@@ -116,12 +116,9 @@ export function WaitlistForm({ autoFocus = false, formId, onState }: LeadFormPro
 
   return (
     <form id={formId} onSubmit={submit} noValidate className="relative" data-testid="waitlist-form">
-      <h2 className="cq-rise font-display text-lg font-extrabold" style={rise(0)}>
-        Sé de los primeros
+      <h2 className="cq-rise font-display text-xl font-extrabold leading-tight" style={rise(0)}>
+        Apúntate a la lista de espera
       </h2>
-      <p className="cq-rise text-sm text-muted" style={rise(1)}>
-        Te avisamos cuando abramos en tu zona. Sin spam.
-      </p>
       <div className="cq-rise mt-4 space-y-2" style={rise(2)}>
         <label htmlFor="waitlist-email" className="sr-only">
           Tu email
@@ -211,12 +208,9 @@ export function MechanicLeadForm({ autoFocus = false, formId, onState }: LeadFor
 
   return (
     <form id={formId} onSubmit={submit} noValidate className="relative" data-testid="mechanic-form">
-      <h2 className="cq-rise font-display text-lg font-extrabold" style={rise(0)}>
-        ¿Mecánico o taller?
+      <h2 className="cq-rise font-display text-xl font-extrabold leading-tight" style={rise(0)}>
+        Únete a Cromiqa como mecánico
       </h2>
-      <p className="cq-rise text-sm text-muted" style={rise(1)}>
-        Buscamos los primeros profesionales del sureste de Madrid.
-      </p>
       <div className="mt-4 grid grid-cols-2 gap-2">
         {field('nombre', 'Nombre', <Input ref={nameRef} id="m-nombre" name="nombre" autoComplete="name" placeholder="Nombre" value={form.nombre} onChange={(e) => set({ nombre: e.target.value })} aria-invalid={errors.nombre ? true : undefined} />, 2)}
         {field('taller', 'Taller (opcional)', <Input id="m-taller" name="taller" autoComplete="organization" placeholder="Taller (opc.)" value={form.taller} onChange={(e) => set({ taller: e.target.value })} />, 2)}

@@ -80,7 +80,7 @@ export function LeadDock() {
         aria-hidden
         onClick={() => setOpen(null)}
         className={cx(
-          'fixed inset-0 z-20 bg-paper/25 backdrop-blur-[2px] transition-opacity duration-300',
+          'fixed inset-0 z-20 bg-[linear-gradient(to_top,rgb(23_23_23/0.32),rgb(23_23_23/0.12)_45%,rgb(23_23_23/0.02))] backdrop-blur-[2px] transition-opacity duration-300',
           open ? 'opacity-100' : 'pointer-events-none opacity-0',
         )}
       />

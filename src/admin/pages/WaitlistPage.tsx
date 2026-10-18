@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { Download, Search, Trash2 } from 'lucide-react';
 import { Button, Dialog, EmptyState, IconButton, Input, Select, Spinner } from '@/components/ui';
 import { useApp } from '@/state/store';
-import { deleteWaitlist, listWaitlist } from '../api';
+import { deleteWaitlist, listWaitlist, logEvent } from '../api';
 import { byZone, downloadFile, matches, toCsv } from '../lib';
 import { useData } from '../useData';
 import type { WaitlistLead } from '../types';
@@ -20,7 +20,8 @@ export function WaitlistPage() {
   const zones = useMemo(() => byZone(data ?? []).map((z) => z.zone), [data]);
   const rows = (data ?? []).filter((r) => matches(q, r.email, r.zone) && (!zone || (r.zone?.trim() || 'Sin indicar') === zone));
 
-  const exportCsv = () =>
+  const exportCsv = () => {
+    void logEvent('export_waitlist');
     downloadFile(
       `cromiqa-lista-espera-${new Date().toISOString().slice(0, 10)}.csv`,
       toCsv(rows as unknown as Record<string, unknown>[], [
@@ -30,6 +31,7 @@ export function WaitlistPage() {
         { key: 'created_at', label: 'Fecha de registro' },
       ]),
     );
+  };
 
   const confirmDelete = async () => {
     if (!toDelete) return;

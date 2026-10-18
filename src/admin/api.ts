@@ -92,3 +92,56 @@ export async function uploadPhoto(file: Blob): Promise<string> {
 export async function removePhotoFile(path: string) {
   await (await db()).storage.from(SITE_BUCKET).remove([path]);
 }
+
+// ── Two-factor authentication (TOTP) ────────────────────────────────────────
+export type MfaState = { kind: 'ok' } | { kind: 'verify'; factorId: string } | { kind: 'enroll' };
+
+/** Where the signed-in user stands: already aal2, needs to enter a code, or must set up an app. */
+export async function mfaState(): Promise<MfaState> {
+  const c = await db();
+  const { data: aal } = await c.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (aal?.currentLevel === 'aal2') return { kind: 'ok' };
+  const { data } = await c.auth.mfa.listFactors();
+  const factor = data?.totp[0];
+  return factor ? { kind: 'verify', factorId: factor.id } : { kind: 'enroll' };
+}
+
+export async function startMfaEnrollment(): Promise<{ factorId: string; qr: string; secret: string }> {
+  const c = await db();
+  // Drop half-finished setups from earlier attempts so enrollment can start again.
+  const { data: existing } = await c.auth.mfa.listFactors();
+  await Promise.all((existing?.all ?? []).filter((f) => f.status !== 'verified').map((f) => c.auth.mfa.unenroll({ factorId: f.id })));
+  const { data, error } = await c.auth.mfa.enroll({ factorType: 'totp', friendlyName: `Cromiqa ${new Date().toISOString().slice(0, 10)}`, issuer: 'Cromiqa' });
+  if (error || !data || data.type !== 'totp') throw new Error(error?.message ?? 'No se pudo iniciar la configuración.');
+  return { factorId: data.id, qr: data.totp.qr_code, secret: data.totp.secret };
+}
+
+export async function verifyMfa(factorId: string, code: string) {
+  const { error } = await (await db()).auth.mfa.challengeAndVerify({ factorId, code: code.replace(/\s/g, '') });
+  if (error) throw new Error(/invalid|expired/i.test(error.message) ? 'Código incorrecto o caducado. Prueba con el siguiente.' : error.message);
+}
+
+// ── Activity log ────────────────────────────────────────────────────────────
+export interface ActivityEntry {
+  id: number;
+  at: string;
+  actor: string | null;
+  action: string;
+  entity: string;
+  entity_id: string | null;
+  summary: string | null;
+  details: Record<string, { from: unknown; to: unknown }>;
+}
+
+export async function listActivity(): Promise<ActivityEntry[]> {
+  return check(await (await db()).from('admin_activity').select('*').order('at', { ascending: false }).limit(500));
+}
+
+/** Records panel events that don't change data. Never blocks the action if logging fails. */
+export async function logEvent(event: 'sign_in' | 'export_waitlist' | 'export_mechanics') {
+  try {
+    await (await db()).rpc('log_admin_event', { event });
+  } catch {
+    /* best effort */
+  }
+}

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
-import { fakeSupabase } from './fakeSupabase';
+import { VALID_TOTP, fakeSupabase } from './fakeSupabase';
 
 const day = (offset: number) => new Date(Date.now() - offset * 86_400_000).toISOString();
 const WAITLIST = [
@@ -13,20 +13,75 @@ const MECHANICS = [
   { id: 'm2', name: 'Pedro Sanz', workshop: null, email: 'pedro@example.com', phone: null, zone: 'Coslada', specialty: null, status: 'onboarded', notes: 'Firmado', created_at: day(5), updated_at: day(3) },
 ];
 
-async function login(page: import('@playwright/test').Page, password = 'correcta') {
+async function login(page: import('@playwright/test').Page, password = 'correcta', code: string | null = VALID_TOTP) {
   await page.goto('./#/admin');
   await page.getByLabel('Email').fill('admin@cromiqa.com');
   await page.getByLabel('Contraseña').fill(password);
   await page.getByRole('button', { name: 'Entrar' }).click();
+  if (code) {
+    await page.getByLabel('Código').fill(code);
+    await page.getByRole('button', { name: 'Verificar' }).click();
+  }
 }
 
 test('rejects wrong credentials and non-admin accounts', async ({ page }) => {
   await fakeSupabase(page, { admin: false });
-  await login(page, 'mala');
+  await login(page, 'mala', null);
   await expect(page.getByText('Email o contraseña incorrectos.')).toBeVisible();
   await page.getByLabel('Contraseña').fill('correcta');
   await page.getByRole('button', { name: 'Entrar' }).click();
+  await page.getByLabel('Código').fill(VALID_TOTP);
+  await page.getByRole('button', { name: 'Verificar' }).click();
   await expect(page.getByRole('heading', { name: 'Sin acceso' })).toBeVisible();
+});
+
+test('two-factor: a password alone never opens the panel; wrong codes are rejected', async ({ page }) => {
+  const { log } = await fakeSupabase(page, { waitlist: [] });
+  await login(page, 'correcta', null);
+  await expect(page.getByRole('heading', { name: 'Código de verificación' })).toBeVisible();
+  // No data was requested with a password-only (aal1) session.
+  expect(log.some((l) => l.path.includes('/rest/v1/waitlist_leads'))).toBe(false);
+  await page.getByLabel('Código').fill('000000');
+  await page.getByRole('button', { name: 'Verificar' }).click();
+  await expect(page.getByText('Código incorrecto o caducado')).toBeVisible();
+  await page.getByLabel('Código').fill(VALID_TOTP);
+  await page.getByRole('button', { name: 'Verificar' }).click();
+  await expect(page.getByRole('heading', { name: 'Resumen' })).toBeVisible();
+});
+
+test('two-factor: first sign-in sets up the authenticator app', async ({ page }) => {
+  await fakeSupabase(page, { mfaEnrolled: false });
+  await login(page, 'correcta', null);
+  await expect(page.getByRole('heading', { name: 'Activa el doble factor' })).toBeVisible();
+  await expect(page.getByRole('img', { name: 'Código QR para tu app de autenticación' })).toBeVisible();
+  await expect(page.getByTestId('mfa-secret')).toHaveText('JBSWY3DPEHPK3PXP');
+  await page.getByLabel('Código de la app').fill(VALID_TOTP);
+  await page.getByRole('button', { name: 'Activar y entrar' }).click();
+  await expect(page.getByRole('heading', { name: 'Resumen' })).toBeVisible();
+});
+
+test('activity log records sign-ins, exports, status changes and deletions', async ({ page }) => {
+  await fakeSupabase(page, { waitlist: WAITLIST, mechanics: MECHANICS });
+  await login(page);
+  await page.getByRole('link', { name: 'Mecánicos' }).click();
+  await page.getByLabel('Estado de Rosa Gil').selectOption('talking');
+  await expect(page.getByText('Estado: En conversación')).toBeVisible();
+  await page.getByRole('link', { name: 'Lista de espera' }).click();
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Exportar CSV' }).click();
+  await download;
+  await page.getByRole('button', { name: 'Eliminar luis@example.com' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Eliminar' }).click();
+  await expect(page.getByTestId('waitlist-table').getByRole('row')).toHaveCount(3);
+
+  await page.getByRole('link', { name: 'Actividad' }).click();
+  const list = page.getByTestId('activity-list');
+  await expect(list).toContainText('Eliminó luis@example.com de la lista de espera');
+  await expect(list).toContainText('Exportó la lista de espera (CSV)');
+  await expect(list).toContainText('Mecánico Rosa Gil: cambió estado: Nuevo → En conversación');
+  await expect(list).toContainText('Inició sesión en el panel');
+  await page.getByLabel('Filtrar por tipo').selectOption('panel');
+  await expect(list.getByRole('listitem')).toHaveCount(2);
 });
 
 test('overview shows metrics from the database', async ({ page }) => {

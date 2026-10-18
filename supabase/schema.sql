@@ -13,9 +13,12 @@ create table if not exists public.admins (
 );
 alter table public.admins enable row level security;
 
+-- Admin = listed in public.admins AND signed in with two factors (aal2). Without the
+-- authenticator code the database denies everything, even with the right password.
 create or replace function public.is_admin() returns boolean
 language sql stable security definer set search_path = public as $$
-  select exists (select 1 from public.admins where email = (auth.jwt() ->> 'email'));
+  select coalesce(auth.jwt() ->> 'aal', 'aal1') = 'aal2'
+     and exists (select 1 from public.admins where email = (auth.jwt() ->> 'email'));
 $$;
 grant execute on function public.is_admin() to anon, authenticated;
 
@@ -114,6 +117,78 @@ create policy "admins update site files" on storage.objects for update to authen
 drop policy if exists "admins delete site files" on storage.objects;
 create policy "admins delete site files" on storage.objects for delete to authenticated
   using (bucket_id = 'site' and public.is_admin());
+
+-- ── Activity log (append-only) ──────────────────────────────────────────────
+-- Written only by the triggers and the function below; admins can read it, nobody can
+-- edit or delete it through the API.
+create table if not exists public.admin_activity (
+  id bigint generated always as identity primary key,
+  at timestamptz not null default now(),
+  actor text,
+  action text not null,
+  entity text not null,
+  entity_id text,
+  summary text,
+  details jsonb not null default '{}'::jsonb
+);
+create index if not exists admin_activity_at_idx on public.admin_activity (at desc);
+alter table public.admin_activity enable row level security;
+revoke all on public.admin_activity from anon, authenticated;
+grant select on public.admin_activity to authenticated;
+drop policy if exists "admins read activity" on public.admin_activity;
+create policy "admins read activity" on public.admin_activity for select to authenticated using (public.is_admin());
+
+create or replace function public.log_activity() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare
+  rec jsonb := to_jsonb(coalesce(new, old));
+  changes jsonb := '{}'::jsonb;
+  k text;
+begin
+  -- Visitors signing up are not admin activity.
+  if tg_op = 'INSERT' and tg_table_name in ('waitlist_leads', 'mechanic_leads') then
+    return new;
+  end if;
+  if tg_op = 'UPDATE' and tg_table_name <> 'site_content' then
+    for k in select jsonb_object_keys(to_jsonb(new)) loop
+      if k <> 'updated_at' and (to_jsonb(new) -> k) is distinct from (to_jsonb(old) -> k) then
+        changes := changes || jsonb_build_object(k, jsonb_build_object('from', to_jsonb(old) -> k, 'to', to_jsonb(new) -> k));
+      end if;
+    end loop;
+    if changes = '{}'::jsonb then return new; end if;
+  end if;
+  insert into public.admin_activity (actor, action, entity, entity_id, summary, details)
+  values (
+    coalesce(auth.jwt() ->> 'email', 'sistema'),
+    lower(tg_op),
+    tg_table_name,
+    coalesce(rec ->> 'id', rec ->> 'key'),
+    coalesce(rec ->> 'name', rec ->> 'email', rec ->> 'key'),
+    changes
+  );
+  return coalesce(new, old);
+end $$;
+
+drop trigger if exists waitlist_leads_activity on public.waitlist_leads;
+create trigger waitlist_leads_activity after update or delete on public.waitlist_leads
+  for each row execute function public.log_activity();
+drop trigger if exists mechanic_leads_activity on public.mechanic_leads;
+create trigger mechanic_leads_activity after update or delete on public.mechanic_leads
+  for each row execute function public.log_activity();
+drop trigger if exists site_content_activity on public.site_content;
+create trigger site_content_activity after insert or update or delete on public.site_content
+  for each row execute function public.log_activity();
+
+-- Panel events that don't change data (sign-ins, CSV exports of personal data).
+create or replace function public.log_admin_event(event text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_admin() then raise exception 'not allowed'; end if;
+  if event not in ('sign_in', 'export_waitlist', 'export_mechanics') then raise exception 'unknown event'; end if;
+  insert into public.admin_activity (actor, action, entity) values (auth.jwt() ->> 'email', event, 'panel');
+end $$;
+revoke all on function public.log_admin_event(text) from public, anon;
+grant execute on function public.log_admin_event(text) to authenticated;
 
 -- ── Your admin account ──────────────────────────────────────────────────────
 -- 1) Create the user in Authentication → Users → Add user (email + password).

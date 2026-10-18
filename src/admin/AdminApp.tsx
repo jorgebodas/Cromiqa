@@ -1,19 +1,21 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
-import { Database, LogOut, ShieldAlert } from 'lucide-react';
+import { Database, KeyRound, LogOut, ShieldAlert, Smartphone } from 'lucide-react';
 import { Wordmark } from '@/brand/Wordmark';
 import { supabaseConfigured } from '@/services/supabase';
 import { Button, Card, Field, FieldError, Input, Toaster, cx } from '@/components/ui';
-import { currentEmail, isAdmin, onAuthChange, signIn, signOut } from './api';
+import { currentEmail, isAdmin, logEvent, mfaState, onAuthChange, signIn, signOut, startMfaEnrollment, verifyMfa } from './api';
 import { OverviewPage } from './pages/OverviewPage';
 import { WaitlistPage } from './pages/WaitlistPage';
 import { MechanicsPage } from './pages/MechanicsPage';
 import { ContentPage } from './pages/ContentPage';
+import { ActivityPage } from './pages/ActivityPage';
 
 const SECTIONS = [
   { hash: '#/admin', label: 'Resumen', Page: OverviewPage },
   { hash: '#/admin/espera', label: 'Lista de espera', Page: WaitlistPage },
   { hash: '#/admin/mecanicos', label: 'Mecánicos', Page: MechanicsPage },
   { hash: '#/admin/contenido', label: 'Contenido', Page: ContentPage },
+  { hash: '#/admin/actividad', label: 'Actividad', Page: ActivityPage },
 ] as const;
 
 function useHash() {
@@ -94,7 +96,129 @@ function Login({ onDone }: { onDone: () => void }) {
   );
 }
 
-type AuthState = { kind: 'loading' } | { kind: 'signed-out' } | { kind: 'forbidden'; email: string } | { kind: 'admin'; email: string };
+/** 6-digit code input. Forwards the id/aria props that <Field> injects so the label is linked. */
+function CodeInput({ value, onChange, ...aria }: { value: string; onChange: (v: string) => void; id?: string; 'aria-invalid'?: boolean; 'aria-describedby'?: string }) {
+  return (
+    <Input
+      {...aria}
+      inputMode="numeric"
+      autoComplete="one-time-code"
+      pattern="[0-9]*"
+      maxLength={7}
+      placeholder="123 456"
+      value={value}
+      onChange={(e) => onChange(e.target.value.replace(/[^\d ]/g, ''))}
+      className="text-center font-display text-2xl tracking-[0.3em]"
+      name="code"
+      autoFocus
+    />
+  );
+}
+
+function MfaVerify({ factorId, onDone, onCancel }: { factorId: string; onDone: () => void; onCancel: () => void }) {
+  const [code, setCode] = useState('');
+  const [error, setError] = useState<string>();
+  const [busy, setBusy] = useState(false);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError(undefined);
+    try {
+      await verifyMfa(factorId, code);
+      onDone();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo verificar.');
+      setCode('');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Centered>
+      <Card className="p-6">
+        <KeyRound className="size-6" aria-hidden />
+        <h1 className="mt-4 text-xl font-extrabold">Código de verificación</h1>
+        <p className="mt-1 text-sm text-muted">Abre tu app de autenticación y escribe el código de 6 dígitos de Cromiqa.</p>
+        <form onSubmit={submit} className="mt-5 space-y-4" noValidate>
+          <Field label="Código" error={error}>
+            <CodeInput value={code} onChange={setCode} />
+          </Field>
+          <Button type="submit" variant="dark" block size="lg" loading={busy} disabled={code.replace(/\s/g, '').length !== 6}>
+            Verificar
+          </Button>
+          <Button variant="ghost" block onClick={onCancel}>Cancelar</Button>
+        </form>
+      </Card>
+    </Centered>
+  );
+}
+
+function MfaEnroll({ onDone, onCancel }: { onDone: () => void; onCancel: () => void }) {
+  const [setup, setSetup] = useState<{ factorId: string; qr: string; secret: string }>();
+  const [code, setCode] = useState('');
+  const [error, setError] = useState<string>();
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    startMfaEnrollment().then(setSetup, (e) => setError(e instanceof Error ? e.message : 'No se pudo iniciar la configuración.'));
+  }, []);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!setup) return;
+    setBusy(true);
+    setError(undefined);
+    try {
+      await verifyMfa(setup.factorId, code);
+      onDone();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo verificar.');
+      setCode('');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Centered>
+      <Card className="p-6">
+        <Smartphone className="size-6" aria-hidden />
+        <h1 className="mt-4 text-xl font-extrabold">Activa el doble factor</h1>
+        <p className="mt-1 text-sm text-muted">
+          Obligatorio para el panel. Escanea el código con Google Authenticator, 1Password, Authy o similar y escribe el código que te muestre.
+        </p>
+        {setup ? (
+          <>
+            <img src={setup.qr} alt="Código QR para tu app de autenticación" className="mx-auto mt-5 size-48 rounded-xl border border-line bg-paper p-2" />
+            <p className="mt-3 text-center text-xs text-muted">
+              ¿No puedes escanear? Introduce esta clave: <code className="select-all break-all font-semibold text-ink" data-testid="mfa-secret">{setup.secret}</code>
+            </p>
+            <form onSubmit={submit} className="mt-5 space-y-4" noValidate>
+              <Field label="Código de la app" error={error}>
+                <CodeInput value={code} onChange={setCode} />
+              </Field>
+              <Button type="submit" variant="dark" block size="lg" loading={busy} disabled={code.replace(/\s/g, '').length !== 6}>
+                Activar y entrar
+              </Button>
+            </form>
+          </>
+        ) : error ? (
+          <div className="mt-4"><FieldError>{error}</FieldError></div>
+        ) : (
+          <p className="mt-5 text-center text-sm text-muted">Preparando…</p>
+        )}
+        <Button variant="ghost" block className="mt-2" onClick={onCancel}>Cancelar</Button>
+      </Card>
+    </Centered>
+  );
+}
+
+type AuthState =
+  | { kind: 'loading' }
+  | { kind: 'signed-out' }
+  | { kind: 'mfa-enroll'; email: string }
+  | { kind: 'mfa-verify'; email: string; factorId: string }
+  | { kind: 'forbidden'; email: string }
+  | { kind: 'admin'; email: string };
+
+const SIGN_IN_LOGGED = 'cromiqa:admin:signin-logged';
 
 export function AdminApp() {
   const [auth, setAuth] = useState<AuthState>({ kind: 'loading' });
@@ -103,7 +227,29 @@ export function AdminApp() {
   const refresh = async () => {
     const email = await currentEmail();
     if (!email) return setAuth({ kind: 'signed-out' });
-    setAuth((await isAdmin()) ? { kind: 'admin', email } : { kind: 'forbidden', email });
+    // Two factors first: the database only grants admin rights to aal2 sessions.
+    const mfa = await mfaState();
+    if (mfa.kind === 'enroll') return setAuth({ kind: 'mfa-enroll', email });
+    if (mfa.kind === 'verify') return setAuth({ kind: 'mfa-verify', email, factorId: mfa.factorId });
+    if (!(await isAdmin())) return setAuth({ kind: 'forbidden', email });
+    setAuth({ kind: 'admin', email });
+    // Log one sign-in per browser session.
+    try {
+      if (!sessionStorage.getItem(SIGN_IN_LOGGED)) {
+        sessionStorage.setItem(SIGN_IN_LOGGED, '1');
+        void logEvent('sign_in');
+      }
+    } catch {
+      /* ignore */
+    }
+  };
+  const logout = () => {
+    try {
+      sessionStorage.removeItem(SIGN_IN_LOGGED);
+    } catch {
+      /* ignore */
+    }
+    void signOut().then(refresh);
   };
 
   useEffect(() => {
@@ -116,6 +262,8 @@ export function AdminApp() {
   if (!supabaseConfigured) return <NotConfigured />;
   if (auth.kind === 'loading') return <Centered><p className="text-center text-sm text-muted">Cargando…</p></Centered>;
   if (auth.kind === 'signed-out') return <Login onDone={refresh} />;
+  if (auth.kind === 'mfa-enroll') return <MfaEnroll onDone={refresh} onCancel={logout} />;
+  if (auth.kind === 'mfa-verify') return <MfaVerify factorId={auth.factorId} onDone={refresh} onCancel={logout} />;
   if (auth.kind === 'forbidden') {
     return (
       <Centered>
@@ -125,7 +273,7 @@ export function AdminApp() {
           <p className="mt-2 text-sm text-muted">
             {auth.email} no está en la lista de administradores. Añádelo en la tabla <code>admins</code> de Supabase.
           </p>
-          <Button variant="secondary" className="mt-5" onClick={() => void signOut().then(refresh)}>
+          <Button variant="secondary" className="mt-5" onClick={logout}>
             Cerrar sesión
           </Button>
         </Card>
@@ -145,7 +293,7 @@ export function AdminApp() {
           </a>
           <div className="flex items-center gap-2 text-sm">
             <span className="hidden text-muted sm:inline">{auth.email}</span>
-            <Button variant="ghost" size="sm" onClick={() => void signOut().then(refresh)} icon={<LogOut className="size-4" aria-hidden />}>
+            <Button variant="ghost" size="sm" onClick={logout} icon={<LogOut className="size-4" aria-hidden />}>
               Salir
             </Button>
           </div>
@@ -158,7 +306,7 @@ export function AdminApp() {
                   href={s.hash}
                   aria-current={s === section ? 'page' : undefined}
                   className={cx(
-                    'block whitespace-nowrap border-b-2 px-3 py-3 text-sm font-medium transition-colors',
+                    'block whitespace-nowrap border-b-2 px-3 py-3 text-sm font-medium transition-[color]',
                     s === section ? 'border-ink text-ink' : 'border-transparent text-muted hover:text-ink',
                   )}
                 >

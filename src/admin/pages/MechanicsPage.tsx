@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ChevronDown, Download, Mail, Phone, Search, Trash2 } from 'lucide-react';
 import { Button, Dialog, EmptyState, Input, Select, Spinner, Textarea, cx } from '@/components/ui';
 import { useApp } from '@/state/store';
-import { deleteMechanic, listMechanics, updateMechanic } from '../api';
+import { deleteMechanic, listMechanics, logEvent, updateMechanic } from '../api';
 import { downloadFile, matches, toCsv } from '../lib';
 import { useData } from '../useData';
 import { MECHANIC_STATUSES, statusLabel, type MechanicLead, type MechanicStatus } from '../types';
@@ -91,7 +91,8 @@ export function MechanicsPage() {
   const rows = (data ?? []).filter((m) => matches(q, m.name, m.workshop, m.email, m.zone, m.specialty) && (!status || m.status === status));
   const patch = (id: string, p: Partial<MechanicLead>) => setData((d) => d?.map((m) => (m.id === id ? { ...m, ...p } : m)) ?? null);
 
-  const exportCsv = () =>
+  const exportCsv = () => {
+    void logEvent('export_mechanics');
     downloadFile(
       `cromiqa-mecanicos-${new Date().toISOString().slice(0, 10)}.csv`,
       toCsv(rows.map((m) => ({ ...m, status: statusLabel(m.status) })) as unknown as Record<string, unknown>[], [
@@ -106,6 +107,7 @@ export function MechanicsPage() {
         { key: 'created_at', label: 'Fecha de registro' },
       ]),
     );
+  };
 
   const confirmDelete = async () => {
     if (!toDelete) return;

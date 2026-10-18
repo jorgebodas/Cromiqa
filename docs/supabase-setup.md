@@ -40,6 +40,16 @@ formularios por email y el carrusel incluido en el código, y `cromiqa.com/#/adm
 
 7. **Publica** (push a `main`) y entra en `cromiqa.com/#/admin` con tu email y contraseña.
 
+8. **Activa el doble factor** (la primera vez que entras, el panel te lo pide):
+   - Instala una app de autenticación en el móvil: Google Authenticator, Microsoft Authenticator,
+     1Password o Authy.
+   - Escanea el código QR que muestra el panel (o escribe la clave que aparece debajo).
+   - Escribe el código de 6 dígitos que te da la app → *Activar y entrar*.
+   - A partir de ahí, cada inicio de sesión pide contraseña **y** código.
+   - La base de datos lo exige: sin el código no devuelve ningún dato, aunque alguien tenga tu contraseña.
+   - Si cambias de móvil o pierdes la app: en Supabase → *Authentication* → *Users* → tu usuario →
+     elimina el factor MFA. La próxima vez que entres, el panel te pedirá configurarlo de nuevo.
+
 ## Añadir otro administrador
 
 Repite los pasos 3 y 4 con su email. Para quitarle el acceso:
@@ -49,6 +59,11 @@ delete from public.admins where email = 'su-email@ejemplo.com';
 ```
 
 ## Qué protege qué
+
+- **Doble factor obligatorio** para cualquier acción de administrador (comprobado en la base de datos).
+- **Registro de actividad** (pestaña *Actividad*): inicios de sesión, exportaciones CSV, cambios de
+  estado y notas, borrados y publicaciones de contenido, con quién y cuándo. Nadie puede editarlo
+  ni borrarlo desde el panel.
 
 - Los visitantes solo pueden **añadir** registros (lista de espera y mecánicos), nunca leerlos.
 - Leer, editar, exportar o borrar exige iniciar sesión **y** estar en la tabla `admins`.

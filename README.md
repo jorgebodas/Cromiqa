@@ -158,7 +158,12 @@ email-only forms and the bundled carousel, and `#/admin` shows a "Conecta Supaba
 **Panel (`#/admin`, own login, never behind the preview gate):**
 Resumen (totals, last-30-day charts, by zone, by status) · Lista de espera (search, zone filter,
 CSV export, delete) · Mecánicos (status pipeline, internal notes, CSV, delete) · Contenido (carousel
-texts and photos; photos are cropped to 5:4 and compressed in the browser before upload).
+texts and photos; photos are cropped to 5:4 and compressed in the browser before upload) ·
+Actividad (append-only audit log written by database triggers: sign-ins, exports, edits, deletions,
+publications).
+
+**Two-factor sign-in (TOTP) is mandatory:** `public.is_admin()` requires an `aal2` session, so a
+password alone gets no data even through the API.
 
 **Security:** visitors can only *insert* leads (only allowed columns, validated by DB constraints);
 they can never read them. Everything else requires a signed-in user listed in `public.admins`

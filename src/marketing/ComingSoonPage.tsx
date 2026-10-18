@@ -18,13 +18,13 @@ export function ComingSoonPage() {
       {/* On very short screens the page scrolls, with room to bring the cards clear of the buttons. */}
       <main className="relative flex flex-1 flex-col items-center pb-8 pt-[max(1.5rem,4dvh)] sm:pt-[max(2.5rem,6dvh)] [@media(max-height:620px)]:pb-28">
         <div className="flex flex-col items-center px-6 text-center">
-          {/* Quiet status label: no box, just a softly pulsing lime dot. */}
-          <p className="cq-rise inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-ink/70" style={delay(100)}>
+          {/* Lime status label. Every few seconds the dot pings and a glint sweeps across the word. */}
+          <p className="cq-rise inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em]" style={delay(100)}>
             <span className="relative flex size-2" aria-hidden>
               <span className="cq-ping absolute inset-0 rounded-full bg-lime" />
-              <span className="relative size-2 rounded-full bg-lime ring-1 ring-ink/25" />
+              <span className="relative size-2 rounded-full bg-lime ring-1 ring-lime-deep" />
             </span>
-            Próximamente
+            <span className="cq-glint">Próximamente</span>
           </p>
           <h1 className="cq-rise mt-4" style={delay(250)}>
             <Wordmark className="text-[44px] sm:text-6xl" />

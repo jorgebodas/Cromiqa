@@ -9,8 +9,8 @@ import { useData } from '../useData';
 import { ErrorBox, PageTitle } from './shared';
 
 // Carousel photo cards are ~220×176 CSS px; store 2.4× for sharp retina rendering.
-const PHOTO_W = 720;
-const PHOTO_H = 540;
+const PHOTO_W = 600;
+const PHOTO_H = 720;
 
 /** Cover-crop and compress an image client side to the carousel card size. */
 async function prepareImage(file: File): Promise<Blob> {
@@ -161,13 +161,13 @@ function PhotosEditor({ initial }: { initial: StoredPhoto[] | null }) {
       </div>
       {!initial && DEFAULT_PHOTOS.length > 0 && items.length === 0 && (
         <ul className="mt-4 grid grid-cols-3 gap-2 opacity-70 sm:grid-cols-6" aria-label="Fotos incluidas actualmente">
-          {DEFAULT_PHOTOS.map((p) => <li key={p.src}><img src={p.src} alt={p.alt} className="aspect-[4/3] w-full rounded-xl object-cover" /></li>)}
+          {DEFAULT_PHOTOS.map((p) => <li key={p.src}><img src={p.src} alt={p.alt} className="aspect-[5/6] w-full rounded-xl object-cover" /></li>)}
         </ul>
       )}
       <ol className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
         {items.map((p, i) => (
           <li key={p.path} className="flex gap-3 rounded-2xl border border-line p-3">
-            <img src={publicFileUrl(p.path)} alt="" className="aspect-[4/3] w-28 shrink-0 rounded-xl bg-sand object-cover" />
+            <img src={publicFileUrl(p.path)} alt="" className="aspect-[5/6] w-28 shrink-0 rounded-xl bg-sand object-cover" />
             <div className="min-w-0 flex-1">
               <label className="text-xs font-medium text-muted" htmlFor={`alt-${i}`}>Descripción (para lectores de pantalla)</label>
               <Input id={`alt-${i}`} value={p.alt} maxLength={120} onChange={(e) => setItems((l) => l.map((x, k) => (k === i ? { ...x, alt: e.target.value } : x)))} placeholder="Ej.: Mecánico ajustando frenos" className="mt-1 h-10" />
@@ -180,7 +180,7 @@ function PhotosEditor({ initial }: { initial: StoredPhoto[] | null }) {
           </li>
         ))}
       </ol>
-      <p className="mt-3 text-xs text-muted">Las fotos se recortan en horizontal (4:3) y se comprimen automáticamente al subirlas.</p>
+      <p className="mt-3 text-xs text-muted">Las fotos se recortan a 5:6 (algo más altas que anchas) y se comprimen automáticamente al subirlas.</p>
       <div className="mt-4 flex justify-end gap-2">
         {dirty && <Button variant="ghost" onClick={() => setItems(JSON.parse(saved))}>Descartar</Button>}
         <Button onClick={save} disabled={!dirty} loading={saving}>Publicar fotos</Button>

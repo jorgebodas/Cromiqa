@@ -177,20 +177,10 @@
 }
 
 /* Very subtle moving lime/yellow light behind the hero. */
-/* Brand colours (Sun Glare lime, Exuberant Orange, Blue Violet) drifting slowly in a loop. */
-@keyframes cq-drift-a {
+/* Lime glow at the bottom of the landing page: a slow, subtle breathing drift in a loop. */
+@keyframes cq-glow {
   0%, 100% { transform: translate(-50%, 0) scale(1); }
-  33% { transform: translate(-36%, 6%) scale(1.12); }
-  66% { transform: translate(-62%, 4%) scale(0.94); }
+  33% { transform: translate(-44%, -4%) scale(1.06); }
+  66% { transform: translate(-56%, -2%) scale(0.97); }
 }
-@keyframes cq-drift-b {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(18%, 10%) scale(1.15); }
-}
-@keyframes cq-drift-c {
-  0%, 100% { transform: translate(0, 0) scale(1.05); }
-  50% { transform: translate(-20%, -8%) scale(0.92); }
-}
-.cq-aurora-a { animation: cq-drift-a 24s ease-in-out infinite; }
-.cq-aurora-b { animation: cq-drift-b 29s ease-in-out infinite; }
-.cq-aurora-c { animation: cq-drift-c 34s ease-in-out infinite; }
+.cq-glow { animation: cq-glow 22s ease-in-out infinite; }

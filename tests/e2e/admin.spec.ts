@@ -143,7 +143,7 @@ test('content: publish carousel texts that the public site then shows', async ({
   const { db } = await fakeSupabase(page);
   await login(page);
   await page.getByRole('link', { name: 'Contenido' }).click();
-  await expect(page.getByTestId('benefit-row')).toHaveCount(6);
+  await expect(page.getByTestId('benefit-row')).toHaveCount(5);
   await page.getByLabel('Título 1').fill('Reparación exprés');
   await page.getByLabel('Texto 1').fill('Arreglamos tu bici en el día.');
   await page.getByRole('button', { name: 'Publicar textos' }).click();

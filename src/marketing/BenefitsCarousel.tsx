@@ -92,9 +92,9 @@ export function BenefitsCarousel() {
                     />
                   )}
                   {/* Frosted glass band: the photo itself, blurred, under the text. */}
-                  <div className="absolute inset-x-0 bottom-0 border-t border-white/15 bg-[rgb(22_22_22/0.4)] px-4 pb-3.5 pt-3 text-left text-white backdrop-blur-xl backdrop-saturate-150">
+                  <div className="absolute inset-x-0 bottom-0 border-t border-white/15 bg-[rgb(22_22_22/0.55)] px-4 pb-3.5 pt-3 text-left text-white backdrop-blur-xl backdrop-saturate-150">
                     <h3 className="font-display text-[17px] font-bold leading-tight">{slide.title}</h3>
-                    <p className="mt-0.5 text-[13.5px] leading-snug text-white/85">{slide.text}</p>
+                    <p className="mt-0.5 text-[13.5px] leading-snug text-white">{slide.text}</p>
                   </div>
                   <span className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-inset ring-white/10" aria-hidden />
                 </li>

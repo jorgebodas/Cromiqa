@@ -15,7 +15,8 @@ export function ComingSoonPage() {
         <div className="cq-glow absolute bottom-[-26dvh] left-1/2 h-[48dvh] w-[150vw] max-w-[1400px] rounded-full bg-[radial-gradient(closest-side,rgb(215_255_0/0.55),rgb(215_255_0/0.2)_55%,rgb(215_255_0/0))] blur-2xl" />
       </div>
 
-      <main className="relative flex flex-1 flex-col items-center pb-8 pt-[max(2.5rem,7dvh)] sm:pt-[max(4rem,9dvh)]">
+      {/* On very short screens the page scrolls, with room to bring the cards clear of the buttons. */}
+      <main className="relative flex flex-1 flex-col items-center pb-8 pt-[max(2.5rem,7dvh)] sm:pt-[max(4rem,9dvh)] [@media(max-height:620px)]:pb-28">
         <div className="flex flex-col items-center px-6 text-center">
           <p className="cq-rise inline-flex items-center gap-2 rounded-full border border-line bg-paper px-3 py-1 text-xs font-medium" style={delay(100)}>
             <span className="size-1.5 rounded-full bg-lime ring-2 ring-ink/80" aria-hidden />
@@ -24,8 +25,8 @@ export function ComingSoonPage() {
           <h1 className="cq-rise mt-5" style={delay(250)}>
             <Wordmark className="text-[44px] sm:text-6xl" />
           </h1>
-          <p className="cq-rise mt-3 text-base text-muted sm:text-lg" style={delay(400)}>
-            Tu bici, en buenas manos.
+          <p className="cq-rise mt-3 max-w-[21rem] text-balance text-[15px] leading-relaxed text-muted sm:max-w-md sm:text-base" style={delay(400)}>
+            Encuentra mecánicos de confianza para reparar, mantener o revisar tu bici, donde y cuando te venga mejor.
           </p>
         </div>
 

@@ -12,10 +12,10 @@ test('visitors only see the coming-soon page', async ({ page }) => {
   await page.goto('./#/mecanicos');
   await page.reload();
   await expect(page.getByRole('heading', { level: 1, name: 'Cromiqa' })).toBeVisible();
-  await expect(page.getByText('Tu bici, en buenas manos.')).toBeVisible();
+  await expect(page.getByText('Encuentra mecánicos de confianza para reparar, mantener o revisar tu bici, donde y cuando te venga mejor.')).toBeVisible();
   await expect(page.getByText('Próximamente', { exact: true })).toBeVisible();
-  await expect(page.getByTestId('benefits').getByRole('heading', { level: 3 })).toHaveCount(6);
-  await expect(page.getByTestId('benefits').getByRole('img')).toHaveCount(6);
+  await expect(page.getByTestId('benefits').getByRole('heading', { level: 3 })).toHaveCount(5);
+  await expect(page.getByTestId('benefits').getByRole('img')).toHaveCount(5);
   await expect(page.getByText('Entorno de demostración')).toHaveCount(0);
   await expect(page.getByText('Mecánicos para tu bici')).toHaveCount(0);
 });

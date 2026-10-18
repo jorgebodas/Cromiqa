@@ -18,13 +18,14 @@ export interface StoredPhoto {
   alt: string;
 }
 
+// Order matters: need → transparency → convenience → trust → inspection. Each one is paired
+// with the bundled photo at the same position.
 export const DEFAULT_BENEFITS: Benefit[] = [
-  { title: 'Empieza por el problema', text: 'Cuéntanos qué le pasa a tu bici y te mostramos quién puede arreglarlo.' },
-  { title: 'Precios claros', text: 'Precios orientativos antes de pedir nada. Sin sorpresas.' },
-  { title: 'A domicilio o en taller', text: 'Tú eliges dónde y cuándo. El mecánico se adapta a ti.' },
-  { title: 'Mecánicos de confianza', text: 'Profesionales independientes cerca de ti, valorados por otros ciclistas.' },
-  { title: 'Revisión antes de comprar', text: '¿Bici de segunda mano? Que la revise un experto antes de pagar.' },
-  { title: 'Tu garaje digital', text: 'El historial de mantenimiento de tu bici, siempre a mano.' },
+  { title: 'Empieza por el problema', text: 'Cuéntanos qué le pasa a tu bici y te ayudamos a encontrar al profesional adecuado.' },
+  { title: 'Precios claros', text: 'Consulta precios orientativos antes de pedir nada y decide con más tranquilidad.' },
+  { title: 'Donde tú prefieras', text: 'A domicilio o en taller. Elige la opción que mejor encaje contigo y con tu bici.' },
+  { title: 'Mecánicos de confianza', text: 'Profesionales especializados, con experiencia y valorados por otros ciclistas.' },
+  { title: 'Revisión antes de comprar', text: 'Haz revisar una bici de segunda mano antes de pagar y compra con más seguridad.' },
 ];
 
 // Bundled photos: any image in src/assets/mechanics/. File name → alt text
@@ -50,7 +51,8 @@ export interface SiteContent {
   photos: Photo[];
 }
 
-const CACHE_KEY = 'cromiqa:site-content';
+// Versioned so visitors don't briefly see a cached carousel from before the copy update.
+const CACHE_KEY = 'cromiqa:site-content:v2';
 const DEFAULTS: SiteContent = { benefits: DEFAULT_BENEFITS, photos: DEFAULT_PHOTOS };
 
 const isBenefits = (v: unknown): v is Benefit[] =>

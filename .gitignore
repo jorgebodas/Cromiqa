@@ -9,3 +9,4 @@ playwright-report
 dist-leads
 dist-staging
 dist-admin
+dist-e2e

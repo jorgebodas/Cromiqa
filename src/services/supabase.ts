@@ -1,12 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-// Paste your project's values here (Supabase → Project Settings → API) or set
-// VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY. The anon key is public by design:
-// access is enforced by the row-level security rules in supabase/schema.sql.
-const DEFAULT_URL = '';
-const DEFAULT_ANON_KEY = '';
+// Project values from Supabase → Project Settings → API Keys, overridable with
+// VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY (VITE_SUPABASE_URL=off disables it, as
+// the e2e builds do). The publishable key is public by design: access is enforced
+// by the row-level security rules in supabase/schema.sql.
+const DEFAULT_URL = 'https://jochjrhnjgqjzymnhczk.supabase.co';
+const DEFAULT_ANON_KEY = 'sb_publishable_zGEat2UGn3uAHiinXQAUpg_f0HWBTSd';
 
-const url = (import.meta.env.VITE_SUPABASE_URL || DEFAULT_URL).trim().replace(/\/$/, '');
+const envUrl = import.meta.env.VITE_SUPABASE_URL;
+const url = envUrl === 'off' ? '' : (envUrl || DEFAULT_URL).trim().replace(/\/$/, '');
 const anonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_ANON_KEY).trim();
 
 export const supabaseConfigured = Boolean(url && anonKey);

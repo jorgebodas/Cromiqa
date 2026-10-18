@@ -30,9 +30,15 @@ export default defineConfig({
   webServer: process.env.E2E_BASE_URL
     ? undefined
     : [
-        { command: `npm run preview`, url: `http://localhost:${PORT}/`, reuseExistingServer: !process.env.CI, timeout: 60_000 },
+        // Builds without Supabase so tests never touch the real project.
         {
-          command: `VITE_LEAD_EMAIL=leads@example.invalid npx vite build --outDir dist-leads --emptyOutDir --logLevel warn && npx vite preview --outDir dist-leads --port ${LEADS_PORT} --strictPort`,
+          command: `VITE_SUPABASE_URL=off npx vite build --outDir dist-e2e --emptyOutDir --logLevel warn && npx vite preview --outDir dist-e2e --port ${PORT} --strictPort`,
+          url: `http://localhost:${PORT}/`,
+          reuseExistingServer: !process.env.CI,
+          timeout: 120_000,
+        },
+        {
+          command: `VITE_SUPABASE_URL=off VITE_LEAD_EMAIL=leads@example.invalid npx vite build --outDir dist-leads --emptyOutDir --logLevel warn && npx vite preview --outDir dist-leads --port ${LEADS_PORT} --strictPort`,
           url: `http://localhost:${LEADS_PORT}/`,
           reuseExistingServer: !process.env.CI,
           timeout: 120_000,

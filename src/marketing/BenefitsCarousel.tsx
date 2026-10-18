@@ -20,7 +20,8 @@ const PHOTOS = Object.entries(PHOTO_FILES)
   .sort(([a], [b]) => a.localeCompare(b))
   .map(([path, src]) => {
     const words = path.split('/').pop()!.replace(/\.[^.]+$/, '').replace(/^\d+[-_]?/, '').replace(/[-_]+/g, ' ').trim();
-    return { src, alt: words ? words[0]!.toUpperCase() + words.slice(1).replace(/mecanico/g, 'mecánico') : 'Mecánico de bicicletas trabajando' };
+    const accented = words.replace(/mecanico/gi, 'mecánico').replace(/transmision/gi, 'transmisión');
+    return { src, alt: accented ? accented[0]!.toUpperCase() + accented.slice(1) : 'Mecánico de bicicletas trabajando' };
   });
 
 type Slide = { kind: 'text'; title: string; text: string } | { kind: 'photo'; src: string; alt: string };

@@ -171,3 +171,15 @@
     0 0 0 0.5px rgb(23 23 23 / 0.08),
     0 30px 80px -28px rgb(23 23 23 / 0.38);
 }
+
+/* Very subtle moving lime/yellow light behind the hero. */
+@keyframes cq-drift-a {
+  0%, 100% { transform: translate(-58%, -4%) scale(1); }
+  50% { transform: translate(-38%, 8%) scale(1.15); }
+}
+@keyframes cq-drift-b {
+  0%, 100% { transform: translate(-30%, 6%) scale(1.1); }
+  50% { transform: translate(-62%, -6%) scale(0.92); }
+}
+.cq-aurora-a { animation: cq-drift-a 18s ease-in-out infinite; }
+.cq-aurora-b { animation: cq-drift-b 23s ease-in-out infinite; }

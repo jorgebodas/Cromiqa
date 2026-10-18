@@ -10,8 +10,12 @@ const delay = (ms: number): CSSProperties => ({ animationDelay: `${ms}ms` });
 export function ComingSoonPage() {
   return (
     <div className="relative flex min-h-dvh flex-col overflow-hidden bg-paper">
-      {/* Soft light glow, the light-mode echo of a spotlight. */}
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[70dvh] bg-[radial-gradient(60%_55%_at_50%_30%,#F6F4EF_0%,#FFFFFF_70%)]" />
+      {/* Soft light glow plus two faint lime/yellow lights drifting behind the wordmark. */}
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[75dvh] overflow-hidden [mask-image:linear-gradient(to_bottom,#000_55%,transparent)]">
+        <div className="absolute inset-0 bg-[radial-gradient(60%_55%_at_50%_30%,#F6F4EF_0%,#FFFFFF_70%)]" />
+        <div className="cq-aurora-a absolute left-1/2 top-[6%] h-[360px] w-[560px] rounded-full bg-[radial-gradient(closest-side,rgb(199_255_47/0.17),rgb(199_255_47/0))] blur-3xl" />
+        <div className="cq-aurora-b absolute left-1/2 top-[14%] h-[300px] w-[480px] rounded-full bg-[radial-gradient(closest-side,rgb(240_255_90/0.15),rgb(240_255_90/0))] blur-3xl" />
+      </div>
 
       <main className="relative flex flex-1 flex-col items-center justify-center pb-32 pt-14 sm:pt-20">
         <div className="flex flex-col items-center px-6 text-center">

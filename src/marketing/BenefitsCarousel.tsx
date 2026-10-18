@@ -9,6 +9,29 @@ const BENEFITS = [
   { title: 'Tu garaje digital', text: 'El historial de mantenimiento de tu bici, siempre a mano.' },
 ];
 
+// Photos dropped into src/assets/mechanics/ are interleaved with the texts automatically.
+// The file name becomes the alt text: "mecanico-ajustando-frenos.jpg" → "Mecánico ajustando frenos".
+const PHOTO_FILES = import.meta.glob<string>('../assets/mechanics/*.{jpg,jpeg,png,webp,avif}', {
+  eager: true,
+  import: 'default',
+  query: '?url',
+});
+const PHOTOS = Object.entries(PHOTO_FILES)
+  .sort(([a], [b]) => a.localeCompare(b))
+  .map(([path, src]) => {
+    const words = path.split('/').pop()!.replace(/\.[^.]+$/, '').replace(/^\d+[-_]?/, '').replace(/[-_]+/g, ' ').trim();
+    return { src, alt: words ? words[0]!.toUpperCase() + words.slice(1).replace(/mecanico/g, 'mecánico') : 'Mecánico de bicicletas trabajando' };
+  });
+
+type Slide = { kind: 'text'; title: string; text: string } | { kind: 'photo'; src: string; alt: string };
+
+/** Text, photo, text, photo… (photos cycle if there are fewer than texts). */
+const SLIDES: Slide[] = BENEFITS.flatMap((b, i): Slide[] => {
+  const text: Slide = { kind: 'text', ...b };
+  const photo = PHOTOS.length ? PHOTOS[i % PHOTOS.length] : undefined;
+  return photo ? [text, { kind: 'photo', ...photo }] : [text];
+});
+
 const SPEED_PX_PER_S = 28;
 const RESUME_AFTER_MS = 2500;
 
@@ -85,12 +108,19 @@ export function BenefitsCarousel() {
         <div className="flex w-max gap-3 px-3">
           {[0, 1].map((copy) => (
             <ul key={copy} data-copy={copy} aria-hidden={copy === 1 || undefined} className="flex gap-3">
-              {BENEFITS.map((b) => (
-                <li key={b.title} className="w-[250px] shrink-0 rounded-3xl border border-line bg-paper px-5 py-5 sm:w-[270px]">
-                  <h3 className="font-display text-[17px] font-extrabold leading-tight">{b.title}</h3>
-                  <p className="mt-2 text-[15px] leading-relaxed text-muted">{b.text}</p>
-                </li>
-              ))}
+              {SLIDES.map((slide, i) =>
+                slide.kind === 'text' ? (
+                  <li key={`t-${i}`} className="h-[176px] w-[250px] shrink-0 rounded-3xl border border-line bg-paper px-5 py-5 sm:w-[270px]">
+                    <h3 className="font-display text-[17px] font-extrabold leading-tight">{slide.title}</h3>
+                    <p className="mt-2 text-[15px] leading-relaxed text-muted">{slide.text}</p>
+                  </li>
+                ) : (
+                  <li key={`p-${i}`} className="relative h-[176px] w-[200px] shrink-0 overflow-hidden rounded-3xl bg-sand sm:w-[220px]">
+                    <img src={slide.src} alt={copy === 1 ? '' : slide.alt} loading="lazy" decoding="async" draggable={false} className="size-full object-cover" />
+                    <span className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-inset ring-ink/5" aria-hidden />
+                  </li>
+                ),
+              )}
             </ul>
           ))}
         </div>

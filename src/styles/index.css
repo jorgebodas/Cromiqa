@@ -120,13 +120,8 @@
   .cq-draw { stroke-dashoffset: 0; }
 }
 
-/* Flat dock buttons with a saturated lime shadow that reads like a multiply glow. */
-.dock-btn-lime,
-.dock-btn {
-  box-shadow:
-    0 14px 26px -10px rgb(126 190 0 / 0.75),
-    0 4px 10px -4px rgb(110 170 0 / 0.55);
-}
+/* Flat dock buttons, no shadow. The white one keeps a hairline so it reads on white. */
+.dock-btn { box-shadow: inset 0 0 0 1px rgb(23 23 23 / 0.08); }
 .dock-btn-lime { background-color: #c7ff2f; }
 .dock-btn-lime:hover { background-color: #bdf51f; }
 .dock-btn { background-color: #ffffff; }

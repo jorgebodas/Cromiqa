@@ -38,7 +38,7 @@ const PHOTO_FILES = import.meta.glob<string>('../assets/mechanics/*.{jpg,jpeg,pn
 
 export function altFromFileName(path: string) {
   const words = path.split('/').pop()!.replace(/\.[^.]+$/, '').replace(/^\d+[-_]?/, '').replace(/[-_]+/g, ' ').trim();
-  const accented = words.replace(/mecanico/gi, 'mecánico').replace(/transmision/gi, 'transmisión');
+  const accented = words.replace(/mecanic([oa])/gi, 'mecánic$1').replace(/transmision/gi, 'transmisión');
   return accented ? accented[0]!.toUpperCase() + accented.slice(1) : 'Mecánico de bicicletas trabajando';
 }
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowRight, Check, Wrench, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { cx } from '@/components/ui';
 import { MechanicLeadForm, WaitlistForm } from './LeadForms';
 import { alreadySubmitted, type LeadKind } from './leads';
@@ -48,8 +48,8 @@ export function LeadDock() {
       <div className="fixed inset-x-0 bottom-0 z-30 px-3 pb-[max(12px,env(safe-area-inset-bottom))]">
         <div
           className={cx(
-            'mx-auto max-w-md rounded-[28px] border border-line bg-paper/90 p-2 backdrop-blur-xl transition-shadow duration-500',
-            open ? 'shadow-[0_24px_70px_-20px_rgb(23_23_23/0.35)]' : 'shadow-[0_12px_40px_-18px_rgb(23_23_23/0.3)]',
+            'mx-auto max-w-md rounded-[34px] border border-line/80 bg-paper/95 p-2.5 backdrop-blur-xl transition-shadow duration-500',
+            open ? 'shadow-[0_24px_70px_-20px_rgb(23_23_23/0.3)]' : 'shadow-[0_10px_40px_-12px_rgb(23_23_23/0.18)]',
           )}
           data-testid="lead-dock"
         >
@@ -88,7 +88,7 @@ export function LeadDock() {
               aria-expanded={open === 'waitlist'}
               aria-controls="lead-panel"
               className={cx(
-                'flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-full text-[15px] font-semibold transition-all duration-300 active:scale-[0.97]',
+                'flex h-14 min-w-0 flex-1 items-center justify-center rounded-[24px] text-[15px] font-semibold transition-all duration-300 active:scale-[0.97]',
                 // Lime marks the main call to action; once open, the submit button takes over.
                 open === 'waitlist'
                   ? 'bg-ink text-paper'
@@ -99,16 +99,7 @@ export function LeadDock() {
                       : 'bg-lime text-ink hover:bg-lime-deep',
               )}
             >
-              {done.waitlist ? (
-                <>
-                  <Check className="size-4" strokeWidth={3} aria-hidden /> Apuntado
-                </>
-              ) : (
-                <>
-                  Avísame
-                  <ArrowRight className={cx('size-4 transition-transform duration-300', open === 'waitlist' && '-rotate-90')} aria-hidden />
-                </>
-              )}
+              {done.waitlist ? 'Apuntado' : 'Avísame'}
             </button>
             <button
               type="button"
@@ -116,11 +107,10 @@ export function LeadDock() {
               aria-expanded={open === 'mechanic'}
               aria-controls="lead-panel"
               className={cx(
-                'flex h-12 min-w-0 flex-1 items-center justify-center gap-2 rounded-full border text-[15px] font-semibold transition-all duration-300 active:scale-[0.97]',
+                'flex h-14 min-w-0 flex-1 items-center justify-center rounded-[24px] border text-[15px] font-semibold transition-all duration-300 active:scale-[0.97]',
                 open === 'mechanic' ? 'border-ink bg-ink text-paper' : 'border-line-strong bg-paper text-ink hover:border-ink',
               )}
             >
-              {done.mechanic ? <Check className="size-4" strokeWidth={3} aria-hidden /> : <Wrench className="size-4" aria-hidden />}
               Soy mecánico
             </button>
           </div>

@@ -7,4 +7,5 @@ interface ImportMetaEnv {
 
 interface ImportMetaEnv {
   readonly VITE_LEAD_EMAIL?: string;
+  readonly VITE_STAGING?: string;
 }

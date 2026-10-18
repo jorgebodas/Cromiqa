@@ -167,6 +167,8 @@ are rejected from any device.
 
 ### Puesta en marcha (≈10 minutos, solo una vez)
 
+Guía completa en español: [`docs/supabase-setup.md`](docs/supabase-setup.md).
+
 1. **Crea el proyecto:** entra en [supabase.com](https://supabase.com) → *New project* → nombre
    `cromiqa`, región **West EU (Ireland)** o **Central EU (Frankfurt)**, guarda la contraseña de la base de datos.
 2. **Crea las tablas:** *SQL Editor* → *New query* → pega todo el contenido de `supabase/schema.sql` → *Run*.

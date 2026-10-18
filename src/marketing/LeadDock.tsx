@@ -65,7 +65,7 @@ export function LeadDock() {
   const move: CSSProperties = { transition: `left 520ms ${SPRING}, width 520ms ${SPRING}, opacity 260ms ease, transform 300ms ease, background-color 250ms ease, color 250ms ease` };
 
   const toggleClass =
-    'absolute top-0 flex h-14 items-center justify-center overflow-hidden rounded-[28px] border text-[15px] font-semibold shadow-[0_10px_30px_-12px_rgb(23_23_23/0.25)] active:scale-[0.97]';
+    'absolute top-0 flex h-14 items-center justify-center overflow-hidden rounded-[28px] text-[15px] font-semibold text-ink active:scale-[0.97]';
 
   return (
     <>
@@ -73,37 +73,42 @@ export function LeadDock() {
         aria-hidden
         onClick={() => setOpen(null)}
         className={cx(
-          'fixed inset-0 z-20 bg-paper/55 backdrop-blur-[3px] transition-opacity duration-300',
+          'fixed inset-0 z-20 bg-paper/40 backdrop-blur-[4px] transition-opacity duration-300',
           open ? 'opacity-100' : 'pointer-events-none opacity-0',
         )}
       />
 
-      <div className="fixed inset-x-0 bottom-0 z-30 px-4 pb-[max(16px,env(safe-area-inset-bottom))]" data-testid="lead-dock">
-        <div className="mx-auto max-w-md">
-          {/* Form card rising above the buttons */}
+      <div className="fixed inset-x-0 bottom-0 z-30 px-2 pb-[max(10px,env(safe-area-inset-bottom))]" data-testid="lead-dock">
+        {/* One box: when open it frosts in and wraps the form and the buttons with the same side padding. */}
+        <div className="relative mx-auto max-w-md p-4">
+          <div
+            aria-hidden
+            className={cx('glass-card pointer-events-none absolute inset-0 rounded-[38px]', open ? 'scale-100 opacity-100' : 'translate-y-4 scale-[0.97] opacity-0')}
+            style={{ transition: `transform 520ms ${SPRING}, opacity 260ms ease` }}
+          />
+
           <div
             id="lead-panel"
             role="region"
             aria-label={shown === 'waitlist' ? 'Lista de espera' : 'Registro para mecánicos'}
-            className={cx(
-              'mb-3 origin-bottom rounded-[32px] border border-line/80 bg-paper/95 shadow-[0_24px_70px_-24px_rgb(23_23_23/0.35)] backdrop-blur-xl',
-              open ? 'translate-y-0 scale-100 opacity-100' : 'pointer-events-none translate-y-6 scale-[0.96] opacity-0',
-            )}
-            style={{ transition: `transform 520ms ${SPRING}, opacity 260ms ease` }}
+            className={cx('relative grid', open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0')}
+            style={{ transition: `grid-template-rows 520ms ${SPRING}, opacity 240ms ease` }}
             {...(!open ? { inert: '' } : {})}
           >
-            <div className="max-h-[min(62dvh,520px)] overflow-y-auto px-5 pb-5 pt-5">
-              <div key={`${shown}-${openSeq}`}>
-                {shown === 'waitlist' ? (
-                  <WaitlistForm formId={FORM_ID.waitlist} autoFocus={open === 'waitlist'} onState={setForm} />
-                ) : (
-                  <MechanicLeadForm formId={FORM_ID.mechanic} autoFocus={open === 'mechanic'} onState={setForm} />
-                )}
+            <div className="min-h-0 overflow-hidden">
+              <div className="max-h-[min(60dvh,500px)] overflow-y-auto pb-4 pt-1">
+                <div key={`${shown}-${openSeq}`}>
+                  {shown === 'waitlist' ? (
+                    <WaitlistForm formId={FORM_ID.waitlist} autoFocus={open === 'waitlist'} onState={setForm} />
+                  ) : (
+                    <MechanicLeadForm formId={FORM_ID.mechanic} autoFocus={open === 'mechanic'} onState={setForm} />
+                  )}
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Bottom row: two floating buttons that morph */}
+          {/* Bottom row: two floating glass buttons that morph */}
           <div className="relative h-14">
             <button
               type="button"
@@ -115,11 +120,7 @@ export function LeadDock() {
               aria-hidden={open === 'mechanic' || undefined}
               className={cx(
                 toggleClass,
-                open === 'waitlist'
-                  ? 'border-line-strong bg-paper text-ink'
-                  : done.waitlist
-                    ? 'border-line-strong bg-paper text-ink'
-                    : 'border-transparent bg-lime text-ink hover:bg-lime-deep',
+                open === 'waitlist' || done.waitlist ? 'glass' : 'glass-lime',
                 open === 'mechanic' && 'pointer-events-none opacity-0',
               )}
               style={{ ...move, ...pos.waitlist }}
@@ -142,8 +143,7 @@ export function LeadDock() {
                 }
               }}
               className={cx(
-                'absolute top-0 flex h-14 items-center justify-center gap-2 overflow-hidden whitespace-nowrap rounded-[28px] text-[15px] font-semibold shadow-[0_10px_30px_-12px_rgb(23_23_23/0.3)] active:scale-[0.98]',
-                'bg-lime text-ink hover:bg-lime-deep',
+                'glass-lime absolute top-0 flex h-14 items-center justify-center gap-2 overflow-hidden whitespace-nowrap rounded-[28px] text-[15px] font-semibold text-ink active:scale-[0.98]',
                 open ? 'opacity-100' : 'pointer-events-none opacity-0',
               )}
               style={{ ...move, ...pos.confirm }}
@@ -161,11 +161,7 @@ export function LeadDock() {
               aria-label={open === 'mechanic' ? 'Cerrar' : undefined}
               tabIndex={open === 'waitlist' ? -1 : 0}
               aria-hidden={open === 'waitlist' || undefined}
-              className={cx(
-                toggleClass,
-                'border-line-strong bg-paper text-ink hover:border-ink',
-                open === 'waitlist' && 'pointer-events-none opacity-0',
-              )}
+              className={cx(toggleClass, 'glass', open === 'waitlist' && 'pointer-events-none opacity-0')}
               style={{ ...move, ...pos.mechanic }}
             >
               <span className={cx('whitespace-nowrap transition-all duration-200', open === 'mechanic' ? 'scale-75 opacity-0' : 'opacity-100')}>

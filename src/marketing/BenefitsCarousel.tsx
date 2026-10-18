@@ -1,37 +1,5 @@
-import { useEffect, useRef } from 'react';
-
-const BENEFITS = [
-  { title: 'Empieza por el problema', text: 'Cuéntanos qué le pasa a tu bici y te mostramos quién puede arreglarlo.' },
-  { title: 'Precios claros', text: 'Precios orientativos antes de pedir nada. Sin sorpresas.' },
-  { title: 'A domicilio o en taller', text: 'Tú eliges dónde y cuándo. El mecánico se adapta a ti.' },
-  { title: 'Mecánicos de confianza', text: 'Profesionales independientes cerca de ti, valorados por otros ciclistas.' },
-  { title: 'Revisión antes de comprar', text: '¿Bici de segunda mano? Que la revise un experto antes de pagar.' },
-  { title: 'Tu garaje digital', text: 'El historial de mantenimiento de tu bici, siempre a mano.' },
-];
-
-// Photos dropped into src/assets/mechanics/ are interleaved with the texts automatically.
-// The file name becomes the alt text: "mecanico-ajustando-frenos.jpg" → "Mecánico ajustando frenos".
-const PHOTO_FILES = import.meta.glob<string>('../assets/mechanics/*.{jpg,jpeg,png,webp,avif}', {
-  eager: true,
-  import: 'default',
-  query: '?url',
-});
-const PHOTOS = Object.entries(PHOTO_FILES)
-  .sort(([a], [b]) => a.localeCompare(b))
-  .map(([path, src]) => {
-    const words = path.split('/').pop()!.replace(/\.[^.]+$/, '').replace(/^\d+[-_]?/, '').replace(/[-_]+/g, ' ').trim();
-    const accented = words.replace(/mecanico/gi, 'mecánico').replace(/transmision/gi, 'transmisión');
-    return { src, alt: accented ? accented[0]!.toUpperCase() + accented.slice(1) : 'Mecánico de bicicletas trabajando' };
-  });
-
-type Slide = { kind: 'text'; title: string; text: string } | { kind: 'photo'; src: string; alt: string };
-
-/** Text, photo, text, photo… (photos cycle if there are fewer than texts). */
-const SLIDES: Slide[] = BENEFITS.flatMap((b, i): Slide[] => {
-  const text: Slide = { kind: 'text', ...b };
-  const photo = PHOTOS.length ? PHOTOS[i % PHOTOS.length] : undefined;
-  return photo ? [text, { kind: 'photo', ...photo }] : [text];
-});
+import { useEffect, useMemo, useRef } from 'react';
+import { buildSlides, useSiteContent } from './siteContent';
 
 const SPEED_PX_PER_S = 28;
 const RESUME_AFTER_MS = 2500;
@@ -43,6 +11,8 @@ const RESUME_AFTER_MS = 2500;
  */
 export function BenefitsCarousel() {
   const track = useRef<HTMLDivElement>(null);
+  const content = useSiteContent();
+  const SLIDES = useMemo(() => buildSlides(content), [content]);
 
   useEffect(() => {
     const el = track.current;

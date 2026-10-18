@@ -8,3 +8,4 @@ playwright-report
 *.tsbuildinfo
 dist-leads
 dist-staging
+dist-admin

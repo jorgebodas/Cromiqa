@@ -149,6 +149,39 @@ http before the HTTPS certificate exists. *Recordar este dispositivo* keeps the 
   (`public/og-image.png`), Organization JSON-LD, `robots.txt`, `sitemap.xml`, `apple-touch-icon.png`.
   Regenerate images with `node scripts/generate-share-images.mjs`.
 
+## Backend y panel de administración
+
+The public forms, the carousel content and the admin panel (`cromiqa.com/#/admin`) run on
+**Supabase** (Postgres + auth + storage). Until it is configured, the site keeps working with the
+email-only forms and the bundled carousel, and `#/admin` shows a "Conecta Supabase" screen.
+
+**Panel (`#/admin`, own login, never behind the preview gate):**
+Resumen (totals, last-30-day charts, by zone, by status) · Lista de espera (search, zone filter,
+CSV export, delete) · Mecánicos (status pipeline, internal notes, CSV, delete) · Contenido (carousel
+texts and photos; photos are cropped to 5:4 and compressed in the browser before upload).
+
+**Security:** visitors can only *insert* leads (only allowed columns, validated by DB constraints);
+they can never read them. Everything else requires a signed-in user listed in `public.admins`
+(`public.is_admin()` in every row-level-security policy). Emails are unique per table, so duplicates
+are rejected from any device.
+
+### Puesta en marcha (≈10 minutos, solo una vez)
+
+1. **Crea el proyecto:** entra en [supabase.com](https://supabase.com) → *New project* → nombre
+   `cromiqa`, región **West EU (Ireland)** o **Central EU (Frankfurt)**, guarda la contraseña de la base de datos.
+2. **Crea las tablas:** *SQL Editor* → *New query* → pega todo el contenido de `supabase/schema.sql` → *Run*.
+3. **Crea tu usuario de administrador:** *Authentication* → *Users* → *Add user* → *Create new user*
+   con tu email y una contraseña (marca *Auto Confirm User*).
+4. **Date permisos de administrador:** en *SQL Editor* ejecuta
+   `insert into public.admins (email) values ('tu-email@ejemplo.com');` con el mismo email.
+5. **Conecta la web:** *Project Settings* → *API* → copia **Project URL** y la clave **anon public**
+   y pégalas en `DEFAULT_URL` y `DEFAULT_ANON_KEY` de `src/services/supabase.ts` (o pásaselas a Claude).
+   La clave *anon* es pública por diseño; **nunca** pegues la clave `service_role`.
+6. Publica (push a `main`). Entra en `cromiqa.com/#/admin` con tu email y contraseña.
+
+Optional: *Authentication* → *Providers* → *Email* → turn off *Allow new users to sign up*, so nobody
+can create accounts (admins are added by you in step 3).
+
 ## Deployment & domain
 
 `.github/workflows/deploy.yml` runs type check, unit tests, build and Playwright (desktop + mobile) on
@@ -192,7 +225,7 @@ Hostinger, or a new Gmail forwarding to the personal one) so no personal email i
 3. Confirm FormSubmit's email. 4. Set `DEFAULT_LEAD_EMAIL` in `src/marketing/leads.ts` to that
 address (or FormSubmit's alias if provided) and deploy.
 
-1. Supabase backend implementing `CromiqaBackend` (auth with magic link, RLS per role).
+1. Connect the marketplace prototype to Supabase too (implement `CromiqaBackend`), reusing the admin auth.
 2. Real onboarding + identity/insurance checks for mechanics before any "verified" badge.
 3. Notifications (email/WhatsApp) for new requests and proposals; calendar slots instead of free dates.
 4. Garage → full maintenance timeline, reminders, and inspection reports with photos for resale.

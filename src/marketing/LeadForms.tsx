@@ -116,7 +116,7 @@ export function WaitlistForm({ autoFocus = false, formId, onState }: LeadFormPro
 
   return (
     <form id={formId} onSubmit={submit} noValidate className="relative" data-testid="waitlist-form">
-      <h2 className="cq-rise font-display text-[22px] font-extrabold leading-tight tracking-tight" style={rise(0)}>
+      <h2 className="cq-rise font-display text-xl font-extrabold leading-tight tracking-tight" style={rise(0)}>
         Apúntate a la lista de espera
       </h2>
       <div className="cq-rise mt-6 space-y-3" style={rise(2)}>
@@ -208,7 +208,7 @@ export function MechanicLeadForm({ autoFocus = false, formId, onState }: LeadFor
 
   return (
     <form id={formId} onSubmit={submit} noValidate className="relative" data-testid="mechanic-form">
-      <h2 className="cq-rise font-display text-[22px] font-extrabold leading-tight tracking-tight" style={rise(0)}>
+      <h2 className="cq-rise font-display text-xl font-extrabold leading-tight tracking-tight" style={rise(0)}>
         Únete a Cromiqa como mecánico
       </h2>
       <div className="mt-6 grid grid-cols-2 gap-3">

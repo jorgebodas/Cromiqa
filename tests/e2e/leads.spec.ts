@@ -32,11 +32,17 @@ test('waitlist opens from the dock, validates, submits and confirms', async ({ p
   await expect(page.getByText('¡Estás dentro!')).toBeVisible();
   expect(bodies[0]).toMatchObject({ email: 'ciclista@example.com', zona: 'Rivas-Vaciamadrid', tipo: 'Lista de espera', _honey: '' });
   await page.getByRole('button', { name: 'Listo' }).click();
-  await expect(page.getByRole('button', { name: 'Apuntado' })).toBeVisible();
 
-  await page.reload(); // remembered on this device
-  await page.getByRole('button', { name: 'Apuntado' }).click();
-  await expect(page.getByText('¡Estás dentro!')).toBeVisible();
+  // The form stays available (no "already signed up" lock), even after a reload…
+  await page.reload();
+  await page.getByRole('button', { name: 'Avísame' }).click();
+  await expect(page.getByLabel('Tu email')).toHaveValue('');
+
+  // …but the same email is rejected without sending anything.
+  await page.getByLabel('Tu email').fill('CICLISTA@example.com ');
+  await page.getByRole('button', { name: 'Confirmar' }).click();
+  await expect(page.getByText('Este email ya está en la lista de espera.')).toBeVisible();
+  expect(bodies).toHaveLength(1);
 });
 
 test('waitlist shows an error when the service fails', async ({ page }) => {
@@ -80,6 +86,20 @@ test('mechanic form validates and submits', async ({ page }) => {
   await page.getByRole('button', { name: 'Confirmar' }).click();
   await expect(page.getByText('¡Gracias!')).toBeVisible();
   expect(bodies[0]).toMatchObject({ nombre: 'Rosa Gil', taller: 'Taller Rosa', zona: 'Arganda del Rey', tipo: 'Mecánico', telefono: '—' });
+
+  // Register a second workshop right away.
+  await page.getByRole('button', { name: 'Listo' }).click();
+  await page.getByRole('button', { name: 'Soy mecánico' }).click();
+  const again = page.getByTestId('mechanic-form');
+  await again.getByLabel('Nombre').fill('Luis Pardo');
+  await again.getByLabel('Zona principal').selectOption('coslada');
+  await again.getByLabel('Email').fill('rosa@example.com');
+  await page.getByRole('button', { name: 'Confirmar' }).click();
+  await expect(again.getByText('Este email ya está registrado como mecánico.')).toBeVisible();
+  await again.getByLabel('Email').fill('luis@example.com');
+  await page.getByRole('button', { name: 'Confirmar' }).click();
+  await expect(page.getByText('¡Gracias!')).toBeVisible();
+  expect(bodies.map((b) => b.email)).toEqual(['rosa@example.com', 'luis@example.com']);
 });
 
 test('demo panel sends the FormSubmit activation from the browser', async ({ page }) => {

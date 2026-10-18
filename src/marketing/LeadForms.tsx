@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 import { LOCATIONS } from '@/domain/catalog';
 import { FieldError, Input, Select, cx } from '@/components/ui';
-import { alreadySubmitted, isEmail, submitLead, type LeadKind } from './leads';
+import { DuplicateLeadError, isEmail, submitLead, type LeadKind } from './leads';
 
 export interface LeadFormState {
   sending: boolean;
@@ -16,19 +16,19 @@ interface LeadFormProps {
 }
 
 function useLead(kind: LeadKind, onState?: (s: LeadFormState) => void) {
-  const [done, setDone] = useState(() => alreadySubmitted(kind));
+  // Success lasts for this form only: the next open starts empty, so many people can sign up.
+  const [done, setDone] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string>();
-  const send = async (fields: Record<string, string>, honeypot: string) => {
+  const send = async (fields: Record<string, string> & { email: string }, honeypot: string) => {
     setSending(true);
     setError(undefined);
     try {
       await submitLead(kind, fields, honeypot);
       navigator.vibrate?.(12);
       setDone(true);
-      window.dispatchEvent(new CustomEvent('cromiqa:lead', { detail: kind }));
-    } catch {
-      setError('No hemos podido enviarlo. Revisa tu conexión e inténtalo de nuevo.');
+    } catch (err) {
+      setError(err instanceof DuplicateLeadError ? err.message : 'No hemos podido enviarlo. Revisa tu conexión e inténtalo de nuevo.');
     } finally {
       setSending(false);
     }

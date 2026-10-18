@@ -12,13 +12,47 @@ export type LeadKind = 'waitlist' | 'mechanic';
 
 export const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
 
-export async function submitLead(kind: LeadKind, fields: Record<string, string>, honeypot = '') {
+/**
+ * Emails already registered from this browser, per form. Without a backend this is the only
+ * duplicate check available: it cannot see registrations made on other devices.
+ */
+const emailsKey = (kind: LeadKind) => `cromiqa:lead:${kind}:emails`;
+const normalizeEmail = (email: string) => email.trim().toLowerCase();
+
+function readEmails(kind: LeadKind): string[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(emailsKey(kind)) ?? '[]');
+    return Array.isArray(raw) ? raw : [];
+  } catch {
+    return [];
+  }
+}
+
+export function isRegistered(kind: LeadKind, email: string) {
+  return readEmails(kind).includes(normalizeEmail(email));
+}
+
+function remember(kind: LeadKind, email: string) {
+  try {
+    localStorage.setItem(emailsKey(kind), JSON.stringify([...new Set([...readEmails(kind), normalizeEmail(email)])]));
+  } catch {
+    /* private mode: no duplicate memory */
+  }
+}
+
+export class DuplicateLeadError extends Error {}
+
+export async function submitLead(kind: LeadKind, fields: Record<string, string> & { email: string }, honeypot = '') {
+  if (isRegistered(kind, fields.email)) {
+    throw new DuplicateLeadError(
+      kind === 'waitlist' ? 'Este email ya está en la lista de espera.' : 'Este email ya está registrado como mecánico.',
+    );
+  }
   if (import.meta.env.VITE_STAGING) {
     // Staging preview: never email the owner; just pretend it worked.
     await new Promise((r) => setTimeout(r, 600));
-    void fields;
     void honeypot;
-    return void localStorage.setItem(`cromiqa:lead:${kind}`, new Date().toISOString());
+    return remember(kind, fields.email);
   }
   const subject = kind === 'waitlist' ? 'Cromiqa · Nuevo registro en lista de espera' : 'Cromiqa · Nuevo mecánico interesado';
   const res = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(LEAD_EMAIL)}`, {
@@ -28,19 +62,7 @@ export async function submitLead(kind: LeadKind, fields: Record<string, string>,
   });
   const data = (await res.json().catch(() => ({}))) as { success?: string | boolean; message?: string };
   if (!res.ok || String(data.success) !== 'true') throw new Error(data.message || `HTTP ${res.status}`);
-  try {
-    localStorage.setItem(`cromiqa:lead:${kind}`, new Date().toISOString());
-  } catch {
-    /* ignore */
-  }
-}
-
-export function alreadySubmitted(kind: LeadKind) {
-  try {
-    return !!localStorage.getItem(`cromiqa:lead:${kind}`);
-  } catch {
-    return false;
-  }
+  remember(kind, fields.email);
 }
 
 /**

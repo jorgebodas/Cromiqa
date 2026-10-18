@@ -2,7 +2,7 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { Loader2, X } from 'lucide-react';
 import { cx } from '@/components/ui';
 import { MechanicLeadForm, WaitlistForm, type LeadFormState } from './LeadForms';
-import { alreadySubmitted, type LeadKind } from './leads';
+import type { LeadKind } from './leads';
 
 const FORM_ID: Record<LeadKind, string> = { waitlist: 'lead-waitlist', mechanic: 'lead-mechanic' };
 const CLOSE = 56; // px, the round close button
@@ -20,13 +20,6 @@ export function LeadDock() {
   const [shown, setShown] = useState<LeadKind>('waitlist');
   const [openSeq, setOpenSeq] = useState(0);
   const [form, setForm] = useState<LeadFormState>({ sending: false, done: false });
-  const [done, setDone] = useState(() => ({ waitlist: alreadySubmitted('waitlist'), mechanic: alreadySubmitted('mechanic') }));
-
-  useEffect(() => {
-    const onLead = (e: Event) => setDone((d) => ({ ...d, [(e as CustomEvent<LeadKind>).detail]: true }));
-    window.addEventListener('cromiqa:lead', onLead);
-    return () => window.removeEventListener('cromiqa:lead', onLead);
-  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -38,7 +31,7 @@ export function LeadDock() {
   const choose = (kind: LeadKind) => {
     if (open) return setOpen(null);
     setShown(kind);
-    setForm({ sending: false, done: alreadySubmitted(kind) });
+    setForm({ sending: false, done: false });
     setOpen(kind);
     setOpenSeq((n) => n + 1);
   };
@@ -120,13 +113,13 @@ export function LeadDock() {
               aria-hidden={open === 'mechanic' || undefined}
               className={cx(
                 toggleClass,
-                open === 'waitlist' || done.waitlist ? 'glass' : 'glass-lime',
+                open === 'waitlist' ? 'glass' : 'glass-lime',
                 open === 'mechanic' && 'pointer-events-none opacity-0',
               )}
               style={{ ...move, ...pos.waitlist }}
             >
               <span className={cx('whitespace-nowrap transition-all duration-200', open === 'waitlist' ? 'scale-75 opacity-0' : 'opacity-100')}>
-                {done.waitlist ? 'Apuntado' : 'Avísame'}
+                Avísame
               </span>
               <X className={cx('absolute size-5 transition-all duration-300', open === 'waitlist' ? 'rotate-0 opacity-100' : '-rotate-90 opacity-0')} aria-hidden />
             </button>
@@ -165,7 +158,7 @@ export function LeadDock() {
               style={{ ...move, ...pos.mechanic }}
             >
               <span className={cx('whitespace-nowrap transition-all duration-200', open === 'mechanic' ? 'scale-75 opacity-0' : 'opacity-100')}>
-                {done.mechanic ? 'Registrado' : 'Soy mecánico'}
+                Soy mecánico
               </span>
               <X className={cx('absolute size-5 transition-all duration-300', open === 'mechanic' ? 'rotate-0 opacity-100' : 'rotate-90 opacity-0')} aria-hidden />
             </button>

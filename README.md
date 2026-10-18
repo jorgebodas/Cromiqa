@@ -142,6 +142,9 @@ http before the HTTPS certificate exists. *Recordar este dispositivo* keeps the 
   the page never shows a form that cannot deliver. First submission triggers a one-time FormSubmit
   activation email; afterwards you can swap the address for FormSubmit's random alias.
   A honeypot field filters basic bots.
+  Forms never lock after a submission (many workshops can register from one device). A repeated email
+  is rejected, but only for emails registered **from the same browser**: there is no backend, so
+  cross-device duplicate detection needs one (e.g. Supabase or a Google Sheet behind Apps Script).
 - **SEO & sharing:** indexable (no `noindex`), meta description, Open Graph/Twitter card
   (`public/og-image.png`), Organization JSON-LD, `robots.txt`, `sitemap.xml`, `apple-touch-icon.png`.
   Regenerate images with `node scripts/generate-share-images.mjs`.

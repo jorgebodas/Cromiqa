@@ -13,7 +13,7 @@ import { AlertCircle, Check, ChevronDown } from 'lucide-react';
 import { cx } from './cx';
 
 const control =
-  'block w-full rounded-xl border bg-paper px-4 text-[15px] text-ink placeholder:text-subtle transition-colors ' +
+  'block w-full rounded-xl border bg-paper px-4 text-base text-ink sm:text-[15px] placeholder:text-subtle transition-colors ' +
   'focus:outline-none focus-visible:outline-none focus:border-ink focus:ring-2 focus:ring-ink/10 disabled:bg-sand disabled:text-muted';
 
 const borderFor = (invalid?: boolean) => (invalid ? 'border-danger' : 'border-line-strong hover:border-muted');

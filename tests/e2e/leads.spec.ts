@@ -122,3 +122,24 @@ test('demo panel sends the FormSubmit activation from the browser', async ({ pag
   await expect(page.getByText('Revisa tu bandeja')).toBeVisible();
   expect(urls[0]).toBe('https://formsubmit.co/ajax/owner%40example.com');
 });
+
+test('on-screen keyboard: fields are 16px (no iOS zoom) and the buttons stay above the keyboard', async ({ page }) => {
+  await page.getByRole('button', { name: 'Soy mecánico' }).click();
+  const name = page.getByTestId('mechanic-form').getByLabel('Nombre');
+  await expect(name).toBeFocused();
+  expect(await name.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(16);
+
+  // Simulate a 320px keyboard the way iOS reports it: the visual viewport shrinks.
+  const keyboardTop = await page.evaluate(() => {
+    const vv = window.visualViewport!;
+    const height = window.innerHeight - 320;
+    Object.defineProperty(vv, 'height', { configurable: true, get: () => height });
+    vv.dispatchEvent(new Event('resize'));
+    return height;
+  });
+  await page.waitForTimeout(400);
+  for (const label of ['Confirmar', 'Cerrar']) {
+    const box = (await page.getByRole('button', { name: label }).boundingBox())!;
+    expect(box.y + box.height).toBeLessThanOrEqual(keyboardTop);
+  }
+});

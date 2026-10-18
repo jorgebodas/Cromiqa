@@ -10,6 +10,31 @@ const GAP = 12; // px
 const SPRING = 'cubic-bezier(.2,1.2,.3,1)';
 
 /**
+ * How much of the bottom of the screen the on-screen keyboard covers, and how tall the
+ * visible area is. iOS keeps fixed elements pinned behind the keyboard, so the dock lifts
+ * itself by this amount and the form shrinks to fit what's left.
+ */
+function useKeyboard(active: boolean) {
+  const [kb, setKb] = useState({ inset: 0, visible: 0 });
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!active || !vv) return setKb({ inset: 0, visible: 0 });
+    const update = () => {
+      const inset = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+      setKb({ inset: inset > 80 ? inset : 0, visible: Math.round(vv.height) });
+    };
+    update();
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    return () => {
+      vv.removeEventListener('resize', update);
+      vv.removeEventListener('scroll', update);
+    };
+  }, [active]);
+  return kb;
+}
+
+/**
  * Two floating calls to action that morph in place: the left one ("Avísame") stretches
  * into "Confirmar" and the right one ("Soy mecánico") shrinks into a round close button,
  * whichever was chosen, while the form card rises above. Closing plays it in reverse.
@@ -20,6 +45,7 @@ export function LeadDock() {
   const [shown, setShown] = useState<LeadKind>('waitlist');
   const [openSeq, setOpenSeq] = useState(0);
   const [form, setForm] = useState<LeadFormState>({ sending: false, done: false });
+  const kb = useKeyboard(open !== null);
 
   useEffect(() => {
     if (!open) return;
@@ -59,7 +85,11 @@ export function LeadDock() {
         )}
       />
 
-      <div className="fixed inset-x-0 bottom-0 z-30 px-2 pb-[max(10px,env(safe-area-inset-bottom))]" data-testid="lead-dock">
+      <div
+        className="fixed inset-x-0 bottom-0 z-30 px-2 pb-[max(10px,env(safe-area-inset-bottom))]"
+        style={{ transform: kb.inset ? `translateY(-${kb.inset}px)` : undefined, transition: 'transform 250ms ease-out' }}
+        data-testid="lead-dock"
+      >
         {/* One box: when open it frosts in and wraps the form and the buttons with the same side padding. */}
         <div className="relative mx-auto max-w-md p-4">
           <div
@@ -77,7 +107,11 @@ export function LeadDock() {
             {...(!open ? { inert: '' } : {})}
           >
             <div className="min-h-0 overflow-hidden">
-              <div className="max-h-[min(60dvh,500px)] overflow-y-auto pb-4 pt-1">
+              <div
+                className="max-h-[min(60dvh,500px)] overflow-y-auto pb-4 pt-1"
+                // With the keyboard up, leave room for the buttons, the card padding and a little air on top.
+                style={kb.inset ? { maxHeight: `${Math.max(140, kb.visible - 140)}px` } : undefined}
+              >
                 <div key={`${shown}-${openSeq}`}>
                   {shown === 'waitlist' ? (
                     <WaitlistForm formId={FORM_ID.waitlist} autoFocus={open === 'waitlist'} onState={setForm} />

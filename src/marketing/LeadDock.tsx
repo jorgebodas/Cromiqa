@@ -142,7 +142,7 @@ export function LeadDock() {
               }}
               aria-expanded={open ? undefined : false}
               aria-controls={open ? undefined : 'lead-panel'}
-              className={cx(buttonClass, 'glass-lime')}
+              className={cx(buttonClass, 'dock-btn-lime')}
               style={{ ...move, ...pos.primary }}
             >
               <span className="grid">
@@ -162,7 +162,7 @@ export function LeadDock() {
               aria-expanded={!!open}
               aria-controls="lead-panel"
               aria-label={open ? 'Cerrar' : undefined}
-              className={cx(buttonClass, 'glass')}
+              className={cx(buttonClass, 'dock-btn')}
               style={{ ...move, ...pos.secondary }}
             >
               <span className={cx('whitespace-nowrap transition-[opacity,transform,filter] duration-300', open ? 'scale-75 opacity-0 blur-[3px]' : 'opacity-100')}>

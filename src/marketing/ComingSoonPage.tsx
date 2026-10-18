@@ -11,8 +11,8 @@ export function ComingSoonPage() {
   return (
     <div className="relative flex min-h-dvh flex-col overflow-hidden bg-paper">
       {/* One lime glow low on the page, behind the buttons, drifting slowly; the rest stays clean. */}
-      <div aria-hidden className="pointer-events-none fixed inset-x-0 bottom-0 h-[55dvh] overflow-hidden">
-        <div className="cq-glow absolute bottom-[-30dvh] left-1/2 h-[70dvh] w-[150vw] max-w-[1400px] rounded-full bg-[radial-gradient(closest-side,rgb(215_255_0/0.5),rgb(215_255_0/0.18)_55%,rgb(215_255_0/0))] blur-2xl" />
+      <div aria-hidden className="pointer-events-none fixed inset-x-0 bottom-0 h-[34dvh] overflow-hidden">
+        <div className="cq-glow absolute bottom-[-26dvh] left-1/2 h-[48dvh] w-[150vw] max-w-[1400px] rounded-full bg-[radial-gradient(closest-side,rgb(215_255_0/0.55),rgb(215_255_0/0.2)_55%,rgb(215_255_0/0))] blur-2xl" />
       </div>
 
       <main className="relative flex flex-1 flex-col items-center pb-8 pt-[max(2.5rem,7dvh)] sm:pt-[max(4rem,9dvh)]">

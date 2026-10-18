@@ -70,7 +70,7 @@ test('dock morphs in place: "Avísame" becomes "Confirmar" and "Soy mecánico" b
   const confirm = (await page.getByRole('button', { name: 'Confirmar' }).boundingBox())!;
   expect(close.x).toBeGreaterThan(confirm.x); // close on the right
   expect(close.width).toBeLessThan(64); // round
-  expect(Math.abs(confirm.y - start.y)).toBeLessThan(2); // same row the buttons started on
+  expect(Math.abs(confirm.y - start.y)).toBeLessThan(12); // same row (it only gains the card's bottom padding)
   await page.keyboard.press('Escape');
   await expect(page.getByRole('button', { name: 'Avísame' })).toBeVisible();
 });

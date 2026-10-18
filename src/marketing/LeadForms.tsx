@@ -80,7 +80,7 @@ const PRIVACY = 'Solo usaremos tus datos para contactarte sobre Cromiqa. Puedes 
 
 function Privacy({ i }: { i: number }) {
   return (
-    <p className="cq-rise mt-3 text-center text-[11px] leading-snug text-muted" style={rise(i)}>
+    <p className="cq-rise mt-5 text-center text-[11px] leading-snug text-muted" style={rise(i)}>
       {PRIVACY}
     </p>
   );
@@ -116,10 +116,10 @@ export function WaitlistForm({ autoFocus = false, formId, onState }: LeadFormPro
 
   return (
     <form id={formId} onSubmit={submit} noValidate className="relative" data-testid="waitlist-form">
-      <h2 className="cq-rise font-display text-xl font-extrabold leading-tight" style={rise(0)}>
+      <h2 className="cq-rise font-display text-[22px] font-extrabold leading-tight tracking-tight" style={rise(0)}>
         Apúntate a la lista de espera
       </h2>
-      <div className="cq-rise mt-4 space-y-2" style={rise(2)}>
+      <div className="cq-rise mt-6 space-y-3" style={rise(2)}>
         <label htmlFor="waitlist-email" className="sr-only">
           Tu email
         </label>
@@ -152,7 +152,7 @@ export function WaitlistForm({ autoFocus = false, formId, onState }: LeadFormPro
       </div>
       <Honeypot value={honey} onChange={setHoney} />
       {(invalid || error) && (
-        <div className="mt-2">
+        <div className="mt-3">
           <FieldError id="waitlist-error">{invalid ?? error}</FieldError>
         </div>
       )}
@@ -208,10 +208,10 @@ export function MechanicLeadForm({ autoFocus = false, formId, onState }: LeadFor
 
   return (
     <form id={formId} onSubmit={submit} noValidate className="relative" data-testid="mechanic-form">
-      <h2 className="cq-rise font-display text-xl font-extrabold leading-tight" style={rise(0)}>
+      <h2 className="cq-rise font-display text-[22px] font-extrabold leading-tight tracking-tight" style={rise(0)}>
         Únete a Cromiqa como mecánico
       </h2>
-      <div className="mt-4 grid grid-cols-2 gap-2">
+      <div className="mt-6 grid grid-cols-2 gap-3">
         {field('nombre', 'Nombre', <Input ref={nameRef} id="m-nombre" name="nombre" autoComplete="name" placeholder="Nombre" value={form.nombre} onChange={(e) => set({ nombre: e.target.value })} aria-invalid={errors.nombre ? true : undefined} />, 2)}
         {field('taller', 'Taller (opcional)', <Input id="m-taller" name="taller" autoComplete="organization" placeholder="Taller (opc.)" value={form.taller} onChange={(e) => set({ taller: e.target.value })} />, 2)}
         {field('email', 'Email', <Input id="m-email" name="email" type="email" inputMode="email" autoComplete="email" placeholder="Email" value={form.email} onChange={(e) => set({ email: e.target.value })} aria-invalid={errors.email ? true : undefined} />, 3, 'col-span-2')}

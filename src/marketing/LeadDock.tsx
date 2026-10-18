@@ -91,10 +91,10 @@ export function LeadDock() {
         data-testid="lead-dock"
       >
         {/* One box: when open it frosts in and wraps the form and the buttons with the same side padding. */}
-        <div className="relative mx-auto max-w-md p-4">
+        <div className={cx('relative mx-auto max-w-md transition-[padding] duration-500', open ? 'px-6 pb-6 pt-8' : 'p-4')}>
           <div
             aria-hidden
-            className={cx('glass-card pointer-events-none absolute inset-0 rounded-[38px]', open ? 'scale-100 opacity-100' : 'translate-y-4 scale-[0.97] opacity-0')}
+            className={cx('glass-card pointer-events-none absolute inset-0 rounded-[30px]', open ? 'scale-100 opacity-100' : 'translate-y-4 scale-[0.97] opacity-0')}
             style={{ transition: `transform 520ms ${SPRING}, opacity 260ms ease` }}
           />
 
@@ -108,9 +108,9 @@ export function LeadDock() {
           >
             <div className="min-h-0 overflow-hidden">
               <div
-                className="max-h-[min(60dvh,500px)] overflow-y-auto pb-4 pt-1"
+                className="-mx-1 max-h-[min(60dvh,520px)] overflow-y-auto px-1 pb-6"
                 // With the keyboard up, leave room for the buttons, the card padding and a little air on top.
-                style={kb.inset ? { maxHeight: `${Math.max(140, kb.visible - 140)}px` } : undefined}
+                style={kb.inset ? { maxHeight: `${Math.max(140, kb.visible - 170)}px` } : undefined}
               >
                 <div key={`${shown}-${openSeq}`}>
                   {shown === 'waitlist' ? (

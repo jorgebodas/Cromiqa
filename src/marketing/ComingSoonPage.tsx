@@ -25,7 +25,7 @@ export function ComingSoonPage() {
           <h1 className="cq-rise mt-5" style={delay(250)}>
             <Wordmark className="text-[44px] sm:text-6xl" />
           </h1>
-          <p className="cq-rise mt-3 max-w-[21rem] text-balance text-[15px] leading-relaxed text-muted sm:max-w-md sm:text-base" style={delay(400)}>
+          <p className="cq-rise mt-3 max-w-[21rem] text-balance text-[15px] leading-normal text-muted sm:max-w-md sm:text-base" style={delay(400)}>
             Encuentra mecánicos de confianza para reparar, mantener o revisar tu bici, donde y cuando te venga mejor.
           </p>
         </div>

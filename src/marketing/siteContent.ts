@@ -101,13 +101,10 @@ export function useSiteContent(): SiteContent {
   return content;
 }
 
-export type Slide = ({ kind: 'text' } & Benefit) | ({ kind: 'photo' } & Photo);
+/** One carousel card: a benefit with its photo behind it. */
+export type Slide = Benefit & { photo?: Photo };
 
-/** Text, photo, text, photo… (photos cycle if there are fewer than texts). */
+/** Each benefit gets a photo (photos cycle if there are fewer than texts). */
 export function buildSlides({ benefits, photos }: SiteContent): Slide[] {
-  return benefits.flatMap((b, i): Slide[] => {
-    const text: Slide = { kind: 'text', ...b };
-    const photo = photos.length ? photos[i % photos.length] : undefined;
-    return photo ? [text, { kind: 'photo', ...photo }] : [text];
-  });
+  return benefits.map((b, i) => ({ ...b, photo: photos.length ? photos[i % photos.length] : undefined }));
 }

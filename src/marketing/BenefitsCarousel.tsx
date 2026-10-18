@@ -70,28 +70,40 @@ export function BenefitsCarousel() {
   }, []);
 
   return (
-    <section aria-label="Ventajas de Cromiqa" className="mx-auto w-full max-w-3xl">
+    <section aria-label="Ventajas de Cromiqa" className="mx-auto w-full max-w-5xl">
       <div
         ref={track}
-        className="no-scrollbar overflow-x-auto py-3 [mask-image:linear-gradient(to_right,transparent,#000_14%,#000_86%,transparent)]"
+        className="no-scrollbar overflow-x-auto py-3 [mask-image:linear-gradient(to_right,transparent,#000_10%,#000_90%,transparent)]"
         data-testid="benefits"
       >
         <div className="flex w-max gap-3 px-3">
           {[0, 1].map((copy) => (
             <ul key={copy} data-copy={copy} aria-hidden={copy === 1 || undefined} className="flex gap-3">
-              {SLIDES.map((slide, i) =>
-                slide.kind === 'text' ? (
-                  <li key={`t-${i}`} className="h-[176px] w-[250px] shrink-0 rounded-3xl border border-line bg-paper px-5 py-5 sm:w-[270px]">
-                    <h3 className="font-display text-[17px] font-extrabold leading-tight">{slide.title}</h3>
-                    <p className="mt-2 text-[15px] leading-relaxed text-muted">{slide.text}</p>
-                  </li>
-                ) : (
-                  <li key={`p-${i}`} className="relative h-[176px] w-[200px] shrink-0 overflow-hidden rounded-3xl bg-sand sm:w-[220px]">
-                    <img src={slide.src} alt={copy === 1 ? '' : slide.alt} loading="lazy" decoding="async" draggable={false} className="size-full object-cover" />
-                    <span className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-inset ring-ink/5" aria-hidden />
-                  </li>
-                ),
-              )}
+              {SLIDES.map((slide, i) => (
+                <li
+                  key={i}
+                  // Tall portrait cards: they fill the screen down to just above the floating buttons.
+                  className="relative aspect-[18/25] h-[clamp(220px,calc(100svh-340px),600px)] sm:h-[clamp(300px,calc(100svh-400px),600px)] shrink-0 overflow-hidden rounded-[28px] bg-ink"
+                >
+                  {slide.photo && (
+                    <img
+                      src={slide.photo.src}
+                      alt={copy === 1 ? '' : slide.photo.alt}
+                      loading={i < 3 ? 'eager' : 'lazy'}
+                      decoding="async"
+                      draggable={false}
+                      className="absolute inset-0 size-full object-cover"
+                    />
+                  )}
+                  {/* Darken the lower part so the text always reads, whatever the photo. */}
+                  <span aria-hidden className="absolute inset-0 bg-[linear-gradient(to_top,rgb(14_14_14/0.88)_0%,rgb(14_14_14/0.55)_32%,rgb(14_14_14/0)_62%)]" />
+                  <div className="absolute inset-x-0 bottom-0 p-5 text-left text-white">
+                    <h3 className="font-display text-[21px] font-extrabold leading-tight">{slide.title}</h3>
+                    <p className="mt-1.5 text-[15px] leading-snug text-white/85">{slide.text}</p>
+                  </div>
+                  <span className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-inset ring-white/10" aria-hidden />
+                </li>
+              ))}
             </ul>
           ))}
         </div>

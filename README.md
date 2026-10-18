@@ -134,7 +134,7 @@ http before the HTTPS certificate exists. *Recordar este dispositivo* keeps the 
   *Soy mecánico*. Choosing one grows the dock upwards with a springy expansion and staggered fields;
   success draws the brand check with a small burst.
 - **Photos:** any image in `src/assets/mechanics/` is interleaved with the benefit cards; the file name
-  (minus the leading number) becomes the alt text. Keep them ~528×422 JPEG (≈25 KB each).
+  (minus the leading number) becomes the alt text. Keep them portrait, ~720×1000 JPEG (18:25).
 - **Staging:** `npm run staging` builds a private preview with simulated form submissions, published as a
   private claude.ai Artifact for review before pushing to `main` (which deploys to cromiqa.com).
 - **Lead forms** (`src/marketing/LeadForms.tsx`): waitlist (email + zone) and mechanics. Submissions go to FormSubmit's AJAX API and arrive by email. They are
@@ -158,7 +158,7 @@ email-only forms and the bundled carousel, and `#/admin` shows a "Conecta Supaba
 **Panel (`#/admin`, own login, never behind the preview gate):**
 Resumen (totals, last-30-day charts, by zone, by status) · Lista de espera (search, zone filter,
 CSV export, delete) · Mecánicos (status pipeline, internal notes, CSV, delete) · Contenido (carousel
-texts and photos; photos are cropped to 5:4 and compressed in the browser before upload) ·
+texts and photos; photos are cropped to portrait 18:25 and compressed in the browser before upload) ·
 Actividad (append-only audit log written by database triggers: sign-ins, exports, edits, deletions,
 publications).
 

@@ -156,6 +156,29 @@
   0% { background-position: 100% 0; }
   30%, 100% { background-position: 0% 0; }
 }
+/* Carousel edges on desktop: an eased fade (not a straight ramp) so cards melt into the
+   page instead of hitting a visible gradient band. Phones show the edges as they are. */
+:root {
+  --cq-edge-fade: linear-gradient(
+    to right,
+    transparent 0%,
+    rgb(0 0 0 / 0.04) 3%,
+    rgb(0 0 0 / 0.15) 6%,
+    rgb(0 0 0 / 0.33) 9%,
+    rgb(0 0 0 / 0.55) 12%,
+    rgb(0 0 0 / 0.76) 15%,
+    rgb(0 0 0 / 0.91) 18%,
+    #000 21%,
+    #000 79%,
+    rgb(0 0 0 / 0.91) 82%,
+    rgb(0 0 0 / 0.76) 85%,
+    rgb(0 0 0 / 0.55) 88%,
+    rgb(0 0 0 / 0.33) 91%,
+    rgb(0 0 0 / 0.15) 94%,
+    rgb(0 0 0 / 0.04) 97%,
+    transparent 100%
+  );
+}
 .cq-glint {
   color: #557a00;
   background: linear-gradient(100deg, #557a00 0%, #557a00 42%, #b6f000 50%, #557a00 58%, #557a00 100%) 100% 0 / 260% 100% no-repeat;

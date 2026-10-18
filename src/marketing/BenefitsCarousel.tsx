@@ -70,10 +70,10 @@ export function BenefitsCarousel() {
   }, []);
 
   return (
-    <section aria-label="Ventajas de Cromiqa" className="mx-auto w-full max-w-4xl">
+    <section aria-label="Ventajas de Cromiqa" className="mx-auto w-full max-w-5xl">
       <div
         ref={track}
-        className="no-scrollbar overflow-x-auto py-3 [mask-image:linear-gradient(to_right,transparent,#000_12%,#000_88%,transparent)]"
+        className="no-scrollbar overflow-x-auto py-3 sm:[mask-image:var(--cq-edge-fade)]"
         data-testid="benefits"
       >
         <div className="flex w-max gap-3 px-3">

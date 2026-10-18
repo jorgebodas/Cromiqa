@@ -17,19 +17,21 @@ test('waitlist opens from the dock, validates, submits and confirms', async ({ p
   const cta = page.getByRole('button', { name: 'Avísame' });
   await expect(cta).toHaveAttribute('aria-expanded', 'false');
   await cta.click();
-  await expect(cta).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByRole('button', { name: 'Cerrar' })).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByRole('button', { name: 'Soy mecánico' })).toBeHidden();
   const form = page.getByTestId('waitlist-form');
   await expect(form.getByLabel('Tu email')).toBeFocused();
 
-  await form.getByRole('button', { name: 'Apuntarme' }).click();
+  await page.getByRole('button', { name: 'Confirmar' }).click();
   await expect(form.getByText('Escribe un email válido.')).toBeVisible();
   expect(bodies).toHaveLength(0);
 
   await form.getByLabel('Tu email').fill('ciclista@example.com');
   await form.getByLabel('Tu zona').selectOption('rivas');
-  await form.getByRole('button', { name: 'Apuntarme' }).click();
+  await page.getByRole('button', { name: 'Confirmar' }).click();
   await expect(page.getByText('¡Estás dentro!')).toBeVisible();
   expect(bodies[0]).toMatchObject({ email: 'ciclista@example.com', zona: 'Rivas-Vaciamadrid', tipo: 'Lista de espera', _honey: '' });
+  await page.getByRole('button', { name: 'Listo' }).click();
   await expect(page.getByRole('button', { name: 'Apuntado' })).toBeVisible();
 
   await page.reload(); // remembered on this device
@@ -42,18 +44,23 @@ test('waitlist shows an error when the service fails', async ({ page }) => {
   await page.getByRole('button', { name: 'Avísame' }).click();
   const form = page.getByTestId('waitlist-form');
   await form.getByLabel('Tu email').fill('ciclista@example.com');
-  await form.getByRole('button', { name: 'Apuntarme' }).click();
+  await page.getByRole('button', { name: 'Confirmar' }).click();
   await expect(form.getByText('No hemos podido enviarlo.')).toBeVisible();
 });
 
-test('dock switches between forms and closes with Escape', async ({ page }) => {
+test('dock morphs: close button and confirm replace the other call to action', async ({ page }) => {
   await page.getByRole('button', { name: 'Avísame' }).click();
   await expect(page.getByTestId('waitlist-form')).toBeVisible();
+  await page.getByRole('button', { name: 'Cerrar' }).click();
+  await expect(page.getByRole('button', { name: 'Soy mecánico' })).toBeVisible();
+
   await page.getByRole('button', { name: 'Soy mecánico' }).click();
   await expect(page.getByTestId('mechanic-form')).toBeVisible();
-  await expect(page.getByTestId('waitlist-form')).toHaveCount(0);
+  const close = await page.getByRole('button', { name: 'Cerrar' }).boundingBox();
+  const confirm = await page.getByRole('button', { name: 'Confirmar' }).boundingBox();
+  expect(close!.x).toBeGreaterThan(confirm!.x); // mirrored: close on the right
   await page.keyboard.press('Escape');
-  await expect(page.getByRole('button', { name: 'Soy mecánico' })).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.getByRole('button', { name: 'Avísame' })).toBeVisible();
 });
 
 test('mechanic form validates and submits', async ({ page }) => {
@@ -61,7 +68,7 @@ test('mechanic form validates and submits', async ({ page }) => {
   await page.route('https://formsubmit.co/ajax/**', ok(bodies));
   await page.getByRole('button', { name: 'Soy mecánico' }).click();
   const form = page.getByTestId('mechanic-form');
-  await form.getByRole('button', { name: 'Quiero unirme' }).click();
+  await page.getByRole('button', { name: 'Confirmar' }).click();
   await expect(form.getByText('Escribe tu nombre.')).toBeVisible();
   await expect(form.getByText('Elige tu zona principal.')).toBeVisible();
 
@@ -70,7 +77,7 @@ test('mechanic form validates and submits', async ({ page }) => {
   await form.getByLabel('Email').fill('rosa@example.com');
   await form.getByLabel('Zona principal').selectOption('arganda');
   await form.getByLabel('Especialidad (opcional)').fill('MTB y eléctricas');
-  await form.getByRole('button', { name: 'Quiero unirme' }).click();
+  await page.getByRole('button', { name: 'Confirmar' }).click();
   await expect(page.getByText('¡Gracias!')).toBeVisible();
   expect(bodies[0]).toMatchObject({ nombre: 'Rosa Gil', taller: 'Taller Rosa', zona: 'Arganda del Rey', tipo: 'Mecánico', telefono: '—' });
 });

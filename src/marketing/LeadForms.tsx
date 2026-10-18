@@ -1,10 +1,21 @@
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
-import { ArrowRight } from 'lucide-react';
 import { LOCATIONS } from '@/domain/catalog';
-import { Button, FieldError, Input, Select, cx } from '@/components/ui';
+import { FieldError, Input, Select, cx } from '@/components/ui';
 import { alreadySubmitted, isEmail, submitLead, type LeadKind } from './leads';
 
-function useLead(kind: LeadKind) {
+export interface LeadFormState {
+  sending: boolean;
+  done: boolean;
+}
+
+interface LeadFormProps {
+  autoFocus?: boolean;
+  /** The submit button lives outside the form (in the dock), linked through this id. */
+  formId: string;
+  onState?: (state: LeadFormState) => void;
+}
+
+function useLead(kind: LeadKind, onState?: (s: LeadFormState) => void) {
   const [done, setDone] = useState(() => alreadySubmitted(kind));
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string>();
@@ -22,6 +33,7 @@ function useLead(kind: LeadKind) {
       setSending(false);
     }
   };
+  useEffect(() => onState?.({ sending, done }), [sending, done]); // eslint-disable-line react-hooks/exhaustive-deps
   return { done, sending, error, send };
 }
 
@@ -85,8 +97,8 @@ function useAutoFocus<T extends HTMLElement>(enabled: boolean) {
   return ref;
 }
 
-export function WaitlistForm({ autoFocus = false }: { autoFocus?: boolean }) {
-  const { done, sending, error, send } = useLead('waitlist');
+export function WaitlistForm({ autoFocus = false, formId, onState }: LeadFormProps) {
+  const { done, error, send } = useLead('waitlist', onState);
   const [email, setEmail] = useState('');
   const [zone, setZone] = useState('');
   const [honey, setHoney] = useState('');
@@ -103,7 +115,7 @@ export function WaitlistForm({ autoFocus = false }: { autoFocus?: boolean }) {
   };
 
   return (
-    <form onSubmit={submit} noValidate className="relative" data-testid="waitlist-form">
+    <form id={formId} onSubmit={submit} noValidate className="relative" data-testid="waitlist-form">
       <h2 className="cq-rise font-display text-lg font-extrabold" style={rise(0)}>
         Sé de los primeros
       </h2>
@@ -147,18 +159,13 @@ export function WaitlistForm({ autoFocus = false }: { autoFocus?: boolean }) {
           <FieldError id="waitlist-error">{invalid ?? error}</FieldError>
         </div>
       )}
-      <div className="cq-rise mt-3" style={rise(3)}>
-        <Button type="submit" block size="lg" loading={sending} icon={<ArrowRight className="order-last size-4" aria-hidden />}>
-          Apuntarme
-        </Button>
-      </div>
-      <Privacy i={4} />
+      <Privacy i={3} />
     </form>
   );
 }
 
-export function MechanicLeadForm({ autoFocus = false }: { autoFocus?: boolean }) {
-  const { done, sending, error, send } = useLead('mechanic');
+export function MechanicLeadForm({ autoFocus = false, formId, onState }: LeadFormProps) {
+  const { done, error, send } = useLead('mechanic', onState);
   const [form, setForm] = useState({ nombre: '', taller: '', zona: '', email: '', telefono: '', especialidad: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [honey, setHoney] = useState('');
@@ -203,7 +210,7 @@ export function MechanicLeadForm({ autoFocus = false }: { autoFocus?: boolean })
   );
 
   return (
-    <form onSubmit={submit} noValidate className="relative" data-testid="mechanic-form">
+    <form id={formId} onSubmit={submit} noValidate className="relative" data-testid="mechanic-form">
       <h2 className="cq-rise font-display text-lg font-extrabold" style={rise(0)}>
         ¿Mecánico o taller?
       </h2>
@@ -218,7 +225,7 @@ export function MechanicLeadForm({ autoFocus = false }: { autoFocus?: boolean })
           'zona',
           'Zona principal',
           <Select id="m-zona" name="zona" value={form.zona} onChange={(e) => set({ zona: e.target.value })} aria-invalid={errors.zona ? true : undefined}>
-            <option value="">Zona principal</option>
+            <option value="">Tu zona</option>
             {LOCATIONS.map((l) => (
               <option key={l.id} value={l.id}>
                 {l.label}
@@ -236,12 +243,7 @@ export function MechanicLeadForm({ autoFocus = false }: { autoFocus?: boolean })
           <FieldError>{error}</FieldError>
         </div>
       )}
-      <div className="cq-rise mt-3" style={rise(6)}>
-        <Button type="submit" variant="dark" block size="lg" loading={sending}>
-          Quiero unirme
-        </Button>
-      </div>
-      <Privacy i={7} />
+      <Privacy i={6} />
     </form>
   );
 }

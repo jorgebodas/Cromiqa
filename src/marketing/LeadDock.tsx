@@ -1,18 +1,25 @@
-import { useEffect, useState } from 'react';
-import { X } from 'lucide-react';
+import { useEffect, useState, type CSSProperties } from 'react';
+import { Loader2, X } from 'lucide-react';
 import { cx } from '@/components/ui';
-import { MechanicLeadForm, WaitlistForm } from './LeadForms';
+import { MechanicLeadForm, WaitlistForm, type LeadFormState } from './LeadForms';
 import { alreadySubmitted, type LeadKind } from './leads';
 
+const FORM_ID: Record<LeadKind, string> = { waitlist: 'lead-waitlist', mechanic: 'lead-mechanic' };
+const CLOSE = 56; // px, the round close button
+const GAP = 12; // px
+const SPRING = 'cubic-bezier(.2,1.2,.3,1)';
+
 /**
- * Floating bottom dock with the two calls to action. Choosing one grows the dock upwards
- * (springy height + staggered fields); choosing the other cross-fades the form.
+ * Two floating calls to action. Choosing one slides the other away, turns the chosen one
+ * into a round close button, and grows a "Confirmar" button into the freed space while
+ * the form card rises above. Mirrored for the right-hand button.
  */
 export function LeadDock() {
   const [open, setOpen] = useState<LeadKind | null>(null);
-  // Keep the last form mounted while the dock collapses so it animates out smoothly.
+  // Keep the last form mounted while the card animates out.
   const [shown, setShown] = useState<LeadKind>('waitlist');
   const [openSeq, setOpenSeq] = useState(0);
+  const [form, setForm] = useState<LeadFormState>({ sending: false, done: false });
   const [done, setDone] = useState(() => ({ waitlist: alreadySubmitted('waitlist'), mechanic: alreadySubmitted('mechanic') }));
 
   useEffect(() => {
@@ -28,12 +35,37 @@ export function LeadDock() {
     return () => document.removeEventListener('keydown', onKey);
   }, [open]);
 
-  const toggle = (kind: LeadKind) => {
-    if (open === kind) return setOpen(null);
+  const choose = (kind: LeadKind) => {
+    if (open) return setOpen(null);
     setShown(kind);
+    setForm({ sending: false, done: alreadySubmitted(kind) });
     setOpen(kind);
     setOpenSeq((n) => n + 1);
   };
+
+  // Geometry of the bottom row for each state (left / width of each control).
+  const half = `calc(50% - ${GAP / 2}px)`;
+  const rest = `calc(100% - ${CLOSE + GAP}px)`;
+  const pos = {
+    waitlist:
+      open === 'waitlist' ? { left: '0px', width: `${CLOSE}px` } : open === 'mechanic' ? { left: '-60%', width: half } : { left: '0px', width: half },
+    mechanic:
+      open === 'mechanic'
+        ? { left: `calc(100% - ${CLOSE}px)`, width: `${CLOSE}px` }
+        : open === 'waitlist'
+          ? { left: '110%', width: half }
+          : { left: `calc(50% + ${GAP / 2}px)`, width: half },
+    confirm:
+      open === 'waitlist'
+        ? { left: `${CLOSE + GAP}px`, width: rest }
+        : open === 'mechanic'
+          ? { left: '0px', width: rest }
+          : { left: '50%', width: '0px' },
+  };
+  const move: CSSProperties = { transition: `left 520ms ${SPRING}, width 520ms ${SPRING}, opacity 260ms ease, transform 300ms ease, background-color 250ms ease, color 250ms ease` };
+
+  const toggleClass =
+    'absolute top-0 flex h-14 items-center justify-center overflow-hidden rounded-[28px] border text-[15px] font-semibold shadow-[0_10px_30px_-12px_rgb(23_23_23/0.25)] active:scale-[0.97]';
 
   return (
     <>
@@ -41,77 +73,105 @@ export function LeadDock() {
         aria-hidden
         onClick={() => setOpen(null)}
         className={cx(
-          'fixed inset-0 z-20 bg-paper/50 backdrop-blur-[3px] transition-opacity duration-300',
+          'fixed inset-0 z-20 bg-paper/55 backdrop-blur-[3px] transition-opacity duration-300',
           open ? 'opacity-100' : 'pointer-events-none opacity-0',
         )}
       />
-      <div className="fixed inset-x-0 bottom-0 z-30 px-3 pb-[max(12px,env(safe-area-inset-bottom))]">
-        <div
-          className={cx(
-            'mx-auto max-w-md rounded-[34px] border border-line/80 bg-paper/95 p-2.5 backdrop-blur-xl transition-shadow duration-500',
-            open ? 'shadow-[0_24px_70px_-20px_rgb(23_23_23/0.3)]' : 'shadow-[0_10px_40px_-12px_rgb(23_23_23/0.18)]',
-          )}
-          data-testid="lead-dock"
-        >
+
+      <div className="fixed inset-x-0 bottom-0 z-30 px-4 pb-[max(16px,env(safe-area-inset-bottom))]" data-testid="lead-dock">
+        <div className="mx-auto max-w-md">
+          {/* Form card rising above the buttons */}
           <div
             id="lead-panel"
             role="region"
             aria-label={shown === 'waitlist' ? 'Lista de espera' : 'Registro para mecánicos'}
             className={cx(
-              'grid transition-[grid-template-rows] duration-[520ms] ease-[cubic-bezier(.2,1.25,.32,1)]',
-              open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
+              'mb-3 origin-bottom rounded-[32px] border border-line/80 bg-paper/95 shadow-[0_24px_70px_-24px_rgb(23_23_23/0.35)] backdrop-blur-xl',
+              open ? 'translate-y-0 scale-100 opacity-100' : 'pointer-events-none translate-y-6 scale-[0.96] opacity-0',
             )}
+            style={{ transition: `transform 520ms ${SPRING}, opacity 260ms ease` }}
             {...(!open ? { inert: '' } : {})}
           >
-            <div className="min-h-0 overflow-hidden">
-              <div className="relative max-h-[min(68dvh,560px)] overflow-y-auto px-3 pb-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setOpen(null)}
-                  aria-label="Cerrar"
-                  className="absolute right-1.5 top-1.5 z-10 flex size-9 items-center justify-center rounded-full text-muted transition-colors hover:bg-sand hover:text-ink"
-                >
-                  <X className="size-4" />
-                </button>
-                {/* key re-mounts the form on each open/switch so its entrance animation replays. */}
-                <div key={`${shown}-${openSeq}`} className={cx('transition-opacity duration-200', !open && 'opacity-0')}>
-                  {shown === 'waitlist' ? <WaitlistForm autoFocus={open === 'waitlist'} /> : <MechanicLeadForm autoFocus={open === 'mechanic'} />}
-                </div>
+            <div className="max-h-[min(62dvh,520px)] overflow-y-auto px-5 pb-5 pt-5">
+              <div key={`${shown}-${openSeq}`}>
+                {shown === 'waitlist' ? (
+                  <WaitlistForm formId={FORM_ID.waitlist} autoFocus={open === 'waitlist'} onState={setForm} />
+                ) : (
+                  <MechanicLeadForm formId={FORM_ID.mechanic} autoFocus={open === 'mechanic'} onState={setForm} />
+                )}
               </div>
             </div>
           </div>
 
-          <div className="flex gap-2">
+          {/* Bottom row: two floating buttons that morph */}
+          <div className="relative h-14">
             <button
               type="button"
-              onClick={() => toggle('waitlist')}
+              onClick={() => choose('waitlist')}
               aria-expanded={open === 'waitlist'}
               aria-controls="lead-panel"
+              aria-label={open === 'waitlist' ? 'Cerrar' : undefined}
+              tabIndex={open === 'mechanic' ? -1 : 0}
+              aria-hidden={open === 'mechanic' || undefined}
               className={cx(
-                'flex h-14 min-w-0 flex-1 items-center justify-center rounded-[24px] text-[15px] font-semibold transition-all duration-300 active:scale-[0.97]',
-                // Lime marks the main call to action; once open, the submit button takes over.
+                toggleClass,
                 open === 'waitlist'
-                  ? 'bg-ink text-paper'
-                  : open === 'mechanic'
-                    ? 'bg-sand text-muted'
-                    : done.waitlist
-                      ? 'border border-line-strong bg-paper text-ink'
-                      : 'bg-lime text-ink hover:bg-lime-deep',
+                  ? 'border-line-strong bg-paper text-ink'
+                  : done.waitlist
+                    ? 'border-line-strong bg-paper text-ink'
+                    : 'border-transparent bg-lime text-ink hover:bg-lime-deep',
+                open === 'mechanic' && 'pointer-events-none opacity-0',
               )}
+              style={{ ...move, ...pos.waitlist }}
             >
-              {done.waitlist ? 'Apuntado' : 'Avísame'}
+              <span className={cx('whitespace-nowrap transition-all duration-200', open === 'waitlist' ? 'scale-75 opacity-0' : 'opacity-100')}>
+                {done.waitlist ? 'Apuntado' : 'Avísame'}
+              </span>
+              <X className={cx('absolute size-5 transition-all duration-300', open === 'waitlist' ? 'rotate-0 opacity-100' : '-rotate-90 opacity-0')} aria-hidden />
             </button>
+
+            <button
+              type="submit"
+              form={open ? FORM_ID[open] : undefined}
+              disabled={!open || form.sending}
+              tabIndex={open ? 0 : -1}
+              onClick={(e) => {
+                if (form.done) {
+                  e.preventDefault();
+                  setOpen(null);
+                }
+              }}
+              className={cx(
+                'absolute top-0 flex h-14 items-center justify-center gap-2 overflow-hidden whitespace-nowrap rounded-[28px] text-[15px] font-semibold shadow-[0_10px_30px_-12px_rgb(23_23_23/0.3)] active:scale-[0.98]',
+                'bg-lime text-ink hover:bg-lime-deep',
+                open ? 'opacity-100' : 'pointer-events-none opacity-0',
+              )}
+              style={{ ...move, ...pos.confirm }}
+              aria-hidden={!open || undefined}
+            >
+              {form.sending && <Loader2 className="size-4 animate-spin" aria-hidden />}
+              {form.done ? 'Listo' : 'Confirmar'}
+            </button>
+
             <button
               type="button"
-              onClick={() => toggle('mechanic')}
+              onClick={() => choose('mechanic')}
               aria-expanded={open === 'mechanic'}
               aria-controls="lead-panel"
+              aria-label={open === 'mechanic' ? 'Cerrar' : undefined}
+              tabIndex={open === 'waitlist' ? -1 : 0}
+              aria-hidden={open === 'waitlist' || undefined}
               className={cx(
-                'flex h-14 min-w-0 flex-1 items-center justify-center rounded-[24px] border text-[15px] font-semibold transition-all duration-300 active:scale-[0.97]',
-                open === 'mechanic' ? 'border-ink bg-ink text-paper' : 'border-line-strong bg-paper text-ink hover:border-ink',
+                toggleClass,
+                'border-line-strong bg-paper text-ink hover:border-ink',
+                open === 'waitlist' && 'pointer-events-none opacity-0',
               )}
+              style={{ ...move, ...pos.mechanic }}
             >
-              Soy mecánico
+              <span className={cx('whitespace-nowrap transition-all duration-200', open === 'mechanic' ? 'scale-75 opacity-0' : 'opacity-100')}>
+                {done.mechanic ? 'Registrado' : 'Soy mecánico'}
+              </span>
+              <X className={cx('absolute size-5 transition-all duration-300', open === 'mechanic' ? 'rotate-0 opacity-100' : 'rotate-90 opacity-0')} aria-hidden />
             </button>
           </div>
         </div>

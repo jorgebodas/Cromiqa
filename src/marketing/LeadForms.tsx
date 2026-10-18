@@ -1,7 +1,7 @@
-import { useState, type FormEvent, type ReactNode } from 'react';
-import { ArrowRight, CheckCircle2 } from 'lucide-react';
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
+import { ArrowRight } from 'lucide-react';
 import { LOCATIONS } from '@/domain/catalog';
-import { Button, Field, FieldError, Input, Select, cx } from '@/components/ui';
+import { Button, FieldError, Input, Select, cx } from '@/components/ui';
 import { alreadySubmitted, isEmail, submitLead, type LeadKind } from './leads';
 
 function useLead(kind: LeadKind) {
@@ -13,7 +13,9 @@ function useLead(kind: LeadKind) {
     setError(undefined);
     try {
       await submitLead(kind, fields, honeypot);
+      navigator.vibrate?.(12);
       setDone(true);
+      window.dispatchEvent(new CustomEvent('cromiqa:lead', { detail: kind }));
     } catch {
       setError('No hemos podido enviarlo. Revisa tu conexión e inténtalo de nuevo.');
     } finally {
@@ -35,28 +37,63 @@ function Honeypot({ value, onChange }: { value: string; onChange: (v: string) =>
   );
 }
 
+/** Staggered entrance for each form row. */
+const rise = (i: number): CSSProperties => ({ animationDelay: `${60 + i * 55}ms` });
+
+/** Brand check drawn in lime on ink, with a small burst — the "QA" moment. */
 function Success({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div role="status" className="flex items-start gap-3 rounded-2xl bg-sand p-5">
-      <CheckCircle2 className="mt-0.5 size-5 shrink-0" aria-hidden />
-      <div>
-        <p className="font-semibold">{title}</p>
-        <p className="mt-0.5 text-[15px] text-muted">{children}</p>
-      </div>
+    <div role="status" className="flex flex-col items-center px-2 py-4 text-center">
+      <span className="relative flex size-16 items-center justify-center" aria-hidden>
+        {Array.from({ length: 8 }).map((_, i) => (
+          <span key={i} className="cq-burst absolute size-1.5 rounded-full bg-lime ring-1 ring-ink/70" style={{ '--a': `${i * 45}deg` } as CSSProperties} />
+        ))}
+        <span className="cq-pop flex size-16 items-center justify-center rounded-full bg-ink">
+          <svg viewBox="0 0 48 48" className="size-9">
+            <path d="M13 25 L21 33 L36 16" fill="none" stroke="#C7FF2F" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" pathLength={1} className="cq-draw" />
+          </svg>
+        </span>
+      </span>
+      <p className="cq-rise mt-4 font-display text-xl font-extrabold" style={rise(4)}>
+        {title}
+      </p>
+      <p className="cq-rise mt-1 max-w-xs text-[15px] text-muted" style={rise(5)}>
+        {children}
+      </p>
     </div>
   );
 }
 
 const PRIVACY = 'Solo usaremos tus datos para contactarte sobre Cromiqa. Puedes pedir que los borremos cuando quieras.';
 
-export function WaitlistForm() {
+function Privacy({ i }: { i: number }) {
+  return (
+    <p className="cq-rise mt-3 text-center text-[11px] leading-snug text-muted" style={rise(i)}>
+      {PRIVACY}
+    </p>
+  );
+}
+
+function useAutoFocus<T extends HTMLElement>(enabled: boolean) {
+  const ref = useRef<T>(null);
+  useEffect(() => {
+    if (!enabled) return;
+    // Wait for the dock to start expanding so the page doesn't jump on mobile.
+    const t = window.setTimeout(() => ref.current?.focus({ preventScroll: true }), 220);
+    return () => window.clearTimeout(t);
+  }, [enabled]);
+  return ref;
+}
+
+export function WaitlistForm({ autoFocus = false }: { autoFocus?: boolean }) {
   const { done, sending, error, send } = useLead('waitlist');
   const [email, setEmail] = useState('');
   const [zone, setZone] = useState('');
   const [honey, setHoney] = useState('');
   const [invalid, setInvalid] = useState<string>();
+  const emailRef = useAutoFocus<HTMLInputElement>(autoFocus && !done);
 
-  if (done) return <Success title="¡Apuntado!">Te avisaremos en cuanto Cromiqa abra en tu zona.</Success>;
+  if (done) return <Success title="¡Estás dentro!">Te avisaremos en cuanto Cromiqa abra en tu zona.</Success>;
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -66,34 +103,36 @@ export function WaitlistForm() {
   };
 
   return (
-    <form onSubmit={submit} noValidate className="relative max-w-xl" aria-labelledby="waitlist-title" data-testid="waitlist-form">
-      <h2 id="waitlist-title" className="text-sm font-semibold">
-        Avísame cuando abra
+    <form onSubmit={submit} noValidate className="relative" data-testid="waitlist-form">
+      <h2 className="cq-rise font-display text-lg font-extrabold" style={rise(0)}>
+        Sé de los primeros
       </h2>
-      <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-        <div className="flex-1">
-          <label htmlFor="waitlist-email" className="sr-only">
-            Tu email
-          </label>
-          <Input
-            id="waitlist-email"
-            type="email"
-            inputMode="email"
-            autoComplete="email"
-            placeholder="tu@email.com"
-            value={email}
-            onChange={(e) => {
-              setEmail(e.target.value);
-              setInvalid(undefined);
-            }}
-            aria-invalid={invalid ? true : undefined}
-            aria-describedby={invalid ? 'waitlist-error' : undefined}
-          />
-        </div>
+      <p className="cq-rise text-sm text-muted" style={rise(1)}>
+        Te avisamos cuando abramos en tu zona. Sin spam.
+      </p>
+      <div className="cq-rise mt-4 space-y-2" style={rise(2)}>
+        <label htmlFor="waitlist-email" className="sr-only">
+          Tu email
+        </label>
+        <Input
+          ref={emailRef}
+          id="waitlist-email"
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          placeholder="tu@email.com"
+          value={email}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            setInvalid(undefined);
+          }}
+          aria-invalid={invalid ? true : undefined}
+          aria-describedby={invalid ? 'waitlist-error' : undefined}
+        />
         <label htmlFor="waitlist-zone" className="sr-only">
           Tu zona
         </label>
-        <Select id="waitlist-zone" value={zone} onChange={(e) => setZone(e.target.value)} className="sm:w-48">
+        <Select id="waitlist-zone" value={zone} onChange={(e) => setZone(e.target.value)}>
           <option value="">Tu zona (opcional)</option>
           {LOCATIONS.map((l) => (
             <option key={l.id} value={l.id}>
@@ -101,9 +140,6 @@ export function WaitlistForm() {
             </option>
           ))}
         </Select>
-        <Button type="submit" className="h-12 px-6 text-base" loading={sending} icon={<ArrowRight className="order-last size-4" aria-hidden />}>
-          Avísame
-        </Button>
       </div>
       <Honeypot value={honey} onChange={setHoney} />
       {(invalid || error) && (
@@ -111,35 +147,32 @@ export function WaitlistForm() {
           <FieldError id="waitlist-error">{invalid ?? error}</FieldError>
         </div>
       )}
-      <p className="mt-2 text-xs text-muted">{PRIVACY}</p>
+      <div className="cq-rise mt-3" style={rise(3)}>
+        <Button type="submit" block size="lg" loading={sending} icon={<ArrowRight className="order-last size-4" aria-hidden />}>
+          Apuntarme
+        </Button>
+      </div>
+      <Privacy i={4} />
     </form>
   );
 }
 
-export function MechanicLeadForm() {
+export function MechanicLeadForm({ autoFocus = false }: { autoFocus?: boolean }) {
   const { done, sending, error, send } = useLead('mechanic');
-  const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ nombre: '', taller: '', zona: '', email: '', telefono: '', especialidad: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [honey, setHoney] = useState('');
+  const nameRef = useAutoFocus<HTMLInputElement>(autoFocus && !done);
   const set = (patch: Partial<typeof form>) => setForm((f) => ({ ...f, ...patch }));
 
   if (done) return <Success title="¡Gracias!">Te escribiremos pronto para contarte cómo funcionará Cromiqa para mecánicos.</Success>;
-
-  if (!open) {
-    return (
-      <Button variant="dark" size="lg" onClick={() => setOpen(true)} icon={<ArrowRight className="order-last size-4" aria-hidden />}>
-        Quiero unirme
-      </Button>
-    );
-  }
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
     const next: Record<string, string> = {};
     if (form.nombre.trim().length < 2) next.nombre = 'Escribe tu nombre.';
-    if (!form.zona) next.zona = 'Elige tu zona principal.';
     if (!isEmail(form.email)) next.email = 'Escribe un email válido.';
+    if (!form.zona) next.zona = 'Elige tu zona principal.';
     setErrors(next);
     if (Object.keys(next).length) return;
     void send(
@@ -155,45 +188,60 @@ export function MechanicLeadForm() {
     );
   };
 
+  const field = (key: keyof typeof form, label: string, input: ReactNode, i: number, className?: string) => (
+    <div className={cx('cq-rise', className)} style={rise(i)}>
+      <label htmlFor={`m-${key}`} className="sr-only">
+        {label}
+      </label>
+      {input}
+      {errors[key] && (
+        <div className="mt-1">
+          <FieldError>{errors[key]}</FieldError>
+        </div>
+      )}
+    </div>
+  );
+
   return (
-    <form onSubmit={submit} noValidate className={cx('relative grid grid-cols-1 gap-4 sm:grid-cols-2', 'animate-fade-in')} data-testid="mechanic-form">
-      <Field label="Nombre" error={errors.nombre}>
-        <Input name="nombre" autoComplete="name" value={form.nombre} onChange={(e) => set({ nombre: e.target.value })} />
-      </Field>
-      <Field label="Taller o negocio" optional>
-        <Input name="taller" autoComplete="organization" value={form.taller} onChange={(e) => set({ taller: e.target.value })} />
-      </Field>
-      <Field label="Email" error={errors.email}>
-        <Input name="email" type="email" inputMode="email" autoComplete="email" value={form.email} onChange={(e) => set({ email: e.target.value })} />
-      </Field>
-      <Field label="Teléfono" optional>
-        <Input name="telefono" type="tel" inputMode="tel" autoComplete="tel" value={form.telefono} onChange={(e) => set({ telefono: e.target.value })} />
-      </Field>
-      <Field label="Zona principal" error={errors.zona}>
-        <Select name="zona" value={form.zona} onChange={(e) => set({ zona: e.target.value })}>
-          <option value="">Elige tu zona</option>
-          {LOCATIONS.map((l) => (
-            <option key={l.id} value={l.id}>
-              {l.label}
-            </option>
-          ))}
-        </Select>
-      </Field>
-      <Field label="Especialidad" optional hint="Ej.: MTB y suspensiones, eléctricas, carretera…">
-        <Input name="especialidad" value={form.especialidad} onChange={(e) => set({ especialidad: e.target.value })} />
-      </Field>
-      <Honeypot value={honey} onChange={setHoney} />
-      <div className="sm:col-span-2">
-        {error && (
-          <div className="mb-3">
-            <FieldError>{error}</FieldError>
-          </div>
+    <form onSubmit={submit} noValidate className="relative" data-testid="mechanic-form">
+      <h2 className="cq-rise font-display text-lg font-extrabold" style={rise(0)}>
+        ¿Mecánico o taller?
+      </h2>
+      <p className="cq-rise text-sm text-muted" style={rise(1)}>
+        Buscamos los primeros profesionales del sureste de Madrid.
+      </p>
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        {field('nombre', 'Nombre', <Input ref={nameRef} id="m-nombre" name="nombre" autoComplete="name" placeholder="Nombre" value={form.nombre} onChange={(e) => set({ nombre: e.target.value })} aria-invalid={errors.nombre ? true : undefined} />, 2)}
+        {field('taller', 'Taller (opcional)', <Input id="m-taller" name="taller" autoComplete="organization" placeholder="Taller (opc.)" value={form.taller} onChange={(e) => set({ taller: e.target.value })} />, 2)}
+        {field('email', 'Email', <Input id="m-email" name="email" type="email" inputMode="email" autoComplete="email" placeholder="Email" value={form.email} onChange={(e) => set({ email: e.target.value })} aria-invalid={errors.email ? true : undefined} />, 3, 'col-span-2')}
+        {field(
+          'zona',
+          'Zona principal',
+          <Select id="m-zona" name="zona" value={form.zona} onChange={(e) => set({ zona: e.target.value })} aria-invalid={errors.zona ? true : undefined}>
+            <option value="">Zona principal</option>
+            {LOCATIONS.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.label}
+              </option>
+            ))}
+          </Select>,
+          4,
         )}
-        <Button type="submit" variant="dark" size="lg" loading={sending}>
-          Enviar
-        </Button>
-        <p className="mt-3 text-xs text-muted">{PRIVACY}</p>
+        {field('telefono', 'Teléfono (opcional)', <Input id="m-telefono" name="telefono" type="tel" inputMode="tel" autoComplete="tel" placeholder="Teléfono (opc.)" value={form.telefono} onChange={(e) => set({ telefono: e.target.value })} />, 4)}
+        {field('especialidad', 'Especialidad (opcional)', <Input id="m-especialidad" name="especialidad" placeholder="Especialidad (opc.): MTB, eléctricas…" value={form.especialidad} onChange={(e) => set({ especialidad: e.target.value })} />, 5, 'col-span-2')}
       </div>
+      <Honeypot value={honey} onChange={setHoney} />
+      {error && (
+        <div className="mt-2">
+          <FieldError>{error}</FieldError>
+        </div>
+      )}
+      <div className="cq-rise mt-3" style={rise(6)}>
+        <Button type="submit" variant="dark" block size="lg" loading={sending}>
+          Quiero unirme
+        </Button>
+      </div>
+      <Privacy i={7} />
     </form>
   );
 }

@@ -85,3 +85,37 @@
   to { opacity: 1; transform: none; }
 }
 .animate-fade-in { animation: fade-in 220ms ease-out; }
+
+/* Coming-soon page motion ("cq-" = Cromiqa). Disabled by the reduced-motion rule above. */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+@keyframes cq-rise {
+  from { opacity: 0; transform: translateY(10px); filter: blur(4px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+.cq-rise { animation: cq-rise 520ms cubic-bezier(.2, .8, .2, 1) both; }
+
+@keyframes cq-pop {
+  0% { opacity: 0; transform: scale(.6); }
+  60% { opacity: 1; transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+.cq-pop { animation: cq-pop 560ms cubic-bezier(.2, .9, .3, 1.2) both; }
+
+@keyframes cq-draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+.cq-draw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: cq-draw 650ms cubic-bezier(.65, 0, .35, 1) 250ms forwards; }
+
+@keyframes cq-burst {
+  0% { opacity: 0; transform: rotate(var(--a)) translateY(0) scale(.4); }
+  30% { opacity: 1; }
+  100% { opacity: 0; transform: rotate(var(--a)) translateY(-42px) scale(1); }
+}
+.cq-burst { animation: cq-burst 700ms cubic-bezier(.2, .8, .2, 1) 300ms both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cq-draw { stroke-dashoffset: 0; }
+}

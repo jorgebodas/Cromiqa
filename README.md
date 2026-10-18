@@ -128,8 +128,12 @@ http before the HTTPS certificate exists. *Recordar este dispositivo* keeps the 
 
 ## Marketing page
 
-- **Lead forms** (`src/marketing/`): *Avísame cuando abra* (email + zone) and *¿Eres mecánico?*
-  (progressive disclosure). Submissions go to FormSubmit's AJAX API and arrive by email. They are
+- **Layout** (`src/marketing/ComingSoonPage.tsx`): animated app icon, centred wordmark and tagline,
+  a swipeable auto-advancing benefits carousel (`BenefitsCarousel.tsx`, pauses on interaction and with
+  reduced motion) and a floating dock (`LeadDock.tsx`) with two one-line CTAs, *Avísame* and
+  *Soy mecánico*. Choosing one grows the dock upwards with a springy expansion and staggered fields;
+  success draws the brand check with a small burst.
+- **Lead forms** (`src/marketing/LeadForms.tsx`): waitlist (email + zone) and mechanics. Submissions go to FormSubmit's AJAX API and arrive by email. They are
   **hidden until `DEFAULT_LEAD_EMAIL` in `src/marketing/leads.ts` is set** (or `VITE_LEAD_EMAIL`), so
   the page never shows a form that cannot deliver. First submission triggers a one-time FormSubmit
   activation email; afterwards you can swap the address for FormSubmit's random alias.

@@ -1,75 +1,54 @@
-import { BadgeCheck, ReceiptText, ScanSearch } from 'lucide-react';
+import type { CSSProperties } from 'react';
 import { Wordmark } from '@/brand/Wordmark';
-import { MechanicLeadForm, WaitlistForm } from './LeadForms';
+import { BenefitsCarousel } from './BenefitsCarousel';
+import { LeadDock } from './LeadDock';
 import { leadsEnabled } from './leads';
 
-const POINTS = [
-  { icon: ScanSearch, title: 'Empiezas por el problema', text: 'Cuéntanos qué le pasa a tu bici y te mostramos quién puede ayudarte.' },
-  { icon: ReceiptText, title: 'Precios claros', text: 'Precios orientativos antes de pedir nada. Sin sorpresas.' },
-  { icon: BadgeCheck, title: 'Mecánicos de confianza', text: 'Talleres y mecánicos independientes cerca de ti, a domicilio o en taller.' },
-];
+/** Animated app icon: the ring draws itself, then the lime check lands. */
+function HeroMark() {
+  return (
+    <span className="cq-pop relative flex size-24 items-center justify-center rounded-[28px] bg-ink shadow-[0_20px_50px_-20px_rgb(23_23_23/0.55)]" aria-hidden>
+      <svg viewBox="0 0 124 100" className="w-[62px] overflow-visible">
+        <ellipse cx="52" cy="50" rx="44" ry="41.5" fill="none" stroke="#fff" strokeWidth="17" pathLength={1} className="cq-draw" style={{ animationDelay: '250ms' }} />
+        <path d="M63 75 L77 89 L114 52" fill="none" stroke="#171717" strokeWidth="29" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M63 75 L77 89 L114 52" fill="none" stroke="#C7FF2F" strokeWidth="15" strokeLinecap="round" strokeLinejoin="round" pathLength={1} className="cq-draw" style={{ animationDelay: '900ms' }} />
+      </svg>
+    </span>
+  );
+}
+
+const delay = (ms: number): CSSProperties => ({ animationDelay: `${ms}ms` });
 
 /** Public face of cromiqa.com while the product is private. */
 export function ComingSoonPage() {
   return (
-    <div className="flex min-h-dvh flex-col bg-paper">
-      <header className="container-page flex h-20 items-center">
-        <Wordmark className="text-2xl" />
-      </header>
+    <div className="relative flex min-h-dvh flex-col overflow-hidden bg-paper">
+      {/* Soft light glow, the light-mode echo of a spotlight. */}
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[70dvh] bg-[radial-gradient(60%_55%_at_50%_30%,#F6F4EF_0%,#FFFFFF_70%)]" />
 
-      <main className="flex flex-1 items-center">
-        <div className="container-page py-12 sm:py-20">
-          <p className="inline-flex items-center gap-2 rounded-full border border-line px-3.5 py-1.5 text-sm font-medium">
-            <span className="size-2 rounded-full bg-lime ring-2 ring-ink/80" aria-hidden />
+      <main className="relative flex flex-1 flex-col items-center justify-center pb-32 pt-14 sm:pt-20">
+        <div className="flex flex-col items-center px-6 text-center">
+          <HeroMark />
+          <p className="cq-rise mt-6 inline-flex items-center gap-2 rounded-full border border-line bg-paper px-3 py-1 text-xs font-medium" style={delay(500)}>
+            <span className="size-1.5 rounded-full bg-lime ring-2 ring-ink/80" aria-hidden />
             Próximamente · Madrid sureste
           </p>
-          <h1 className="mt-6 max-w-3xl text-[2.75rem] font-extrabold leading-[1.02] sm:text-6xl lg:text-7xl">
-            Tu bici, en buenas manos.
+          <h1 className="cq-rise mt-5" style={delay(650)}>
+            <Wordmark className="text-[44px] sm:text-6xl" />
           </h1>
-          <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted sm:text-xl">
-            Cromiqa conecta a ciclistas con mecánicos de confianza cerca de ti. Reparaciones, mantenimiento e inspecciones antes de
-            comprar una bici de segunda mano, sin complicaciones.
+          <p className="cq-rise mt-3 text-base text-muted sm:text-lg" style={delay(800)}>
+            Tu bici, en buenas manos.
           </p>
-          {leadsEnabled && (
-            <div className="mt-10">
-              <WaitlistForm />
-            </div>
-          )}
+        </div>
 
-          <ul className="mt-14 grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {POINTS.map((p) => (
-              <li key={p.title} className="rounded-3xl bg-sand p-6">
-                <p.icon className="size-5" aria-hidden />
-                <h2 className="mt-5 font-bold">{p.title}</h2>
-                <p className="mt-1.5 text-[15px] leading-relaxed text-muted">{p.text}</p>
-              </li>
-            ))}
-          </ul>
-
-          {leadsEnabled && (
-            <section aria-labelledby="pro-title" className="mt-16 rounded-3xl border border-line p-6 sm:p-10">
-              <p className="eyebrow mb-3">Para mecánicos y talleres</p>
-              <h2 id="pro-title" className="max-w-xl text-2xl font-extrabold sm:text-3xl">
-                ¿Eres mecánico o tienes un taller?
-              </h2>
-              <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-muted sm:text-base">
-                Recibe solicitudes claras, con la bici y el problema bien descritos, y responde con tu precio y tu agenda. Buscamos los
-                primeros mecánicos en Rivas, Arganda, Coslada y el sureste de Madrid.
-              </p>
-              <div className="mt-6">
-                <MechanicLeadForm />
-              </div>
-            </section>
-          )}
+        <div className="cq-rise mt-10 w-full sm:mt-14" style={delay(1000)}>
+          <BenefitsCarousel />
         </div>
       </main>
 
-      <footer className="border-t border-line">
-        <div className="container-page flex flex-col gap-1 py-6 text-sm text-muted sm:flex-row sm:justify-between">
-          <p>© {new Date().getFullYear()} Cromiqa</p>
-          <p>Rivas-Vaciamadrid · Arganda del Rey · Coslada · Madrid</p>
-        </div>
-      </footer>
+      <footer className="relative pb-28 text-center text-xs text-subtle">© {new Date().getFullYear()} Cromiqa</footer>
+
+      {leadsEnabled && <LeadDock />}
     </div>
   );
 }

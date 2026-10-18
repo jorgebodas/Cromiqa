@@ -11,8 +11,10 @@ test.beforeEach(async ({ page }) => {
 test('visitors only see the coming-soon page', async ({ page }) => {
   await page.goto('./#/mecanicos');
   await page.reload();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Tu bici, en buenas manos.');
+  await expect(page.getByRole('heading', { level: 1, name: 'Cromiqa' })).toBeVisible();
+  await expect(page.getByText('Tu bici, en buenas manos.')).toBeVisible();
   await expect(page.getByText('Próximamente · Madrid sureste')).toBeVisible();
+  await expect(page.getByTestId('benefits').getByRole('listitem')).toHaveCount(6);
   await expect(page.getByText('Entorno de demostración')).toHaveCount(0);
   await expect(page.getByText('Mecánicos para tu bici')).toHaveCount(0);
 });
@@ -41,10 +43,12 @@ test('a remembered device goes straight into the prototype', async ({ page }) =>
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Mecánicos para tu bici');
 });
 
-test('lead forms are visible on the public page', async ({ page }) => {
+test('floating dock shows both calls to action on one line', async ({ page }) => {
   await page.reload();
-  await expect(page.getByTestId('waitlist-form')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Quiero unirme' })).toBeVisible();
+  const a = await page.getByRole('button', { name: 'Avísame' }).boundingBox();
+  const b = await page.getByRole('button', { name: 'Soy mecánico' }).boundingBox();
+  expect(a && b && Math.abs(a.y - b.y) < 2).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize()!.width);
 });
 
 test('share card and SEO tags are present', async ({ page, request }) => {

@@ -17,7 +17,7 @@ export function ComingSoonPage() {
         <div className="cq-aurora-b absolute left-1/2 top-[14%] h-[300px] w-[480px] rounded-full bg-[radial-gradient(closest-side,rgb(240_255_90/0.15),rgb(240_255_90/0))] blur-3xl" />
       </div>
 
-      <main className="relative flex flex-1 flex-col items-center pb-28 pt-12 sm:pt-16">
+      <main className="relative flex flex-1 flex-col items-center justify-center pb-8 pt-14 sm:pt-20">
         <div className="flex flex-col items-center px-6 text-center">
           <p className="cq-rise inline-flex items-center gap-2 rounded-full border border-line bg-paper px-3 py-1 text-xs font-medium" style={delay(100)}>
             <span className="size-1.5 rounded-full bg-lime ring-2 ring-ink/80" aria-hidden />
@@ -31,7 +31,7 @@ export function ComingSoonPage() {
           </p>
         </div>
 
-        <div className="cq-rise mt-8 w-full sm:mt-12" style={delay(600)}>
+        <div className="cq-rise mt-12 w-full sm:mt-16" style={delay(600)}>
           <BenefitsCarousel />
         </div>
       </main>

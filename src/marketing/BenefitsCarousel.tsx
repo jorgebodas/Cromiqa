@@ -70,21 +70,17 @@ export function BenefitsCarousel() {
   }, []);
 
   return (
-    <section aria-label="Ventajas de Cromiqa" className="mx-auto w-full max-w-5xl">
+    <section aria-label="Ventajas de Cromiqa" className="mx-auto w-full max-w-4xl">
       <div
         ref={track}
-        className="no-scrollbar overflow-x-auto py-3 [mask-image:linear-gradient(to_right,transparent,#000_10%,#000_90%,transparent)]"
+        className="no-scrollbar overflow-x-auto py-3 [mask-image:linear-gradient(to_right,transparent,#000_12%,#000_88%,transparent)]"
         data-testid="benefits"
       >
         <div className="flex w-max gap-3 px-3">
           {[0, 1].map((copy) => (
             <ul key={copy} data-copy={copy} aria-hidden={copy === 1 || undefined} className="flex gap-3">
               {SLIDES.map((slide, i) => (
-                <li
-                  key={i}
-                  // Tall portrait cards: they fill the screen down to just above the floating buttons.
-                  className="relative aspect-[18/25] h-[clamp(220px,calc(100svh-340px),600px)] sm:h-[clamp(300px,calc(100svh-400px),600px)] shrink-0 overflow-hidden rounded-[28px] bg-ink"
-                >
+                <li key={i} className="relative aspect-[4/3] w-[288px] shrink-0 overflow-hidden rounded-3xl bg-ink sm:w-[320px]">
                   {slide.photo && (
                     <img
                       src={slide.photo.src}
@@ -95,13 +91,12 @@ export function BenefitsCarousel() {
                       className="absolute inset-0 size-full object-cover"
                     />
                   )}
-                  {/* Darken the lower part so the text always reads, whatever the photo. */}
-                  <span aria-hidden className="absolute inset-0 bg-[linear-gradient(to_top,rgb(14_14_14/0.88)_0%,rgb(14_14_14/0.55)_32%,rgb(14_14_14/0)_62%)]" />
-                  <div className="absolute inset-x-0 bottom-0 p-5 text-left text-white">
-                    <h3 className="font-display text-[21px] font-extrabold leading-tight">{slide.title}</h3>
-                    <p className="mt-1.5 text-[15px] leading-snug text-white/85">{slide.text}</p>
+                  {/* Frosted glass band: the photo itself, blurred, under the text. */}
+                  <div className="absolute inset-x-0 bottom-0 border-t border-white/15 bg-[rgb(22_22_22/0.28)] px-4 pb-3.5 pt-3 text-left text-white backdrop-blur-xl backdrop-saturate-150">
+                    <h3 className="font-display text-[17px] font-bold leading-tight">{slide.title}</h3>
+                    <p className="mt-0.5 text-[13.5px] leading-snug text-white/85">{slide.text}</p>
                   </div>
-                  <span className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-inset ring-white/10" aria-hidden />
+                  <span className="pointer-events-none absolute inset-0 rounded-3xl ring-1 ring-inset ring-white/10" aria-hidden />
                 </li>
               ))}
             </ul>

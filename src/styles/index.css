@@ -120,8 +120,9 @@
   .cq-draw { stroke-dashoffset: 0; }
 }
 
-/* Flat dock buttons, no shadow. The white one keeps a hairline so it reads on white. */
-.dock-btn { box-shadow: inset 0 0 0 1px rgb(23 23 23 / 0.08); }
+/* Flat dock buttons with a very light lime-tinted shadow. The white one adds a hairline. */
+.dock-btn-lime { box-shadow: 0 6px 14px -8px rgb(110 170 0 / 0.45); }
+.dock-btn { box-shadow: inset 0 0 0 1px rgb(23 23 23 / 0.08), 0 6px 14px -8px rgb(110 170 0 / 0.35); }
 .dock-btn-lime { background-color: #c7ff2f; }
 .dock-btn-lime:hover { background-color: #bdf51f; }
 .dock-btn { background-color: #ffffff; }

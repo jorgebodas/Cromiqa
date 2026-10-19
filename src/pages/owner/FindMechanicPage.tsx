@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { Info, Pencil, Search, SearchX, SlidersHorizontal, X } from 'lucide-react';
 import type { MechanicFilters, SortKey } from '@/domain/logic/search';
 import { searchMechanics } from '@/domain/logic/search';
 import { BIKE_TYPES, CATEGORIES, LOCATIONS, SPECIALIZATIONS, categoryLabel } from '@/domain/catalog';
 import { useApp } from '@/state/store';
+import { useNavUi } from '@/state/ui';
 import { MechanicCard } from '@/components/domain/MechanicCard';
 import { Button, Dialog, EmptyState, Field, Input, PageHeader, Select, cx } from '@/components/ui';
 import { buildSearchParams, parseSearchParams } from './searchParams';
@@ -103,6 +104,7 @@ export function FindMechanicPage() {
   const draft = useApp((s) => s.draft);
   const [query, setQuery] = useState(filters.query ?? '');
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const openNewRequest = useNavUi((s) => s.openNewRequest);
 
   const showProblem = filters.fromHome && draft.category;
   const results = useMemo(
@@ -142,7 +144,7 @@ export function FindMechanicPage() {
   return (
     <div className="container-page py-8 sm:py-10">
       <PageHeader
-        eyebrow="Encontrar mecánico"
+        eyebrow="Mecánicos"
         title="Mecánicos para tu bici"
         description="Filtra por zona, tipo de bici y modalidad. Los precios son orientativos y la cita se acuerda después."
       />
@@ -153,9 +155,9 @@ export function FindMechanicPage() {
             <span className="font-semibold">Tu necesidad: {categoryLabel(draft.category!)}</span>
             {draft.description && <span className="text-muted"> · “{draft.description.length > 90 ? `${draft.description.slice(0, 90)}…` : draft.description}”</span>}
           </p>
-          <Link to="/" className="inline-flex items-center gap-1.5 text-sm font-semibold hover:underline">
+          <button type="button" onClick={openNewRequest} className="inline-flex items-center gap-1.5 text-sm font-semibold hover:underline">
             <Pencil className="size-3.5" aria-hidden /> Cambiar
-          </Link>
+          </button>
         </div>
       )}
 

@@ -8,7 +8,8 @@ test.describe('Navegación', () => {
       ['#/', /Tu bici, en buenas manos/],
       ['#/mecanicos', /Mecánicos para tu bici/],
       ['#/mecanicos/m-marta', /Marta Ibáñez/],
-      ['#/solicitudes', /Hola, Ana/],
+      ['#/actividad', /Actividad/],
+      ['#/solicitudes', /Actividad/], // old link redirects
       ['#/garaje', /Tus bicis/],
       ['#/garaje/b-ana-mtb', /La de monte/],
       ['#/cuenta', /Tu cuenta/],
@@ -36,13 +37,100 @@ test.describe('Navegación', () => {
     }
   });
 
-  test('primary navigation works', async ({ page }) => {
+  test('cyclist navigation: three destinations, account, search and activity', async ({ page }) => {
+    await freshDemo(page, 'u-ana');
+    const mobile = isMobile(page);
+    const nav = page.getByRole('navigation', { name: mobile ? 'Principal (móvil)' : 'Principal', exact: true });
+    await expect(nav.getByRole('link')).toHaveText(['Inicio', 'Mecánicos', 'Garaje']);
+    await nav.getByRole('link', { name: 'Garaje' }).click();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Tus bicis');
+    await expect(nav.getByRole('link', { name: 'Garaje' })).toHaveAttribute('aria-current', 'page');
+
+    // Avatar → the existing account screen.
+    await page.getByTestId('account-link').filter({ visible: true }).click();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Tu cuenta');
+
+    // Search → quick results from the demo data.
+    await page.getByRole('button', { name: 'Buscar', exact: true }).filter({ visible: true }).click();
+    const search = page.getByRole('dialog', { name: 'Buscar' });
+    await search.getByRole('searchbox').fill('frenos');
+    await expect(search.getByRole('button', { name: 'Frenos' })).toBeVisible();
+    await search.getByRole('button', { name: /Nerea Campos/ }).click();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Nerea Campos');
+
+    // Bell → Actividad, with every request listed.
+    await page.getByTestId('activity-link').filter({ visible: true }).click();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Actividad');
+    await page.getByRole('tab', { name: /Todas/ }).click();
+    await expect(page.getByTestId('request-card').first()).toBeVisible();
+  });
+
+  test('activity badge counts unread updates and clears once seen', async ({ page }) => {
+    await freshDemo(page, 'u-ana');
+    const bell = page.getByTestId('activity-link').filter({ visible: true });
+    await expect(bell).toHaveAttribute('aria-label', /sin leer/);
+    await bell.click();
+    await page.getByRole('tab', { name: /Novedades/ }).click();
+    await expect(page.getByTestId('updates').getByRole('link').first()).toBeVisible();
+    await expect(bell).toHaveAttribute('aria-label', 'Actividad');
+    await page.reload();
+    await expect(page.getByTestId('activity-link').filter({ visible: true })).toHaveAttribute('aria-label', 'Actividad');
+  });
+
+  test('new request: + opens the four needs and starts the existing flow', async ({ page }) => {
+    await freshDemo(page, 'u-ana');
+    const mobile = isMobile(page);
+    if (mobile) await page.getByTestId('new-request-fab').click();
+    else await page.getByRole('button', { name: 'Nueva solicitud' }).click();
+    const sheet = page.getByRole('dialog', { name: '¿Qué necesita tu bici?' });
+    await expect(sheet.getByRole('list', { name: 'Tipo de servicio' }).getByRole('button')).toHaveText([
+      'Reparación',
+      'Mantenimiento',
+      'Inspección antes de comprar',
+      'No sé qué le pasa',
+    ]);
+    await sheet.getByRole('button', { name: 'Mantenimiento' }).click();
+    await expect(page).toHaveURL(/#\/mecanicos\?servicio=maintenance/);
+    await expect(page.getByText('Tu necesidad: Mantenimiento')).toBeVisible();
+
+    await page.getByRole('link', { name: /^Solicitar servicio/ }).first().click();
+    await expect(page).toHaveURL(/#\/solicitar/);
+    await expect(page.getByRole('radio', { name: /Mantenimiento/ })).toBeChecked();
+    // Focused flow: no tab bar and no + while filling it in.
+    await expect(page.getByTestId('new-request-fab')).toHaveCount(0);
+    await expect(page.getByRole('navigation', { name: 'Principal (móvil)' })).toHaveCount(0);
+
+    // Leaving keeps the draft, and + offers to continue it.
+    await page.getByRole('textbox').first().fill('Revisión completa antes del verano.');
+    await page.getByRole('button', { name: 'Salir de la solicitud' }).click();
+    if (mobile) await page.getByTestId('new-request-fab').click();
+    else await page.getByRole('button', { name: 'Nueva solicitud' }).click();
+    await page.getByRole('button', { name: /Continuar la solicitud en curso/ }).click();
+    await expect(page.getByRole('textbox').first()).toHaveValue('Revisión completa antes del verano.');
+  });
+
+  test('tabs remember their state, and back works from a direct link', async ({ page }) => {
     await freshDemo(page, 'u-ana');
     const nav = page.getByRole('navigation', { name: isMobile(page) ? 'Principal (móvil)' : 'Principal', exact: true });
-    await nav.getByRole('link', { name: isMobile(page) ? 'Garaje' : 'Mi garaje' }).click();
+    await nav.getByRole('link', { name: 'Mecánicos' }).click();
+    await page.getByRole('searchbox', { name: /Buscar/ }).fill('suspensión');
+    await expect(page).toHaveURL(/q=suspensi/);
+    await nav.getByRole('link', { name: 'Garaje' }).click();
+    await nav.getByRole('link', { name: 'Mecánicos' }).click();
+    await expect(page.getByRole('searchbox', { name: /Buscar/ })).toHaveValue('suspensión');
+
+    await page.goto('./#/garaje/b-ana-mtb');
+    await page.reload();
+    await page.getByRole('link', { name: 'Volver' }).click();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Tus bicis');
-    await nav.getByRole('link', { name: isMobile(page) ? /Solicitudes/ : /Mis solicitudes/ }).click();
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Hola, Ana');
+  });
+
+  test('mechanics keep their own navigation', async ({ page }) => {
+    await freshDemo(page, 'u-carlos');
+    await page.goto('./#/pro');
+    const nav = page.getByRole('navigation', { name: isMobile(page) ? 'Principal (móvil)' : 'Principal', exact: true });
+    await expect(nav.getByRole('link')).toHaveCount(5);
+    await expect(page.getByTestId('new-request-fab')).toHaveCount(0);
   });
 
   test('role gates offer a demo account instead of a fake login', async ({ page }) => {

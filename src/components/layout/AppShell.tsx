@@ -1,54 +1,212 @@
-import { useEffect, useState, type ReactNode } from 'react';
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
-import {
-  Bike,
-  CalendarClock,
-  ClipboardList,
-  FlaskConical,
-  Home,
-  Inbox,
-  LayoutDashboard,
-  RefreshCw,
-  Search,
-  UserRound,
-  Wrench,
-} from 'lucide-react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Link, NavLink, Outlet, matchPath, useLocation, useNavigationType } from 'react-router-dom';
+import { Bell, Bike, CalendarClock, FlaskConical, House, Inbox, LayoutDashboard, Plus, RefreshCw, Search, UserRound, Wrench } from 'lucide-react';
 import { Wordmark } from '@/brand/Wordmark';
 import { useCurrentUser } from '@/state/selectors';
 import { useApp } from '@/state/store';
+import { useOwnerActivity } from '@/state/activity';
+import { useNavUi } from '@/state/ui';
 import { Avatar, Toaster, cx } from '@/components/ui';
 import { AccountSwitcherDialog } from './AccountSwitcher';
+import { NewRequestSheet } from './NewRequestSheet';
+import { GlobalSearch } from './GlobalSearch';
 
 interface NavItem {
   to: string;
   label: string;
   short: string;
-  icon: typeof Home;
+  icon: typeof House;
   end?: boolean;
   badge?: number;
 }
 
-function useNavItems(): NavItem[] {
+/** The professional navigation is unchanged: five sections, top links on desktop and tabs on phones. */
+function useMechanicNavItems(): NavItem[] {
   const user = useCurrentUser();
   const requests = useApp((s) => s.db.requests);
-  if (user?.role === 'mechanic') {
-    const pending = requests.filter((r) => r.mechanicId === user.mechanicId && (r.status === 'sent' || r.status === 'awaiting_proposal')).length;
-    return [
-      { to: '/pro', label: 'Panel principal', short: 'Panel', icon: LayoutDashboard, end: true },
-      { to: '/pro/solicitudes', label: 'Solicitudes', short: 'Solicitudes', icon: Inbox, badge: pending },
-      { to: '/pro/servicios', label: 'Servicios', short: 'Servicios', icon: Wrench },
-      { to: '/pro/disponibilidad', label: 'Disponibilidad', short: 'Agenda', icon: CalendarClock },
-      { to: '/pro/perfil', label: 'Mi perfil', short: 'Perfil', icon: UserRound },
-    ];
-  }
-  const proposals = user ? requests.filter((r) => r.ownerId === user.id && r.status === 'proposal_received').length : 0;
+  const pending = requests.filter((r) => r.mechanicId === user?.mechanicId && (r.status === 'sent' || r.status === 'awaiting_proposal')).length;
   return [
-    { to: '/', label: 'Inicio', short: 'Inicio', icon: Home, end: true },
-    { to: '/mecanicos', label: 'Encontrar mecánico', short: 'Buscar', icon: Search },
-    { to: '/solicitudes', label: 'Mis solicitudes', short: 'Solicitudes', icon: ClipboardList, badge: proposals },
-    { to: '/garaje', label: 'Mi garaje', short: 'Garaje', icon: Bike },
-    { to: '/cuenta', label: 'Mi cuenta', short: 'Cuenta', icon: UserRound },
+    { to: '/pro', label: 'Panel principal', short: 'Panel', icon: LayoutDashboard, end: true },
+    { to: '/pro/solicitudes', label: 'Solicitudes', short: 'Solicitudes', icon: Inbox, badge: pending },
+    { to: '/pro/servicios', label: 'Servicios', short: 'Servicios', icon: Wrench },
+    { to: '/pro/disponibilidad', label: 'Disponibilidad', short: 'Agenda', icon: CalendarClock },
+    { to: '/pro/perfil', label: 'Mi perfil', short: 'Perfil', icon: UserRound },
   ];
+}
+
+// ── Cyclist navigation ───────────────────────────────────────────────────────
+// Three destinations (bottom bar), one global action (+), and a header with account,
+// search and activity. Screen-specific actions live inside each screen.
+
+interface OwnerTab {
+  id: 'inicio' | 'mecanicos' | 'garaje';
+  root: string;
+  label: string;
+  icon: typeof House;
+  owns: (path: string) => boolean;
+}
+
+const OWNER_TABS: OwnerTab[] = [
+  { id: 'inicio', root: '/', label: 'Inicio', icon: House, owns: (p) => p === '/' },
+  { id: 'mecanicos', root: '/mecanicos', label: 'Mecánicos', icon: Wrench, owns: (p) => p === '/mecanicos' || p.startsWith('/mecanicos/') },
+  { id: 'garaje', root: '/garaje', label: 'Garaje', icon: Bike, owns: (p) => p === '/garaje' || p.startsWith('/garaje/') },
+];
+
+/** Focused flows hide the bottom bar and the + so nothing competes with finishing the task. */
+const FOCUSED_ROUTES = ['/solicitar'];
+/** Screens with their own sticky primary action hide the bar on phones too. */
+const OWN_ACTION_ROUTES = ['/mecanicos/:id'];
+
+/**
+ * Each tab remembers where you left it (filters live in the URL) so switching tabs and
+ * coming back restores the same list; tapping the active tab returns to its root.
+ */
+function useTabMemory() {
+  const { pathname, search } = useLocation();
+  const memory = useRef<Record<string, string>>({});
+  const tab = OWNER_TABS.find((t) => t.owns(pathname));
+  if (tab) memory.current[tab.id] = pathname + search;
+  return (t: OwnerTab) => (t.id === tab?.id ? t.root : (memory.current[t.id] ?? t.root));
+}
+
+function BellLink({ unread, className }: { unread: number; className?: string }) {
+  return (
+    <NavLink
+      to="/actividad"
+      aria-label={unread ? `Actividad, ${unread} ${unread === 1 ? 'novedad' : 'novedades'} sin leer` : 'Actividad'}
+      className={({ isActive }) =>
+        cx('relative flex size-10 items-center justify-center rounded-full transition-colors hover:bg-sand', isActive && 'bg-sand', className)
+      }
+      data-testid="activity-link"
+    >
+      <Bell className="size-5" aria-hidden />
+      {unread > 0 && (
+        <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-ink px-1 text-[10px] font-bold text-paper" aria-hidden>
+          {unread > 9 ? '9+' : unread}
+        </span>
+      )}
+    </NavLink>
+  );
+}
+
+function AccountLink({ className }: { className?: string }) {
+  const user = useCurrentUser();
+  return (
+    <Link to="/cuenta" aria-label="Tu cuenta" className={cx('flex size-10 items-center justify-center rounded-full', className)} data-testid="account-link">
+      {user ? (
+        <Avatar name={user.name} size="sm" />
+      ) : (
+        <span className="flex size-8 items-center justify-center rounded-full bg-sand">
+          <UserRound className="size-4" aria-hidden />
+        </span>
+      )}
+    </Link>
+  );
+}
+
+function OwnerHeader({ tabHref, onSearch, onNewRequest }: { tabHref: (t: OwnerTab) => string; onSearch: () => void; onNewRequest: () => void }) {
+  const user = useCurrentUser();
+  const { unread } = useOwnerActivity(user?.role === 'owner' ? user.id : undefined);
+  const { pathname } = useLocation();
+  const searchButton = (
+    <button type="button" onClick={onSearch} aria-label="Buscar" className="flex size-10 items-center justify-center rounded-full transition-colors hover:bg-sand">
+      <Search className="size-5" aria-hidden />
+    </button>
+  );
+  return (
+    <header className="sticky top-0 z-40 border-b border-line bg-paper/90 backdrop-blur">
+      {/* Phones: avatar · logo · search + activity */}
+      <div className="container-page grid h-14 grid-cols-[1fr_auto_1fr] items-center md:hidden">
+        <AccountLink className="-ml-1" />
+        <Link to="/" className="rounded-md" aria-label="Cromiqa, inicio">
+          <Wordmark className="text-[20px]" />
+        </Link>
+        <div className="-mr-1 flex items-center justify-end">
+          {searchButton}
+          <BellLink unread={unread} />
+        </div>
+      </div>
+      {/* Desktop: logo · destinations · new request, search, activity, account */}
+      <div className="container-page hidden h-16 items-center justify-between gap-6 md:flex">
+        <Link to="/" className="rounded-md" aria-label="Cromiqa, inicio">
+          <Wordmark className="text-[22px]" />
+        </Link>
+        <nav aria-label="Principal">
+          <ul className="flex items-center gap-1">
+            {OWNER_TABS.map((t) => (
+              <li key={t.id}>
+                <Link
+                  to={tabHref(t)}
+                  state={{ tab: true }}
+                  aria-current={t.owns(pathname) ? 'page' : undefined}
+                  className={cx(
+                    'flex h-10 items-center rounded-full px-3.5 text-sm font-medium transition-colors',
+                    t.owns(pathname) ? 'bg-sand text-ink' : 'text-muted hover:text-ink',
+                  )}
+                >
+                  {t.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={onNewRequest}
+            className="mr-2 flex h-10 items-center gap-1.5 rounded-full bg-lime px-4 text-sm font-semibold text-ink transition-colors hover:bg-lime-deep"
+          >
+            <Plus className="size-4" aria-hidden /> Nueva solicitud
+          </button>
+          {searchButton}
+          <BellLink unread={unread} />
+          <AccountLink />
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function OwnerBottomNav({ tabHref, onNewRequest }: { tabHref: (t: OwnerTab) => string; onNewRequest: () => void }) {
+  const { pathname } = useLocation();
+  return (
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(10px,env(safe-area-inset-bottom))] md:hidden">
+      <div className="mx-auto flex max-w-md items-center gap-3">
+        <nav aria-label="Principal (móvil)" className="pointer-events-auto flex-1 rounded-full border border-line bg-paper/95 p-1 shadow-card backdrop-blur">
+          <ul className="grid grid-cols-3">
+            {OWNER_TABS.map((t) => {
+              const active = t.owns(pathname);
+              return (
+                <li key={t.id}>
+                  <Link
+                    to={tabHref(t)}
+                    state={{ tab: true }}
+                    aria-current={active ? 'page' : undefined}
+                    className={cx(
+                      'flex h-12 flex-col items-center justify-center gap-0.5 rounded-full text-[11px] font-medium transition-colors',
+                      active ? 'bg-sand text-ink' : 'text-muted',
+                    )}
+                  >
+                    <t.icon className="size-5" strokeWidth={active ? 2.25 : 1.75} aria-hidden />
+                    {t.label}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+        <button
+          type="button"
+          onClick={onNewRequest}
+          aria-label="Nueva solicitud"
+          className="pointer-events-auto flex size-14 shrink-0 items-center justify-center rounded-full bg-lime text-ink shadow-card transition-transform active:scale-95"
+          data-testid="new-request-fab"
+        >
+          <Plus className="size-6" strokeWidth={2.25} aria-hidden />
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function DemoBanner({ onSwitch }: { onSwitch: () => void }) {
@@ -85,15 +243,14 @@ function DemoBanner({ onSwitch }: { onSwitch: () => void }) {
   );
 }
 
-function Header({ items, onSwitch }: { items: NavItem[]; onSwitch: () => void }) {
+function MechanicHeader({ items, onSwitch }: { items: NavItem[]; onSwitch: () => void }) {
   const user = useCurrentUser();
-  const isPro = user?.role === 'mechanic';
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-paper/90 backdrop-blur">
       <div className="container-page flex h-16 items-center justify-between gap-6">
-        <Link to={isPro ? '/pro' : '/'} className="flex items-center gap-2 rounded-md" aria-label="Cromiqa, inicio">
+        <Link to="/pro" className="flex items-center gap-2 rounded-md" aria-label="Cromiqa, inicio">
           <Wordmark className="text-[22px]" />
-          {isPro && <span className="rounded-md bg-ink px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-paper">Pro</span>}
+          <span className="rounded-md bg-ink px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-paper">Pro</span>
         </Link>
         <nav aria-label="Principal" className="hidden md:block">
           <ul className="flex items-center gap-1">
@@ -134,7 +291,7 @@ function Header({ items, onSwitch }: { items: NavItem[]; onSwitch: () => void })
   );
 }
 
-function BottomTabs({ items }: { items: NavItem[] }) {
+function MechanicBottomTabs({ items }: { items: NavItem[] }) {
   return (
     <nav aria-label="Principal (móvil)" className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-paper/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
       <ul className="grid grid-cols-5">
@@ -185,14 +342,40 @@ function Footer() {
   );
 }
 
+/** Restores the scroll position when going back or returning to a tab; new pages start at the top. */
+function useScrollMemory() {
+  const { pathname, state } = useLocation();
+  const navType = useNavigationType();
+  const positions = useRef<Record<string, number>>({});
+  const current = useRef(pathname);
+  useEffect(() => {
+    const onScroll = () => {
+      positions.current[current.current] = window.scrollY;
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+  useEffect(() => {
+    current.current = pathname;
+    const restore = navType === 'POP' || (state as { tab?: boolean } | null)?.tab;
+    const top = restore ? (positions.current[pathname] ?? 0) : 0;
+    requestAnimationFrame(() => window.scrollTo({ top }));
+  }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+}
+
 export function AppShell({ children }: { children?: ReactNode }) {
   const [switcherOpen, setSwitcherOpen] = useState(false);
-  const items = useNavItems();
+  const { newRequestOpen, searchOpen, openNewRequest, closeNewRequest, openSearch, closeSearch } = useNavUi();
+  const user = useCurrentUser();
+  const isPro = user?.role === 'mechanic';
+  const mechanicItems = useMechanicNavItems();
+  const tabHref = useTabMemory();
   const { pathname } = useLocation();
+  useScrollMemory();
 
-  useEffect(() => {
-    window.scrollTo({ top: 0 });
-  }, [pathname]);
+  const focused = FOCUSED_ROUTES.some((r) => matchPath(r, pathname));
+  const ownAction = OWN_ACTION_ROUTES.some((r) => matchPath(r, pathname));
+  const showOwnerBar = !isPro && !focused && !ownAction;
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -200,14 +383,24 @@ export function AppShell({ children }: { children?: ReactNode }) {
         Saltar al contenido
       </a>
       <DemoBanner onSwitch={() => setSwitcherOpen(true)} />
-      <Header items={items} onSwitch={() => setSwitcherOpen(true)} />
-      <main id="main" className="flex-1 pb-24 md:pb-0">
+      {isPro ? (
+        <MechanicHeader items={mechanicItems} onSwitch={() => setSwitcherOpen(true)} />
+      ) : (
+        <OwnerHeader tabHref={tabHref} onSearch={openSearch} onNewRequest={openNewRequest} />
+      )}
+      <main id="main" className={cx('flex-1 md:pb-0', isPro || showOwnerBar ? 'pb-28' : 'pb-10')}>
         {children ?? <Outlet />}
       </main>
       <Footer />
-      <BottomTabs items={items} />
+      {isPro ? <MechanicBottomTabs items={mechanicItems} /> : showOwnerBar && <OwnerBottomNav tabHref={tabHref} onNewRequest={openNewRequest} />}
       <Toaster />
       <AccountSwitcherDialog open={switcherOpen} onClose={() => setSwitcherOpen(false)} />
+      {!isPro && (
+        <>
+          <NewRequestSheet open={newRequestOpen} onClose={closeNewRequest} />
+          <GlobalSearch open={searchOpen} onClose={closeSearch} />
+        </>
+      )}
     </div>
   );
 }

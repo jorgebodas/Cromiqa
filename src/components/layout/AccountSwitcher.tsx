@@ -19,7 +19,7 @@ export function useSwitchAccount() {
     if (opts.to) return navigate(opts.to);
     const onPro = location.pathname.startsWith('/pro');
     if (user?.role === 'mechanic' && !onPro) navigate('/pro');
-    else if (user?.role !== 'mechanic' && onPro) navigate(user ? '/solicitudes' : '/');
+    else if (user?.role !== 'mechanic' && onPro) navigate(user ? '/actividad' : '/');
   };
 }
 

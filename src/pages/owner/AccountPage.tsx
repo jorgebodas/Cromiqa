@@ -6,6 +6,7 @@ import { LOCATIONS } from '@/domain/catalog';
 import { useApp } from '@/state/store';
 import { useCurrentUser, useOwnerBikes, useRequestsFor } from '@/state/selectors';
 import { RoleGate } from '@/components/layout/RoleGate';
+import { BackLink } from '@/components/layout/BackLink';
 import { AccountSwitcherDialog, useSwitchAccount } from '@/components/layout/AccountSwitcher';
 import { Avatar, Button, Card, Field, Input, PageHeader, Select } from '@/components/ui';
 
@@ -36,8 +37,11 @@ function Inner() {
   };
 
   return (
-    <div className="container-page max-w-3xl py-8 sm:py-10">
-      <PageHeader eyebrow="Mi cuenta" title="Tu cuenta" />
+    <div className="container-page max-w-3xl py-6 sm:py-10">
+      <BackLink fallback="/" className="mb-5">
+        Volver
+      </BackLink>
+      <PageHeader eyebrow="Cuenta" title="Tu cuenta" />
       <Card className="flex items-center gap-4 p-5">
         <Avatar name={user.name} size="lg" />
         <div className="min-w-0">

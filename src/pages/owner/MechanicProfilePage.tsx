@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Award, CalendarDays, Clock, Languages, MapPin, Store, UserRoundX } from 'lucide-react';
+import { ArrowRight, Award, CalendarDays, Clock, Languages, MapPin, Store, UserRoundX } from 'lucide-react';
 import { CATEGORIES, TIME_SLOTS, WEEKDAYS, bikeTypeLabel, locationLabel, locationShort, specializationLabel } from '@/domain/catalog';
 import { formatDate, formatLongDate, formatPrice } from '@/domain/utils';
 import { useApp } from '@/state/store';
@@ -7,6 +7,7 @@ import { useCurrentUser, useMechanic, useMechanicRating } from '@/state/selector
 import { DemoVerifiedBadge, ModeIndicators } from '@/components/domain/MechanicCard';
 import { Avatar, Badge, Card, DemoTag, EmptyState, LinkButton, Rating, SectionTitle, Stars, cx } from '@/components/ui';
 import { CATEGORY_ICONS } from './HomePage';
+import { BackLink } from '@/components/layout/BackLink';
 
 export function MechanicProfilePage() {
   const { id } = useParams();
@@ -39,9 +40,9 @@ export function MechanicProfilePage() {
     <div className="pb-28 lg:pb-0">
       <div className="border-b border-line bg-sand">
         <div className="container-page py-6 sm:py-10">
-          <Link to="/mecanicos" className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-muted hover:text-ink">
-            <ArrowLeft className="size-4" aria-hidden /> Volver a resultados
-          </Link>
+          <BackLink fallback="/mecanicos" className="mb-6">
+            Volver
+          </BackLink>
           {isSelf && (
             <p className="mb-5 rounded-2xl border border-ink bg-paper px-4 py-3 text-sm">
               Así ven los clientes tu perfil público. <Link to="/pro/perfil" className="font-semibold underline">Editar perfil</Link>
@@ -263,7 +264,13 @@ export function MechanicProfilePage() {
       </div>
 
       {!isSelf && (
-        <div className="fixed inset-x-0 bottom-16 z-30 border-t border-line bg-paper/95 p-3 backdrop-blur lg:hidden">
+        // Cyclists see no tab bar on this screen (its main action is this button); mechanics keep theirs.
+        <div
+          className={cx(
+            'fixed inset-x-0 z-30 border-t border-line bg-paper/95 p-3 backdrop-blur lg:hidden',
+            user?.role === 'mechanic' ? 'bottom-16' : 'bottom-0 pb-[max(12px,env(safe-area-inset-bottom))]',
+          )}
+        >
           <LinkButton to={requestHref} block size="lg">
             Solicitar servicio a {m.name.split(' ')[0]}
           </LinkButton>

@@ -25,7 +25,7 @@ Node 20+ (CI uses 22). For e2e tests on a fresh machine: `npx playwright install
 
 | Area | Screens |
 | --- | --- |
-| Owner | Inicio (“¿Qué necesita tu bici?”), Encontrar mecánico (filters + sort), Perfil de mecánico, Solicitud en 4 pasos + confirmación, Mis solicitudes (+ detalle, aceptar/rechazar propuesta, cancelar, mensajes, valoración), Mi garaje (alta/edición/baja, foto, historial), Mi cuenta |
+| Owner | Inicio (“¿Qué necesita tu bici?” + solicitudes en curso), Mecánicos (filters + sort), Perfil de mecánico, Solicitud en 4 pasos + confirmación, Actividad (Solicitudes + Novedades; detalle, aceptar/rechazar propuesta, cancelar, mensajes, valoración), Garaje (alta/edición/baja, foto, historial), Tu cuenta |
 | Mechanic | Panel principal, Solicitudes (aceptar para valorar, proponer precio y cita, rechazar, en curso, completar), Servicios y precios, Disponibilidad, Mi perfil (cambios visibles al instante en el perfil público) |
 | Demo | `#/demo`: cambiar de cuenta, guía de escenarios A–E, todas las solicitudes, *Restaurar escenarios* y *Reset demo* |
 
@@ -61,7 +61,7 @@ records. Dates are generated relative to the reset moment so the demo always loo
 ## Test scenarios (all automated in `tests/e2e/scenarios.spec.ts`)
 
 - **A — Reparación:** Inicio → *Reparación* → “los cambios saltan…” → MTB → A domicilio en Rivas →
-  Carlos → enviar → visible en *Mis solicitudes*.
+  Carlos → enviar → visible en *Actividad* (campana).
 - **B — Respuesta:** cambiar a Carlos → abrir la solicitud → *Aceptar para valorar* → precio y cita →
   volver a Ana → *Aceptar propuesta* → *Confirmada*.
 - **C — Completar:** Carlos → *Marcar en curso* → *Marcar como completado* → Ana ve *Completada* y el
@@ -237,3 +237,21 @@ address (or FormSubmit's alias if provided) and deploy.
 3. Notifications (email/WhatsApp) for new requests and proposals; calendar slots instead of free dates.
 4. Garage → full maintenance timeline, reminders, and inspection reports with photos for resale.
 5. Analytics on the funnel (need → results → request → accepted proposal).
+
+## Navigation (cyclist)
+
+- **Destinations** (bottom bar on phones, header links on desktop): Inicio `/`, Mecánicos `/mecanicos`, Garaje `/garaje`.
+  Each tab remembers its last URL (filters live in the URL) and scroll; tapping the active tab returns to its root.
+- **Global action**: the lime **+** (desktop: “Nueva solicitud”) opens *¿Qué necesita tu bici?* — Reparación,
+  Mantenimiento, Inspección antes de comprar, No sé qué le pasa. It seeds the existing request draft and opens Mecánicos
+  filtered by that service; picking a mechanic continues in `/solicitar` with the category preselected. A draft in
+  progress is offered first, so it is never lost.
+- **Header**: avatar → *Tu cuenta* (`/cuenta`), search (mechanics, services, specialities — also via common problem
+  words), bell → *Actividad* (`/actividad`): *Solicitudes* (all requests by status) and *Novedades* (events the
+  mechanics triggered on your requests, from the demo data). The bell counts updates not seen yet (per account,
+  stored locally). `/solicitudes` redirects to `/actividad`.
+- **Levels**: destinations show bar + header; detail screens use a context-aware “Volver” (history, or a sensible
+  parent when opened by URL); the request flow is focused (no bar, no +; back, close and progress), and a mechanic's
+  profile hides the bar on phones because its sticky “Solicitar servicio” is the main action.
+- **Mechanics** keep their own five-section navigation (`/pro…`).
+

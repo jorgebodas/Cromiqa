@@ -14,7 +14,7 @@ export function RequestSentPage() {
   if (!request || !mechanic) {
     return (
       <div className="container-page py-12">
-        <EmptyState as="h1" icon={<Check className="size-6" />} title="Solicitud no encontrada" action={<LinkButton to="/solicitudes" variant="dark">Mis solicitudes</LinkButton>} />
+        <EmptyState as="h1" icon={<Check className="size-6" />} title="Solicitud no encontrada" action={<LinkButton to="/actividad" variant="dark">Ver actividad</LinkButton>} />
       </div>
     );
   }
@@ -38,7 +38,7 @@ export function RequestSentPage() {
         <ol className="mt-4 space-y-4">
           {[
             [`${first} revisa tu solicitud`, `${mechanic.responseTime}.`],
-            ['Recibes una propuesta', 'Precio, fecha y hora aparecerán en “Mis solicitudes”.'],
+            ['Recibes una propuesta', 'Precio, fecha y hora aparecerán en Actividad.'],
             ['Tú decides', 'Si la aceptas, la cita queda confirmada. Si no, puedes rechazarla sin coste.'],
           ].map(([title, text], i) => (
             <li key={title} className="flex gap-4">

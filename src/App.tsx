@@ -1,11 +1,11 @@
-import { HashRouter, Route, Routes } from 'react-router-dom';
+import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AppShell } from '@/components/layout/AppShell';
 import { HomePage } from '@/pages/owner/HomePage';
 import { FindMechanicPage } from '@/pages/owner/FindMechanicPage';
 import { MechanicProfilePage } from '@/pages/owner/MechanicProfilePage';
 import { RequestFlowPage } from '@/pages/owner/request/RequestFlowPage';
 import { RequestSentPage } from '@/pages/owner/RequestSentPage';
-import { MyRequestsPage } from '@/pages/owner/MyRequestsPage';
+import { ActivityPage } from '@/pages/owner/ActivityPage';
 import { OwnerRequestDetailPage } from '@/pages/owner/OwnerRequestDetailPage';
 import { GaragePage } from '@/pages/owner/garage/GaragePage';
 import { BikeDetailPage } from '@/pages/owner/garage/BikeDetailPage';
@@ -29,7 +29,9 @@ export function App() {
           <Route path="mecanicos" element={<FindMechanicPage />} />
           <Route path="mecanicos/:id" element={<MechanicProfilePage />} />
           <Route path="solicitar" element={<RequestFlowPage />} />
-          <Route path="solicitudes" element={<MyRequestsPage />} />
+          <Route path="actividad" element={<ActivityPage />} />
+          {/* Old entry point: the request list now lives in Actividad. */}
+          <Route path="solicitudes" element={<Navigate to="/actividad" replace />} />
           <Route path="solicitudes/:id" element={<OwnerRequestDetailPage />} />
           <Route path="solicitudes/:id/enviada" element={<RequestSentPage />} />
           <Route path="garaje" element={<GaragePage />} />

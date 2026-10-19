@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode, type TouchEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { IconButton } from './Button';
@@ -12,11 +12,27 @@ interface DialogProps {
   children: ReactNode;
   footer?: ReactNode;
   size?: 'md' | 'lg';
+  /** Bottom sheet on phones: shows a grab handle and closes when dragged down. */
+  sheet?: boolean;
 }
 
 /** Accessible modal: focus moves in, Escape closes, focus is trapped and restored. */
-export function Dialog({ open, onClose, title, description, children, footer, size = 'md' }: DialogProps) {
+export function Dialog({ open, onClose, title, description, children, footer, size = 'md', sheet = false }: DialogProps) {
   const panel = useRef<HTMLDivElement>(null);
+  const dragStart = useRef<number | null>(null);
+  const [drag, setDrag] = useState(0);
+  const onTouchStart = (e: TouchEvent) => {
+    dragStart.current = e.touches[0]!.clientY;
+  };
+  const onTouchMove = (e: TouchEvent) => {
+    if (dragStart.current !== null) setDrag(Math.max(0, e.touches[0]!.clientY - dragStart.current));
+  };
+  const onTouchEnd = () => {
+    dragStart.current = null;
+    if (drag > 90) onClose();
+    setDrag(0);
+  };
+  const dragHandlers = sheet ? { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel: onTouchEnd } : {};
 
   useEffect(() => {
     if (!open) return;
@@ -64,11 +80,18 @@ export function Dialog({ open, onClose, title, description, children, footer, si
         aria-labelledby="dialog-title"
         tabIndex={-1}
         className={cx(
-          'animate-fade-in relative flex max-h-[92vh] w-full flex-col rounded-t-3xl bg-paper shadow-pop sm:rounded-3xl',
+          'animate-fade-in relative flex max-h-[92dvh] w-full flex-col rounded-t-3xl bg-paper shadow-pop sm:rounded-3xl',
           size === 'md' ? 'sm:max-w-lg' : 'sm:max-w-2xl',
+          sheet && 'pb-[env(safe-area-inset-bottom)] sm:pb-0',
         )}
+        style={drag ? { transform: `translateY(${drag}px)`, transition: 'none' } : { transition: 'transform 200ms ease-out' }}
       >
-        <div className="flex items-start justify-between gap-4 px-5 pt-5 sm:px-6 sm:pt-6">
+        {sheet && (
+          <div className="flex justify-center pt-2.5 sm:hidden" aria-hidden {...dragHandlers}>
+            <span className="h-1 w-10 rounded-full bg-line-strong" />
+          </div>
+        )}
+        <div className={cx('flex items-start justify-between gap-4 px-5 pt-5 sm:px-6 sm:pt-6', sheet && 'pt-3')} {...dragHandlers}>
           <div>
             <h2 id="dialog-title" className="text-xl font-bold">
               {title}

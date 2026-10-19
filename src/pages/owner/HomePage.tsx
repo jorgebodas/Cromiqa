@@ -2,10 +2,11 @@ import { useMemo, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, CircleHelp, ClipboardCheck, MessagesSquare, ScanSearch, ShieldCheck, Wrench, Settings2 } from 'lucide-react';
 import type { BikeType, LocationId, ServiceCategory, ServiceMode } from '@/domain/types';
-import { BIKE_TYPES, CATEGORIES, LOCATIONS } from '@/domain/catalog';
+import { BIKE_TYPES, CATEGORIES, LOCATIONS, categoryLabel } from '@/domain/catalog';
 import { searchMechanics } from '@/domain/logic/search';
 import { useApp } from '@/state/store';
-import { useCurrentUser } from '@/state/selectors';
+import { ACTIVE_STATUSES, useCurrentUser, useRequestsFor } from '@/state/selectors';
+import { StatusBadge } from '@/components/domain/Status';
 import { useSwitchAccount } from '@/components/layout/AccountSwitcher';
 import { Avatar, Button, ChoiceCard, Field, FieldError, Rating, Select, Textarea, cx } from '@/components/ui';
 import { buildSearchParams } from './searchParams';
@@ -23,6 +24,48 @@ const PLACEHOLDERS: Record<ServiceCategory, string> = {
   inspection: 'Ej.: voy a comprar una MTB usada a un particular y quiero revisarla antes de pagar.',
   diagnosis: 'Ej.: oigo un clic al pedalear, pero no sé de dónde viene.',
 };
+
+/** Picks up where the owner left off: the most relevant active request and a link to all of them. */
+function ActiveRequestsSummary({ ownerId }: { ownerId: string }) {
+  const requests = useRequestsFor({ ownerId });
+  const mechanics = useApp((s) => s.db.mechanics);
+  const active = requests
+    .filter((r) => ACTIVE_STATUSES.includes(r.status))
+    .sort((a, b) => Number(b.status === 'proposal_received') - Number(a.status === 'proposal_received'));
+  const top = active[0];
+  if (!top) return null;
+  const mechanic = mechanics.find((m) => m.id === top.mechanicId);
+  return (
+    <section aria-labelledby="active-title" className="border-b border-line bg-paper">
+      <div className="container-page py-4">
+        <div className="flex items-center justify-between gap-3">
+          <h2 id="active-title" className="text-sm font-semibold">
+            {active.length === 1 ? 'Tienes 1 solicitud en curso' : `Tienes ${active.length} solicitudes en curso`}
+          </h2>
+          <Link to="/actividad" className="text-sm font-semibold hover:underline">
+            Ver todas
+          </Link>
+        </div>
+        <Link
+          to={`/solicitudes/${top.id}`}
+          className="mt-3 flex items-center gap-3 rounded-2xl border border-line px-4 py-3 transition-colors hover:border-ink"
+          data-testid="active-request-summary"
+        >
+          <span className="min-w-0 flex-1">
+            <span className="block truncate font-semibold">
+              {categoryLabel(top.category)}
+              {mechanic && <span className="font-normal text-muted"> · {mechanic.name}</span>}
+            </span>
+            <span className="mt-1 block">
+              <StatusBadge status={top.status} />
+            </span>
+          </span>
+          <ArrowRight className="size-4 shrink-0 text-muted" aria-hidden />
+        </Link>
+      </div>
+    </section>
+  );
+}
 
 export function HomePage() {
   const navigate = useNavigate();
@@ -60,6 +103,7 @@ export function HomePage() {
 
   return (
     <>
+      {user?.role === 'owner' && <ActiveRequestsSummary ownerId={user.id} />}
       <section className="relative overflow-hidden border-b border-line bg-sand">
         <div className="container-page grid grid-cols-1 gap-10 py-10 sm:py-14 lg:grid-cols-[1fr_minmax(0,520px)] lg:items-start lg:gap-14 lg:py-20">
           <div className="max-w-xl lg:pt-8">

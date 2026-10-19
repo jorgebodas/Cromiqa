@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Info, Send } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Info, Send, X } from 'lucide-react';
 import type { ID } from '@/domain/types';
 import { DomainError } from '@/domain/logic/requests';
 import { useApp, type RequestDraft } from '@/state/store';
 import { useCurrentUser, useMechanic, useOwnerBikes } from '@/state/selectors';
 import { useSwitchAccount } from '@/components/layout/AccountSwitcher';
-import { Avatar, Button, ChoiceCard, FieldError, cx } from '@/components/ui';
+import { Avatar, Button, ChoiceCard, FieldError, IconButton, cx } from '@/components/ui';
+import { BackLink } from '@/components/layout/BackLink';
 import { ModeIndicators } from '@/components/domain/MechanicCard';
 import { parseSearchParams } from '../searchParams';
 import { STEP_TITLES, draftToInput, firstInvalidStep, validateStep, type DraftErrors } from './draftValidation';
@@ -177,9 +178,20 @@ export function RequestFlowPage() {
     <div className="container-page py-6 sm:py-10">
       <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1fr_320px]">
         <div className="min-w-0 max-w-2xl">
-          <Link to={`/mecanicos/${mechanic.id}`} className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-muted hover:text-ink">
-            <ArrowLeft className="size-4" aria-hidden /> Perfil de {mechanic.name.split(' ')[0]}
-          </Link>
+          {/* Focused flow: no tab bar here, just back, close and progress. The draft is kept either way. */}
+          <div className="mb-6 flex items-center justify-between gap-3">
+            <BackLink fallback={`/mecanicos/${mechanic.id}`}>Perfil de {mechanic.name.split(' ')[0]}</BackLink>
+            <IconButton
+              label="Salir de la solicitud"
+              onClick={() => {
+                toast('Guardamos tu solicitud. Puedes seguir con ella desde «Nueva solicitud».', 'info');
+                navigate('/');
+              }}
+              className="-mr-2"
+            >
+              <X className="size-5" />
+            </IconButton>
+          </div>
 
           <nav aria-label="Pasos de la solicitud">
             <ol className="grid grid-cols-4 gap-1.5">

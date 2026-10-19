@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Bike, Check, CircleCheckBig, FlaskConical, Repeat, Star, X } from 'lucide-react';
+import { useParams } from 'react-router-dom';
+import { Bike, Check, CircleCheckBig, FlaskConical, Repeat, Star, X } from 'lucide-react';
 import { STATUSES } from '@/domain/catalog';
 import { canPerform, currentProposal, DomainError, type RequestAction } from '@/domain/logic/requests';
 import { formatLongDate } from '@/domain/utils';
 import { useApp } from '@/state/store';
 import { useCurrentUser, useMechanic, useRequest } from '@/state/selectors';
+import { BackLink } from '@/components/layout/BackLink';
 import { RoleGate } from '@/components/layout/RoleGate';
 import { useSwitchAccount } from '@/components/layout/AccountSwitcher';
 import { StatusBadge, StatusProgress } from '@/components/domain/Status';
@@ -85,7 +86,7 @@ function Inner() {
           icon={<X className="size-6" />}
           title="No encontramos esta solicitud"
           description="Puede que pertenezca a otra cuenta de la demo o que los datos se hayan restablecido."
-          action={<LinkButton to="/solicitudes" variant="dark">Mis solicitudes</LinkButton>}
+          action={<LinkButton to="/actividad" variant="dark">Ver actividad</LinkButton>}
         />
       </div>
     );
@@ -113,9 +114,9 @@ function Inner() {
 
   return (
     <div className="container-page py-6 sm:py-10">
-      <Link to="/solicitudes" className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-muted hover:text-ink">
-        <ArrowLeft className="size-4" aria-hidden /> Mis solicitudes
-      </Link>
+      <BackLink fallback="/actividad" className="mb-6">
+        Volver
+      </BackLink>
 
       <header className="mb-8">
         <div className="flex flex-wrap items-center gap-3">

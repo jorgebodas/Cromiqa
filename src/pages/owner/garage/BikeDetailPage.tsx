@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Bike as BikeIcon, ClipboardList, Pencil, Trash2, Wrench } from 'lucide-react';
+import { ArrowRight, Bike as BikeIcon, ClipboardList, Pencil, Trash2, Wrench } from 'lucide-react';
 import { bikeTypeLabel } from '@/domain/catalog';
 import { formatDate, formatPrice } from '@/domain/utils';
 import { useApp } from '@/state/store';
 import { useCurrentUser } from '@/state/selectors';
+import { BackLink } from '@/components/layout/BackLink';
 import { RoleGate } from '@/components/layout/RoleGate';
 import { StatusBadge } from '@/components/domain/Status';
 import { Button, Card, Dialog, EmptyState, KeyValue, LinkButton } from '@/components/ui';
@@ -46,9 +47,9 @@ function Inner() {
 
   return (
     <div className="container-page py-6 sm:py-10">
-      <Link to="/garaje" className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-muted hover:text-ink">
-        <ArrowLeft className="size-4" aria-hidden /> Mi garaje
-      </Link>
+      <BackLink fallback="/garaje" className="mb-6">
+        Volver
+      </BackLink>
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[360px_1fr]">
         <div className="space-y-4">
           <BikePhoto bike={bike} className="h-56" />

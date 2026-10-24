@@ -75,13 +75,13 @@ function BellLink({ unread, className }: { unread: number; className?: string })
       to="/actividad"
       aria-label={unread ? `Actividad, ${unread} ${unread === 1 ? 'novedad' : 'novedades'} sin leer` : 'Actividad'}
       className={({ isActive }) =>
-        cx('relative flex size-10 items-center justify-center rounded-full transition-colors hover:bg-sand', isActive && 'bg-sand', className)
+        cx('relative flex size-12 items-center justify-center rounded-full transition-colors hover:bg-sand md:size-10', isActive && 'bg-sand', className)
       }
       data-testid="activity-link"
     >
-      <Bell className="size-5" aria-hidden />
+      <Bell className="size-6 md:size-5" aria-hidden />
       {unread > 0 && (
-        <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-ink px-1 text-[10px] font-bold text-paper" aria-hidden>
+        <span className="absolute right-1.5 top-1.5 md:right-1 md:top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-ink px-1 text-[10px] font-bold text-paper" aria-hidden>
           {unread > 9 ? '9+' : unread}
         </span>
       )}
@@ -92,12 +92,12 @@ function BellLink({ unread, className }: { unread: number; className?: string })
 function AccountLink({ className }: { className?: string }) {
   const user = useCurrentUser();
   return (
-    <Link to="/cuenta" aria-label="Tu cuenta" className={cx('flex size-10 items-center justify-center rounded-full', className)} data-testid="account-link">
+    <Link to="/cuenta" aria-label="Tu cuenta" className={cx('flex size-12 items-center justify-center rounded-full md:size-10', className)} data-testid="account-link">
       {user ? (
-        <Avatar name={user.name} size="sm" />
+        <Avatar name={user.name} size="sm" className="size-10 text-sm md:size-8 md:text-xs" />
       ) : (
-        <span className="flex size-8 items-center justify-center rounded-full bg-sand">
-          <UserRound className="size-4" aria-hidden />
+        <span className="flex size-10 items-center justify-center rounded-full bg-sand md:size-8">
+          <UserRound className="size-5 md:size-4" aria-hidden />
         </span>
       )}
     </Link>
@@ -139,8 +139,8 @@ function useCondensedChrome() {
 /** Cromiqa's Q mark in a round badge, used as the logo inside the search bar. */
 function RoundLogo() {
   return (
-    <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-ink" aria-hidden>
-      <QMark color="#FFFFFF" tailColor="#C7FF2F" knockout="#171717" className="ml-0.5 w-[15px]" />
+    <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-ink" aria-hidden>
+      <QMark color="#FFFFFF" tailColor="#C7FF2F" knockout="#171717" className="ml-0.5 w-[19px]" />
     </span>
   );
 }
@@ -162,8 +162,8 @@ function OwnerHeader({
   const { unread } = useOwnerActivity(user?.role === 'owner' ? user.id : undefined);
   const { pathname } = useLocation();
   const searchButton = (
-    <button type="button" onClick={onSearch} aria-label="Buscar" className="flex size-10 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-sand">
-      <Search className="size-5" aria-hidden />
+    <button type="button" onClick={onSearch} aria-label="Buscar" className="flex size-12 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-sand md:size-10">
+      <Search className="size-6 md:size-5" aria-hidden />
     </button>
   );
   return (
@@ -176,7 +176,7 @@ function OwnerHeader({
       )}
     >
       {/* Phones: avatar · search bar with the round logo · activity. Condensed: floating circles. */}
-      <div className="container-page flex h-14 items-center gap-2 md:hidden">
+      <div className="container-page flex h-16 items-center gap-2 md:hidden">
         <AccountLink className={cx('pointer-events-auto -ml-1 transition-shadow duration-300', condensed && FLOAT)} />
         <button
           type="button"
@@ -184,7 +184,7 @@ function OwnerHeader({
           tabIndex={condensed ? -1 : 0}
           aria-hidden={condensed || undefined}
           className={cx(
-            'flex h-10 min-w-0 flex-1 items-center gap-2.5 rounded-full border border-line bg-paper pl-1.5 pr-4 text-left text-[15px] text-muted transition-[opacity,transform] duration-300',
+            'flex h-12 min-w-0 flex-1 items-center gap-3 rounded-full border border-line bg-paper pl-1.5 pr-4 text-left text-base text-muted transition-[opacity,transform] duration-300',
             condensed ? 'pointer-events-none scale-95 opacity-0' : 'pointer-events-auto opacity-100',
           )}
           data-testid="search-bar"
@@ -262,12 +262,12 @@ function OwnerBottomNav({
       <div className="mx-auto flex max-w-md items-center justify-between">
         <div
           className={cx(
-            'pointer-events-auto relative h-14 overflow-hidden rounded-full border border-line bg-paper/95 shadow-card backdrop-blur transition-[width] duration-300 ease-out',
-            condensed ? 'w-14' : 'w-[calc(100%-68px)]',
+            'pointer-events-auto relative h-16 overflow-hidden rounded-full border border-line bg-paper/95 shadow-card backdrop-blur transition-[width] duration-300 ease-out',
+            condensed ? 'w-16' : 'w-[calc(100%-76px)]',
           )}
         >
           <nav aria-label="Principal (móvil)" className={cx('h-full p-1 transition-opacity duration-200', condensed ? 'opacity-0' : 'opacity-100')} {...(condensed ? { inert: '' } : {})}>
-            <ul className="grid h-full min-w-[260px] grid-cols-3">
+            <ul className="grid h-full min-w-[220px] grid-cols-3">
               {OWNER_TABS.map((t) => {
                 const active = t.owns(pathname);
                 return (
@@ -277,11 +277,11 @@ function OwnerBottomNav({
                       state={{ tab: true }}
                       aria-current={active ? 'page' : undefined}
                       className={cx(
-                        'flex h-12 flex-col items-center justify-center gap-0.5 rounded-full text-[11px] font-medium transition-colors',
+                        'flex h-14 flex-col items-center justify-center gap-0.5 rounded-full text-xs font-medium transition-colors',
                         active ? 'bg-sand text-ink' : 'text-muted',
                       )}
                     >
-                      <t.icon className="size-5" strokeWidth={active ? 2.25 : 1.75} aria-hidden />
+                      <t.icon className="size-6" strokeWidth={active ? 2.25 : 1.75} aria-hidden />
                       {t.label}
                     </Link>
                   </li>
@@ -302,17 +302,17 @@ function OwnerBottomNav({
             )}
             data-testid="nav-condensed"
           >
-            <CurrentIcon className="size-6" strokeWidth={2.25} aria-hidden />
+            <CurrentIcon className="size-7" strokeWidth={2.25} aria-hidden />
           </button>
         </div>
         <button
           type="button"
           onClick={onNewRequest}
           aria-label="Nueva solicitud"
-          className="pointer-events-auto flex size-14 shrink-0 items-center justify-center rounded-full bg-lime text-ink shadow-card transition-transform active:scale-95"
+          className="pointer-events-auto flex size-16 shrink-0 items-center justify-center rounded-full bg-lime text-ink shadow-card transition-transform active:scale-95"
           data-testid="new-request-fab"
         >
-          <Plus className="size-6" strokeWidth={2.25} aria-hidden />
+          <Plus className="size-7" strokeWidth={2.25} aria-hidden />
         </button>
       </div>
     </div>
@@ -499,7 +499,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
       ) : (
         <OwnerHeader tabHref={tabHref} onSearch={openSearch} onNewRequest={openNewRequest} condensed={condensed} />
       )}
-      <main id="main" className={cx('flex-1 md:pb-0', isPro || showOwnerBar ? 'pb-28' : 'pb-10')}>
+      <main id="main" className={cx('flex-1 md:pb-0', isPro ? 'pb-28' : showOwnerBar ? 'pb-32' : 'pb-10')}>
         {children ?? <Outlet />}
       </main>
       <Footer />

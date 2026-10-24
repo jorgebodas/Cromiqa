@@ -134,14 +134,14 @@ test.describe('Navegación', () => {
     const condensed = page.getByTestId('nav-condensed');
     await expect(condensed).toBeVisible();
     await expect(condensed).toHaveAccessibleName(/Mecánicos/);
-    await expect.poll(async () => (await condensed.boundingBox())?.width).toBeLessThanOrEqual(60); // one circle
+    await expect.poll(async () => (await condensed.boundingBox())?.width).toBeLessThanOrEqual(68); // one circle
     // Header circles stay usable: search opens straight away.
     await page.getByRole('button', { name: 'Buscar', exact: true }).click();
     await expect(page.getByRole('dialog', { name: 'Buscar' })).toBeVisible();
     await page.keyboard.press('Escape');
     // Tapping the circle brings the full bar back.
     await page.mouse.wheel(0, 300);
-    await expect.poll(async () => (await condensed.boundingBox())?.width).toBeLessThanOrEqual(60);
+    await expect.poll(async () => (await condensed.boundingBox())?.width).toBeLessThanOrEqual(68);
     await condensed.click();
     await expect(page.getByRole('navigation', { name: 'Principal (móvil)' }).getByRole('link', { name: 'Garaje' })).toBeVisible();
   });

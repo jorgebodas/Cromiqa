@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, Outlet, matchPath, useLocation, useNavigationType } from 'react-router-dom';
-import { Bell, Bike, CalendarClock, FlaskConical, House, Inbox, LayoutDashboard, Plus, RefreshCw, Search, UserRound, Wrench } from 'lucide-react';
-import { Wordmark } from '@/brand/Wordmark';
+import { Bell, Bike, CalendarClock, FlaskConical, House, Inbox, LayoutDashboard, Menu, Plus, RefreshCw, Search, UserRound, Wrench } from 'lucide-react';
+import { QMark, Wordmark } from '@/brand/Wordmark';
 import { useCurrentUser } from '@/state/selectors';
 import { useApp } from '@/state/store';
 import { useOwnerActivity } from '@/state/activity';
@@ -104,25 +104,101 @@ function AccountLink({ className }: { className?: string }) {
   );
 }
 
-function OwnerHeader({ tabHref, onSearch, onNewRequest }: { tabHref: (t: OwnerTab) => string; onSearch: () => void; onNewRequest: () => void }) {
+/**
+ * Phones only: scrolling down condenses the chrome (Reddit-style). The top bar dissolves into
+ * floating circles and the tab bar shrinks to one circle showing where you are; scrolling up,
+ * reaching the top, or tapping a circle brings everything back.
+ */
+function useCondensedChrome() {
+  const [condensed, setCondensed] = useState(false);
+  const { pathname } = useLocation();
+  useEffect(() => {
+    let last = window.scrollY;
+    let frame = 0;
+    const onScroll = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const y = window.scrollY;
+        const delta = y - last;
+        if (y < 48) setCondensed(false);
+        else if (delta > 6) setCondensed(true);
+        else if (delta < -6) setCondensed(false);
+        if (Math.abs(delta) > 6) last = y;
+      });
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', onScroll);
+    };
+  }, []);
+  useEffect(() => setCondensed(false), [pathname]);
+  return [condensed, () => setCondensed(false)] as const;
+}
+
+/** Cromiqa's Q mark in a round badge, used as the logo inside the search bar. */
+function RoundLogo() {
+  return (
+    <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-ink" aria-hidden>
+      <QMark color="#FFFFFF" tailColor="#C7FF2F" knockout="#171717" className="ml-0.5 w-[15px]" />
+    </span>
+  );
+}
+
+const FLOAT = 'bg-paper/95 shadow-card ring-1 ring-line backdrop-blur';
+
+function OwnerHeader({
+  tabHref,
+  onSearch,
+  onNewRequest,
+  condensed,
+}: {
+  tabHref: (t: OwnerTab) => string;
+  onSearch: () => void;
+  onNewRequest: () => void;
+  condensed: boolean;
+}) {
   const user = useCurrentUser();
   const { unread } = useOwnerActivity(user?.role === 'owner' ? user.id : undefined);
   const { pathname } = useLocation();
   const searchButton = (
-    <button type="button" onClick={onSearch} aria-label="Buscar" className="flex size-10 items-center justify-center rounded-full transition-colors hover:bg-sand">
+    <button type="button" onClick={onSearch} aria-label="Buscar" className="flex size-10 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-sand">
       <Search className="size-5" aria-hidden />
     </button>
   );
   return (
-    <header className="sticky top-0 z-40 border-b border-line bg-paper/90 backdrop-blur">
-      {/* Phones: avatar · logo · search + activity */}
-      <div className="container-page grid h-14 grid-cols-[1fr_auto_1fr] items-center md:hidden">
-        <AccountLink className="-ml-1" />
-        <Link to="/" className="rounded-md" aria-label="Cromiqa, inicio">
-          <Wordmark className="text-[20px]" />
-        </Link>
-        <div className="-mr-1 flex items-center justify-end">
-          {searchButton}
+    <header
+      className={cx(
+        'sticky top-0 z-40 border-b transition-[background-color,border-color,backdrop-filter] duration-300',
+        condensed
+          ? 'pointer-events-none border-transparent bg-transparent md:pointer-events-auto md:border-line md:bg-paper/90 md:backdrop-blur'
+          : 'border-line bg-paper/90 backdrop-blur',
+      )}
+    >
+      {/* Phones: avatar · search bar with the round logo · activity. Condensed: floating circles. */}
+      <div className="container-page flex h-14 items-center gap-2 md:hidden">
+        <AccountLink className={cx('pointer-events-auto -ml-1 transition-shadow duration-300', condensed && FLOAT)} />
+        <button
+          type="button"
+          onClick={onSearch}
+          tabIndex={condensed ? -1 : 0}
+          aria-hidden={condensed || undefined}
+          className={cx(
+            'flex h-10 min-w-0 flex-1 items-center gap-2.5 rounded-full border border-line bg-paper pl-1.5 pr-4 text-left text-[15px] text-muted transition-[opacity,transform] duration-300',
+            condensed ? 'pointer-events-none scale-95 opacity-0' : 'pointer-events-auto opacity-100',
+          )}
+          data-testid="search-bar"
+        >
+          <RoundLogo />
+          <span className="truncate">Buscar en Cromiqa</span>
+        </button>
+        <div className={cx('pointer-events-auto -mr-1 flex items-center rounded-full transition-shadow duration-300', condensed && FLOAT)}>
+          {/* The search icon only joins the bell when the bar has turned into circles. */}
+          <span className={cx('grid transition-[grid-template-columns] duration-300', condensed ? 'grid-cols-[1fr]' : 'grid-cols-[0fr]')}>
+            <span className="overflow-hidden" {...(!condensed ? { inert: '' } : {})}>
+              {searchButton}
+            </span>
+          </span>
           <BellLink unread={unread} />
         </div>
       </div>
@@ -167,34 +243,68 @@ function OwnerHeader({ tabHref, onSearch, onNewRequest }: { tabHref: (t: OwnerTa
   );
 }
 
-function OwnerBottomNav({ tabHref, onNewRequest }: { tabHref: (t: OwnerTab) => string; onNewRequest: () => void }) {
+function OwnerBottomNav({
+  tabHref,
+  onNewRequest,
+  condensed,
+  expand,
+}: {
+  tabHref: (t: OwnerTab) => string;
+  onNewRequest: () => void;
+  condensed: boolean;
+  expand: () => void;
+}) {
   const { pathname } = useLocation();
+  const current = OWNER_TABS.find((t) => t.owns(pathname));
+  const CurrentIcon = current?.icon ?? Menu;
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(10px,env(safe-area-inset-bottom))] md:hidden">
-      <div className="mx-auto flex max-w-md items-center gap-3">
-        <nav aria-label="Principal (móvil)" className="pointer-events-auto flex-1 rounded-full border border-line bg-paper/95 p-1 shadow-card backdrop-blur">
-          <ul className="grid grid-cols-3">
-            {OWNER_TABS.map((t) => {
-              const active = t.owns(pathname);
-              return (
-                <li key={t.id}>
-                  <Link
-                    to={tabHref(t)}
-                    state={{ tab: true }}
-                    aria-current={active ? 'page' : undefined}
-                    className={cx(
-                      'flex h-12 flex-col items-center justify-center gap-0.5 rounded-full text-[11px] font-medium transition-colors',
-                      active ? 'bg-sand text-ink' : 'text-muted',
-                    )}
-                  >
-                    <t.icon className="size-5" strokeWidth={active ? 2.25 : 1.75} aria-hidden />
-                    {t.label}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
+      <div className="mx-auto flex max-w-md items-center justify-between">
+        <div
+          className={cx(
+            'pointer-events-auto relative h-14 overflow-hidden rounded-full border border-line bg-paper/95 shadow-card backdrop-blur transition-[width] duration-300 ease-out',
+            condensed ? 'w-14' : 'w-[calc(100%-68px)]',
+          )}
+        >
+          <nav aria-label="Principal (móvil)" className={cx('h-full p-1 transition-opacity duration-200', condensed ? 'opacity-0' : 'opacity-100')} {...(condensed ? { inert: '' } : {})}>
+            <ul className="grid h-full min-w-[260px] grid-cols-3">
+              {OWNER_TABS.map((t) => {
+                const active = t.owns(pathname);
+                return (
+                  <li key={t.id}>
+                    <Link
+                      to={tabHref(t)}
+                      state={{ tab: true }}
+                      aria-current={active ? 'page' : undefined}
+                      className={cx(
+                        'flex h-12 flex-col items-center justify-center gap-0.5 rounded-full text-[11px] font-medium transition-colors',
+                        active ? 'bg-sand text-ink' : 'text-muted',
+                      )}
+                    >
+                      <t.icon className="size-5" strokeWidth={active ? 2.25 : 1.75} aria-hidden />
+                      {t.label}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+          {/* Condensed: one circle with the current section; tapping it opens the bar again. */}
+          <button
+            type="button"
+            onClick={expand}
+            aria-label={`${current ? current.label : 'Menú'}. Mostrar menú`}
+            tabIndex={condensed ? 0 : -1}
+            aria-hidden={!condensed || undefined}
+            className={cx(
+              'absolute inset-0 flex items-center justify-center text-ink transition-opacity duration-200',
+              condensed ? 'opacity-100' : 'pointer-events-none opacity-0',
+            )}
+            data-testid="nav-condensed"
+          >
+            <CurrentIcon className="size-6" strokeWidth={2.25} aria-hidden />
+          </button>
+        </div>
         <button
           type="button"
           onClick={onNewRequest}
@@ -372,6 +482,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const tabHref = useTabMemory();
   const { pathname } = useLocation();
   useScrollMemory();
+  const [condensed, expand] = useCondensedChrome();
 
   const focused = FOCUSED_ROUTES.some((r) => matchPath(r, pathname));
   const ownAction = OWN_ACTION_ROUTES.some((r) => matchPath(r, pathname));
@@ -386,13 +497,13 @@ export function AppShell({ children }: { children?: ReactNode }) {
       {isPro ? (
         <MechanicHeader items={mechanicItems} onSwitch={() => setSwitcherOpen(true)} />
       ) : (
-        <OwnerHeader tabHref={tabHref} onSearch={openSearch} onNewRequest={openNewRequest} />
+        <OwnerHeader tabHref={tabHref} onSearch={openSearch} onNewRequest={openNewRequest} condensed={condensed} />
       )}
       <main id="main" className={cx('flex-1 md:pb-0', isPro || showOwnerBar ? 'pb-28' : 'pb-10')}>
         {children ?? <Outlet />}
       </main>
       <Footer />
-      {isPro ? <MechanicBottomTabs items={mechanicItems} /> : showOwnerBar && <OwnerBottomNav tabHref={tabHref} onNewRequest={openNewRequest} />}
+      {isPro ? <MechanicBottomTabs items={mechanicItems} /> : showOwnerBar && <OwnerBottomNav tabHref={tabHref} onNewRequest={openNewRequest} condensed={condensed} expand={expand} />}
       <Toaster />
       <AccountSwitcherDialog open={switcherOpen} onClose={() => setSwitcherOpen(false)} />
       {!isPro && (

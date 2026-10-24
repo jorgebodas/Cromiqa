@@ -253,5 +253,8 @@ address (or FormSubmit's alias if provided) and deploy.
 - **Levels**: destinations show bar + header; detail screens use a context-aware “Volver” (history, or a sensible
   parent when opened by URL); the request flow is focused (no bar, no +; back, close and progress), and a mechanic's
   profile hides the bar on phones because its sticky “Solicitar servicio” is the main action.
+- **Phones, on scroll** (Reddit-style): the header is avatar · search bar with the round Q logo · bell. Scrolling
+  down dissolves it into floating circles (avatar, and search + bell) and shrinks the tab bar to one circle showing
+  the current section; scrolling up, reaching the top or tapping that circle restores it. Search opens from the top.
 - **Mechanics** keep their own five-section navigation (`/pro…`).
 

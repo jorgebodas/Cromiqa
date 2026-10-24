@@ -45,7 +45,7 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
 
   const row = 'flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left hover:bg-sand';
   return (
-    <Dialog open={open} onClose={onClose} title="Buscar" sheet>
+    <Dialog open={open} onClose={onClose} title="Buscar" placement="top">
       <form onSubmit={submit} role="search">
         <div className="relative">
           <Search className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-muted" aria-hidden />

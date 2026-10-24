@@ -51,7 +51,8 @@ test.describe('Navegación', () => {
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Tu cuenta');
 
     // Search → quick results from the demo data.
-    await page.getByRole('button', { name: 'Buscar', exact: true }).filter({ visible: true }).click();
+    if (mobile) await page.getByTestId('search-bar').click();
+    else await page.getByRole('button', { name: 'Buscar', exact: true }).click();
     const search = page.getByRole('dialog', { name: 'Buscar' });
     await search.getByRole('searchbox').fill('frenos');
     await expect(search.getByRole('button', { name: 'Frenos' })).toBeVisible();
@@ -123,6 +124,26 @@ test.describe('Navegación', () => {
     await page.reload();
     await page.getByRole('link', { name: 'Volver' }).click();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Tus bicis');
+  });
+
+  test('phones: scrolling condenses the bars into circles that still work', async ({ page }) => {
+    test.skip(!isMobile(page), 'Phone-only behaviour');
+    await freshDemo(page, 'u-ana');
+    await page.goto('./#/mecanicos');
+    await page.mouse.wheel(0, 700);
+    const condensed = page.getByTestId('nav-condensed');
+    await expect(condensed).toBeVisible();
+    await expect(condensed).toHaveAccessibleName(/Mecánicos/);
+    await expect.poll(async () => (await condensed.boundingBox())?.width).toBeLessThanOrEqual(60); // one circle
+    // Header circles stay usable: search opens straight away.
+    await page.getByRole('button', { name: 'Buscar', exact: true }).click();
+    await expect(page.getByRole('dialog', { name: 'Buscar' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    // Tapping the circle brings the full bar back.
+    await page.mouse.wheel(0, 300);
+    await expect.poll(async () => (await condensed.boundingBox())?.width).toBeLessThanOrEqual(60);
+    await condensed.click();
+    await expect(page.getByRole('navigation', { name: 'Principal (móvil)' }).getByRole('link', { name: 'Garaje' })).toBeVisible();
   });
 
   test('mechanics keep their own navigation', async ({ page }) => {

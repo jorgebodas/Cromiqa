@@ -14,10 +14,12 @@ interface DialogProps {
   size?: 'md' | 'lg';
   /** Bottom sheet on phones: shows a grab handle and closes when dragged down. */
   sheet?: boolean;
+  /** Phones: slide down from the top instead (keeps a text field clear of the keyboard). */
+  placement?: 'bottom' | 'top';
 }
 
 /** Accessible modal: focus moves in, Escape closes, focus is trapped and restored. */
-export function Dialog({ open, onClose, title, description, children, footer, size = 'md', sheet = false }: DialogProps) {
+export function Dialog({ open, onClose, title, description, children, footer, size = 'md', sheet = false, placement = 'bottom' }: DialogProps) {
   const panel = useRef<HTMLDivElement>(null);
   const dragStart = useRef<number | null>(null);
   const [drag, setDrag] = useState(0);
@@ -71,7 +73,7 @@ export function Dialog({ open, onClose, title, description, children, footer, si
 
   if (!open) return null;
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
+    <div className={cx('fixed inset-0 z-50 flex justify-center sm:items-center sm:p-4', placement === 'top' ? 'items-start' : 'items-end')}>
       <div className="absolute inset-0 bg-ink/40 backdrop-blur-[2px]" onClick={onClose} aria-hidden />
       <div
         ref={panel}
@@ -80,18 +82,19 @@ export function Dialog({ open, onClose, title, description, children, footer, si
         aria-labelledby="dialog-title"
         tabIndex={-1}
         className={cx(
-          'animate-fade-in relative flex max-h-[92dvh] w-full flex-col rounded-t-3xl bg-paper shadow-pop sm:rounded-3xl',
+          'animate-fade-in relative flex max-h-[92dvh] w-full flex-col bg-paper shadow-pop sm:rounded-3xl',
+          placement === 'top' ? 'rounded-b-3xl pt-[env(safe-area-inset-top)]' : 'rounded-t-3xl',
           size === 'md' ? 'sm:max-w-lg' : 'sm:max-w-2xl',
           sheet && 'pb-[env(safe-area-inset-bottom)] sm:pb-0',
         )}
         style={drag ? { transform: `translateY(${drag}px)`, transition: 'none' } : { transition: 'transform 200ms ease-out' }}
       >
-        {sheet && (
+        {sheet && placement === 'bottom' && (
           <div className="flex justify-center pt-2.5 sm:hidden" aria-hidden {...dragHandlers}>
             <span className="h-1 w-10 rounded-full bg-line-strong" />
           </div>
         )}
-        <div className={cx('flex items-start justify-between gap-4 px-5 pt-5 sm:px-6 sm:pt-6', sheet && 'pt-3')} {...dragHandlers}>
+        <div className={cx('flex items-start justify-between gap-4 px-5 pt-5 sm:px-6 sm:pt-6', sheet && placement === 'bottom' && 'pt-3')} {...(placement === 'bottom' ? dragHandlers : {})}>
           <div>
             <h2 id="dialog-title" className="text-xl font-bold">
               {title}

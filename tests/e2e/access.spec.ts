@@ -14,8 +14,15 @@ test('visitors only see the coming-soon page', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 1, name: 'Cromiqa' })).toBeVisible();
   await expect(page.getByText('Encuentra mecánicos de confianza para reparar, mantener o revisar tu bici, donde y cuando te venga mejor.')).toBeVisible();
   await expect(page.getByText('Próximamente', { exact: true })).toBeVisible();
-  await expect(page.getByTestId('benefits').getByRole('heading', { level: 3 })).toHaveCount(5);
-  await expect(page.getByTestId('benefits').getByRole('img')).toHaveCount(5);
+  const benefits = page.getByTestId('benefits');
+  await expect(benefits.getByRole('heading', { level: 2, includeHidden: true })).toHaveCount(5);
+  // The deck shows one benefit at a time; tapping it brings the next headline in.
+  await expect(benefits.getByRole('heading', { level: 2 })).toHaveText('Empieza por el problema');
+  await benefits.getByRole('img').first().click({ force: true });
+  await expect(benefits.getByRole('heading', { level: 2 })).toHaveText('Precios claros');
+  await benefits.getByRole('button', { name: 'Revisión antes de comprar' }).click();
+  await expect(benefits.getByRole('heading', { level: 2 })).toHaveText('Revisión antes de comprar');
+  await expect(page.getByTestId('benefits').locator('img')).toHaveCount(5);
   await expect(page.getByText('Entorno de demostración')).toHaveCount(0);
   await expect(page.getByText('Mecánicos para tu bici')).toHaveCount(0);
 });

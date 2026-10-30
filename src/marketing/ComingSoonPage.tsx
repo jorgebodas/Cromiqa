@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import { Wordmark } from '@/brand/Wordmark';
-import { BenefitsCarousel } from './BenefitsCarousel';
+import { BenefitsDeck } from './BenefitsDeck';
 import { LeadDock } from './LeadDock';
 import { leadsEnabled } from './leads';
 
@@ -15,28 +15,28 @@ export function ComingSoonPage() {
         <div className="cq-glow absolute bottom-[-26dvh] left-1/2 h-[48dvh] w-[150vw] max-w-[1400px] rounded-full bg-[radial-gradient(closest-side,rgb(215_255_0/0.55),rgb(215_255_0/0.2)_55%,rgb(215_255_0/0))] blur-2xl" />
       </div>
 
-      {/* On very short screens the page scrolls, with room to bring the cards clear of the buttons. */}
-      <main className="relative flex flex-1 flex-col items-center pb-8 pt-[max(1.5rem,4dvh)] sm:pt-[max(2.5rem,6dvh)] [@media(max-height:620px)]:pb-28">
-        <div className="flex flex-col items-center px-6 text-center">
-          {/* Lime status label; every few seconds a glint sweeps across the word. */}
-          <p className="cq-rise text-[11px] font-extrabold uppercase tracking-[0.08em]" style={delay(100)}>
-            <span className="cq-glint">Próximamente</span>
-          </p>
-          <h1 className="cq-rise mt-4" style={delay(250)}>
-            <Wordmark className="text-[44px] sm:text-6xl" />
+      <main className="relative mx-auto flex w-full max-w-md flex-1 flex-col px-6 pb-36 pt-[max(1.25rem,3dvh)] sm:max-w-xl sm:pt-[max(2rem,5dvh)]">
+        {/* Brand row: wordmark and the status label. */}
+        <div className="cq-rise flex items-center justify-between" style={delay(100)}>
+          <h1>
+            <Wordmark className="text-[26px] sm:text-[30px]" />
           </h1>
-          <p className="cq-rise mt-2.5 max-w-[21rem] text-balance text-[15px] leading-normal text-muted sm:max-w-md sm:text-base" style={delay(400)}>
-            Encuentra mecánicos de confianza para reparar, mantener o revisar tu bici, donde y cuando te venga mejor.
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.08em]">
+            <span className="cq-glint">Próximamente</span>
           </p>
         </div>
 
-        <div className="cq-rise mt-6 w-full sm:mt-10" style={delay(600)}>
-          <BenefitsCarousel />
+        <div className="cq-rise mt-6 sm:mt-12" style={delay(250)}>
+          <BenefitsDeck />
         </div>
+
+        <p className="cq-rise mx-auto mt-3 max-w-[21rem] text-balance text-center text-[14px] leading-normal text-muted sm:max-w-md sm:text-[15px]" style={delay(450)}>
+          Encuentra mecánicos de confianza para reparar, mantener o revisar tu bici, donde y cuando te venga mejor.
+        </p>
       </main>
 
       {/* On phones the floating buttons sit where the footer would be. */}
-      <footer className="relative hidden pb-32 text-center text-xs text-subtle sm:block">
+      <footer className="relative -mt-28 hidden pb-32 text-center text-xs text-subtle sm:block">
         © {new Date().getFullYear()} Cromiqa
         {import.meta.env.VITE_STAGING && <span> · Staging: los envíos se simulan</span>}
       </footer>

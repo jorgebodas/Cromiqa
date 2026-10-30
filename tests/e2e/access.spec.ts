@@ -17,7 +17,7 @@ test('visitors only see the coming-soon page', async ({ page }) => {
   const benefits = page.getByTestId('benefits');
   await expect(benefits.getByRole('heading', { level: 2, includeHidden: true })).toHaveCount(5);
   // The deck shows one benefit at a time; tapping it brings the next headline in.
-  await expect(benefits.getByRole('heading', { level: 2 })).toHaveText(/^Cuéntanos qué le pasa a tu bici/);
+  await expect(benefits.getByRole('heading', { level: 2 })).toHaveText(/^Dinos qué le pasa a tu bici y te ayudamos/);
   await benefits.getByRole('img').first().click({ force: true });
   await expect(benefits.getByRole('heading', { level: 2 })).toHaveText(/^Precios claros antes de pedir nada/);
   // Dragging the photo sideways moves between benefits too.
@@ -28,7 +28,7 @@ test('visitors only see the coming-soon page', async ({ page }) => {
   await page.mouse.move(box.x + box.width * 0.4, y, { steps: 5 });
   await page.mouse.move(box.x + box.width * 0.1, y, { steps: 5 });
   await page.mouse.up();
-  await expect(benefits.getByRole('heading', { level: 2 })).toHaveText(/^En casa o en el taller, tú eliges/);
+  await expect(benefits.getByRole('heading', { level: 2 })).toHaveText(/^A domicilio o en el taller, tú eliges/);
   await expect(page.getByTestId('benefits').locator('img')).toHaveCount(5);
   await expect(page.getByText('Entorno de demostración')).toHaveCount(0);
   await expect(page.getByText('Mecánicos para tu bici')).toHaveCount(0);

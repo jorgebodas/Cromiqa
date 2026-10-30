@@ -1,20 +1,25 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
 import { buildSlides, useSiteContent } from './siteContent';
 import { cx } from '@/components/ui';
 
-const INTERVAL_MS = 3600;
-const EXIT_MS = 650;
+const INTERVAL_MS = 3800;
+const EXIT_MS = 620;
+
+interface Pose {
+  x: number;
+  y: number;
+  r: number;
+  s: number;
+}
 
 /** Where a card sits in the fanned stack: 0 is the front, higher numbers sit further back. */
-function slotTransform(slot: number) {
-  if (slot === 0) return 'translate3d(0, 0, 0) rotate(-3deg) scale(1)';
-  return `translate3d(${slot * 16}px, ${slot * 7}px, 0) rotate(${slot * 6 - 1}deg) scale(${1 - slot * 0.045})`;
+function slotPose(slot: number): Pose {
+  return slot === 0 ? { x: 0, y: 0, r: -3, s: 1 } : { x: slot * 14, y: slot * 7, r: slot * 6 - 1, s: 1 - slot * 0.045 };
 }
-
-/** The front photo following a finger: it slides and tilts a little with the drag. */
-function dragTransform(dx: number) {
-  return `translate3d(${dx}px, ${Math.abs(dx) * 0.06}px, 0) rotate(${-3 + dx / 18}deg) scale(1)`;
-}
+const lerp = (a: Pose, b: Pose, t: number): Pose => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, r: a.r + (b.r - a.r) * t, s: a.s + (b.s - a.s) * t });
+const css = (p: Pose) => `translate3d(${p.x}px, ${p.y}px, 0) rotate(${p.r}deg) scale(${p.s})`;
+/** The front photo under a finger: it slides, lifts a touch and tilts with the drag. */
+const dragPose = (dx: number): Pose => ({ x: dx, y: -Math.min(Math.abs(dx) * 0.04, 10), r: -3 + dx / 14, s: 1.02 });
 
 /** Words between *asterisks* are highlighted; without any, the last word is. */
 export function highlightParts(title: string): { text: string; accent: boolean }[] {
@@ -36,58 +41,127 @@ function Highlighted({ title }: { title: string }) {
   );
 }
 
+interface Press {
+  id: number;
+  x: number;
+  t: number;
+  lastX: number;
+  lastT: number;
+  velocity: number;
+}
+
 /**
- * The benefits as a fanned deck of photos. Every few seconds the front photo lifts away with a
- * blur and the next one settles in, while the headline in the top-left corner changes with it.
- * Tap or swipe the deck to move on (which stops the autoplay); press and hold to pause. With
- * reduced motion it stays on the first benefit and only moves when asked.
+ * The benefits as a fanned deck of photos, with the benefit as a big sentence above it.
+ * Every few seconds the front photo lifts away with a blur and the next settles in. The
+ * front photo also follows a finger: throw it left for the next one, right for the previous
+ * one (a short flick is enough), let go early and it springs back; the cards behind tighten
+ * up as you drag. A tap moves on, pressing and holding pauses, and a one-off nudge shows that
+ * the photo can be moved. With reduced motion nothing moves on its own.
  */
 export function BenefitsDeck() {
   const content = useSiteContent();
   const slides = useMemo(() => buildSlides(content), [content]);
   const count = slides.length;
   const [active, setActive] = useState(0);
-  const [exiting, setExiting] = useState<number | null>(null);
+  const [exit, setExit] = useState<{ index: number; from: string; fly: string } | null>(null);
   const [paused, setPaused] = useState(false);
-  const reduced = useRef(typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const [holding, setHolding] = useState(false);
-  const [dragX, setDragX] = useState(0);
-  const press = useRef<{ x: number; y: number; t: number; id: number; horizontal: boolean | null } | null>(null);
-  const exitFrom = useRef<string | null>(null);
+  const [dragX, setDragX] = useState<number | null>(null);
+  const [hint, setHint] = useState(false);
+  const press = useRef<Press | null>(null);
+  const deck = useRef<HTMLDivElement>(null);
+  const reduced = useRef(typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
-  const goTo = useCallback(
-    (next: number, animate = true) => {
+  const step = useCallback(
+    (dir: 1 | -1, fly?: { from: string; fly: string }) => {
       setActive((current) => {
-        const target = ((next % count) + count) % count;
-        if (target === current) return current;
-        if (animate && !reduced.current) setExiting(current);
-        return target;
+        if (!reduced.current) {
+          const from = fly?.from ?? css(slotPose(0));
+          setExit({ index: current, from, fly: fly?.fly ?? `${from} translate3d(-18px, -26px, 0) scale(1.08)` });
+        }
+        return (current + dir + count) % count;
       });
     },
     [count],
   );
 
   useEffect(() => {
-    if (exiting === null) return;
-    const t = window.setTimeout(() => {
-      setExiting(null);
-      exitFrom.current = null;
-    }, EXIT_MS);
+    if (!exit) return;
+    const t = window.setTimeout(() => setExit(null), EXIT_MS);
     return () => window.clearTimeout(t);
-  }, [exiting]);
+  }, [exit]);
 
   useEffect(() => {
     if (paused || holding || reduced.current || count < 2) return;
-    const t = window.setInterval(() => {
-      if (!document.hidden) goTo(active + 1);
-    }, INTERVAL_MS);
+    const t = window.setInterval(() => !document.hidden && step(1), INTERVAL_MS);
     return () => window.clearInterval(t);
-  }, [active, paused, holding, count, goTo]);
+  }, [active, paused, holding, count, step]);
+
+  // A single nudge shortly after load, so it's clear the photo can be moved.
+  useEffect(() => {
+    if (reduced.current) return;
+    const on = window.setTimeout(() => setHint(true), 1500);
+    const off = window.setTimeout(() => setHint(false), 2700);
+    return () => {
+      window.clearTimeout(on);
+      window.clearTimeout(off);
+    };
+  }, []);
 
   if (!count) return null;
 
+  const width = () => deck.current?.offsetWidth ?? 240;
+
+  const onDown = (e: PointerEvent<HTMLDivElement>) => {
+    if (press.current) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const now = performance.now();
+    press.current = { id: e.pointerId, x: e.clientX, t: now, lastX: e.clientX, lastT: now, velocity: 0 };
+    setHolding(true);
+    setHint(false);
+  };
+  const onMove = (e: PointerEvent<HTMLDivElement>) => {
+    const p = press.current;
+    if (!p || p.id !== e.pointerId) return;
+    const now = performance.now();
+    if (now > p.lastT) p.velocity = (e.clientX - p.lastX) / (now - p.lastT);
+    p.lastX = e.clientX;
+    p.lastT = now;
+    const dx = e.clientX - p.x;
+    if (Math.abs(dx) > 3) setDragX(dx);
+  };
+  const onUp = (e: PointerEvent<HTMLDivElement>) => {
+    const p = press.current;
+    if (!p || p.id !== e.pointerId) return;
+    press.current = null;
+    setHolding(false);
+    const dx = e.clientX - p.x;
+    // A flick counts if the finger was still moving fast when it let go.
+    const stillMoving = performance.now() - p.lastT < 120;
+    const fling = stillMoving && Math.abs(p.velocity) > 0.25 && Math.abs(dx) > 12;
+    if (Math.abs(dx) > width() * 0.28 || fling) {
+      const dir = dx < 0 ? 1 : -1;
+      const out = dx + Math.sign(dx) * width() * 1.1;
+      setPaused(true);
+      navigator.vibrate?.(8);
+      step(dir, { from: css(dragPose(dx)), fly: css({ ...dragPose(out), r: -3 + out / 10 }) });
+    } else if (Math.abs(dx) < 6 && performance.now() - p.t < 350) {
+      setPaused(true);
+      step(1);
+    }
+    setDragX(null);
+  };
+  const onCancel = () => {
+    press.current = null;
+    setHolding(false);
+    setDragX(null);
+  };
+
+  // How far the drag has gone (0–1): the cards behind move up towards the front as it grows.
+  const progress = dragX === null ? 0 : Math.min(Math.abs(dragX) / (width() * 0.5), 1);
+
   return (
-    <section aria-roledescription="carrusel" aria-label="Ventajas de Cromiqa" className="flex w-full flex-1 flex-col" data-testid="benefits">
+    <section aria-roledescription="carrusel" aria-label="Ventajas de Cromiqa" className="flex min-h-0 w-full flex-1 flex-col" data-testid="benefits">
       {/* Headline: every benefit is stacked in one grid cell, so the height never jumps. */}
       <div className="grid text-left">
         {slides.map((slide, i) => (
@@ -99,7 +173,7 @@ export function BenefitsDeck() {
               i === active ? 'translate-y-0 opacity-100 blur-0' : 'pointer-events-none translate-y-1.5 opacity-0 blur-[6px]',
             )}
           >
-            <h2 className="text-balance font-sans text-[32px] font-semibold leading-[1.1] tracking-[-0.025em] sm:text-[40px]">
+            <h2 className="max-w-[11ch] text-balance font-sans text-[34px] font-bold leading-[1.08] tracking-[-0.03em] sm:text-[42px]">
               <Highlighted title={slide.title} />
               <span className="sr-only">. {slide.text}</span>
             </h2>
@@ -107,85 +181,73 @@ export function BenefitsDeck() {
         ))}
       </div>
 
-      {/* The deck takes the free space between the headline and the buttons, centred in it. */}
-      <div className="flex flex-1 items-center justify-center py-6">
+      {/* The deck fills the space left between the headline and the buttons, centred in it. */}
+      <div className="flex min-h-0 flex-1 items-center justify-center py-5 [container-type:size]">
         <div
-          // Sized by width and by the height left on screen, so the buttons never cover it.
-          className="relative aspect-[5/6] w-[clamp(160px,min(72vw,300px,(100svh-340px)*0.8),300px)] cursor-pointer select-none [-webkit-touch-callout:none]"
-          // Touch: vertical moves still scroll the page; horizontal ones drag the front photo.
-          style={{ marginRight: `${(count - 1) * 16}px`, touchAction: 'pan-y' }}
-          onPointerDown={(e) => {
-            press.current = { x: e.clientX, y: e.clientY, t: Date.now(), id: e.pointerId, horizontal: null };
-            setHolding(true); // holding pauses the autoplay
-          }}
-          onPointerMove={(e) => {
-            const p = press.current;
-            if (!p || p.id !== e.pointerId) return;
-            const dx = e.clientX - p.x;
-            const dy = e.clientY - p.y;
-            if (p.horizontal === null && Math.hypot(dx, dy) > 8) {
-              p.horizontal = Math.abs(dx) > Math.abs(dy);
-              if (p.horizontal) e.currentTarget.setPointerCapture(e.pointerId);
-            }
-            if (p.horizontal) setDragX(dx);
-          }}
-          onPointerUp={(e) => {
-            const p = press.current;
-            press.current = null;
-            setHolding(false);
-            if (!p) return;
-            const dx = e.clientX - p.x;
-            if (p.horizontal && Math.abs(dx) > 60) {
-              exitFrom.current = dragTransform(dx);
-              setPaused(true);
-              goTo(active + (dx < 0 ? 1 : -1));
-            } else if (p.horizontal === null && Date.now() - p.t < 400) {
-              setPaused(true);
-              goTo(active + 1);
-            }
-            setDragX(0);
-          }}
-          onPointerCancel={() => {
-            press.current = null;
-            setHolding(false);
-            setDragX(0);
-          }}
+          ref={deck}
+          // Width from the screen and from the height available here, whichever is smaller.
+          className={cx(
+            'relative aspect-[5/6] w-[min(62vw,250px,calc(80cqh*0.8))] select-none [-webkit-touch-callout:none] [touch-action:none]',
+            dragX === null ? 'cursor-grab' : 'cursor-grabbing',
+          )}
+          style={{ marginRight: `${(count - 1) * 14}px` }}
+          onPointerDown={onDown}
+          onPointerMove={onMove}
+          onPointerUp={onUp}
+          onPointerCancel={onCancel}
+          onLostPointerCapture={onCancel}
         >
           {slides.map((slide, i) => {
             const slot = (i - active + count) % count;
-            const leaving = i === exiting;
+            const leaving = exit?.index === i;
+            const dragging = dragX !== null;
+            const pose = slot === 0 && dragging ? dragPose(dragX) : dragging && slot > 0 ? lerp(slotPose(slot), slotPose(slot - 1), progress * 0.6) : slotPose(slot);
             const style = {
               zIndex: leaving ? count + 1 : count - slot,
-              transform: slot === 0 && dragX ? dragTransform(dragX) : slotTransform(slot),
-              '--cq-from': (leaving && exitFrom.current) || slotTransform(0),
-              '--cq-to': slotTransform(slot),
+              transform: css(pose),
+              '--cq-from': leaving ? exit.from : undefined,
+              '--cq-fly': leaving ? exit.fly : undefined,
+              '--cq-to': css(slotPose(slot)),
             } as CSSProperties;
             return (
               <div
                 key={i}
                 aria-hidden={i !== active || undefined}
                 className={cx(
-                  'absolute inset-0 overflow-hidden rounded-[22px] bg-sand shadow-[0_18px_40px_-18px_rgb(23_23_23/0.45)] ring-1 ring-ink/5',
-                  leaving ? 'cq-deck-exit' : slot === 0 && dragX ? '' : 'transition-transform duration-700 ease-[cubic-bezier(.2,.9,.25,1)]',
+                  'absolute inset-0',
+                  leaving
+                    ? 'cq-deck-exit'
+                    : slot === 0 && dragging
+                      ? ''
+                      : dragging
+                        ? 'transition-transform duration-150 ease-out'
+                        : 'transition-transform duration-[650ms] ease-[cubic-bezier(.2,1.25,.35,1)]',
                 )}
                 style={style}
               >
-                {slide.photo && (
-                  <img
-                    src={slide.photo.src}
-                    alt={slide.photo.alt}
-                    loading={slot < 3 ? 'eager' : 'lazy'}
-                    decoding="async"
-                    draggable={false}
-                    className="size-full object-cover"
-                  />
-                )}
+                <div
+                  className={cx(
+                    'size-full overflow-hidden rounded-[22px] bg-sand shadow-[0_18px_40px_-18px_rgb(23_23_23/0.45)] ring-1 ring-ink/5 transition-shadow duration-300',
+                    slot === 0 && dragging && 'shadow-[0_28px_50px_-20px_rgb(23_23_23/0.5)]',
+                    slot === 0 && hint && 'cq-deck-hint',
+                  )}
+                >
+                  {slide.photo && (
+                    <img
+                      src={slide.photo.src}
+                      alt={slide.photo.alt}
+                      loading={slot < 3 ? 'eager' : 'lazy'}
+                      decoding="async"
+                      draggable={false}
+                      className="pointer-events-none size-full object-cover"
+                    />
+                  )}
+                </div>
               </div>
             );
           })}
         </div>
       </div>
-
     </section>
   );
 }

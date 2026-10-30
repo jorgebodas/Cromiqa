@@ -23,9 +23,9 @@ export interface StoredPhoto {
 // The title is the one big sentence shown on the landing; *asterisks* mark the highlighted
 // words (without them, the last word is highlighted). The text is read by screen readers.
 export const DEFAULT_BENEFITS: Benefit[] = [
-  { title: 'Cuéntanos qué le pasa a tu *bici*', text: 'Cuéntanos qué le pasa a tu bici y te ayudamos a encontrar al profesional adecuado.' },
+  { title: 'Dinos qué le pasa a tu *bici* y te ayudamos', text: 'Cuéntanos qué le pasa a tu bici y te ayudamos a encontrar al profesional adecuado.' },
   { title: 'Precios *claros* antes de pedir nada', text: 'Consulta precios orientativos antes de pedir nada y decide con más tranquilidad.' },
-  { title: 'En casa o en el taller, *tú eliges*', text: 'A domicilio o en taller. Elige la opción que mejor encaje contigo y con tu bici.' },
+  { title: 'A domicilio o en el taller, *tú eliges*', text: 'A domicilio o en taller. Elige la opción que mejor encaje contigo y con tu bici.' },
   { title: 'Mecánicos de *confianza*, cerca de ti', text: 'Profesionales especializados, con experiencia y valorados por otros ciclistas.' },
   { title: 'Revisa una bici usada *antes de comprar*', text: 'Haz revisar una bici de segunda mano antes de pagar y compra con más seguridad.' },
 ];

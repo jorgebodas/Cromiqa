@@ -73,6 +73,7 @@ function BenefitsEditor({ initial }: { initial: Benefit[] | null }) {
         <div>
           <h2 className="font-bold">Textos del carrusel</h2>
           <p className="text-sm text-muted">{initial ? 'Publicados desde el panel.' : 'Ahora la web muestra los textos por defecto.'}</p>
+          <p className="mt-1 text-sm text-muted">La frase es lo que se ve en grande; pon entre *asteriscos* las palabras en lima. El texto solo lo leen los lectores de pantalla.</p>
         </div>
         <Button variant="secondary" size="sm" icon={<Plus className="size-4" aria-hidden />} onClick={() => setItems((l) => [...l, { title: '', text: '' }])}>Añadir tarjeta</Button>
       </div>
@@ -81,7 +82,7 @@ function BenefitsEditor({ initial }: { initial: Benefit[] | null }) {
           <li key={i} className="flex gap-3 rounded-2xl border border-line p-3" data-testid="benefit-row">
             <span className="mt-3 w-5 text-center text-sm font-semibold text-muted tabular-nums">{i + 1}</span>
             <div className="min-w-0 flex-1 space-y-2">
-              <Input aria-label={`Título ${i + 1}`} value={b.title} maxLength={40} onChange={(e) => set(i, { title: e.target.value })} placeholder="Título" />
+              <Input aria-label={`Título ${i + 1}`} value={b.title} maxLength={48} onChange={(e) => set(i, { title: e.target.value })} placeholder="Frase corta, p. ej. Precios *claros* antes de pedir nada" />
               <Textarea aria-label={`Texto ${i + 1}`} value={b.text} maxLength={120} rows={2} onChange={(e) => set(i, { text: e.target.value })} placeholder="Texto breve" className="min-h-0" />
             </div>
             <div className="flex flex-col">

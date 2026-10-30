@@ -16,14 +16,22 @@ function dragTransform(dx: number) {
   return `translate3d(${dx}px, ${Math.abs(dx) * 0.06}px, 0) rotate(${-3 + dx / 18}deg) scale(1)`;
 }
 
-/** The last word of each title is the highlighted one ("Precios claros" → "claros"). */
-function Highlighted({ title }: { title: string }) {
+/** Words between *asterisks* are highlighted; without any, the last word is. */
+export function highlightParts(title: string): { text: string; accent: boolean }[] {
+  if (title.includes('*')) {
+    return title
+      .split('*')
+      .map((text, i) => ({ text, accent: i % 2 === 1 }))
+      .filter((p) => p.text);
+  }
   const cut = title.trimEnd().lastIndexOf(' ');
-  if (cut < 0) return <span className="text-lime-text">{title}</span>;
+  return cut < 0 ? [{ text: title, accent: true }] : [{ text: title.slice(0, cut + 1), accent: false }, { text: title.slice(cut + 1), accent: true }];
+}
+
+function Highlighted({ title }: { title: string }) {
   return (
     <>
-      {title.slice(0, cut + 1)}
-      <span className="text-lime-text">{title.slice(cut + 1)}</span>
+      {highlightParts(title).map((p, i) => (p.accent ? <span key={i} className="text-lime-text">{p.text}</span> : p.text))}
     </>
   );
 }
@@ -31,8 +39,8 @@ function Highlighted({ title }: { title: string }) {
 /**
  * The benefits as a fanned deck of photos. Every few seconds the front photo lifts away with a
  * blur and the next one settles in, while the headline in the top-left corner changes with it.
- * Tap the deck (or swipe) to move on; the dots jump to a benefit and stop the autoplay. Without
- * motion preferences it stays still on the first benefit and only moves when asked.
+ * Tap or swipe the deck to move on (which stops the autoplay); press and hold to pause. With
+ * reduced motion it stays on the first benefit and only moves when asked.
  */
 export function BenefitsDeck() {
   const content = useSiteContent();
@@ -79,7 +87,7 @@ export function BenefitsDeck() {
   if (!count) return null;
 
   return (
-    <section aria-roledescription="carrusel" aria-label="Ventajas de Cromiqa" className="w-full" data-testid="benefits">
+    <section aria-roledescription="carrusel" aria-label="Ventajas de Cromiqa" className="flex w-full flex-1 flex-col" data-testid="benefits">
       {/* Headline: every benefit is stacked in one grid cell, so the height never jumps. */}
       <div className="grid text-left">
         {slides.map((slide, i) => (
@@ -91,19 +99,19 @@ export function BenefitsDeck() {
               i === active ? 'translate-y-0 opacity-100 blur-0' : 'pointer-events-none translate-y-1.5 opacity-0 blur-[6px]',
             )}
           >
-            <h2 className="text-balance font-sans text-[28px] font-semibold leading-[1.12] tracking-[-0.02em] sm:text-[34px]">
+            <h2 className="text-balance font-sans text-[32px] font-semibold leading-[1.1] tracking-[-0.025em] sm:text-[40px]">
               <Highlighted title={slide.title} />
+              <span className="sr-only">. {slide.text}</span>
             </h2>
-            <p className="mt-2.5 max-w-sm text-balance text-[15px] leading-snug text-muted">{slide.text}</p>
           </div>
         ))}
       </div>
 
-      {/* The deck */}
-      <div className="mt-6 flex justify-center sm:mt-10">
+      {/* The deck takes the free space between the headline and the buttons, centred in it. */}
+      <div className="flex flex-1 items-center justify-center py-6">
         <div
           // Sized by width and by the height left on screen, so the buttons never cover it.
-          className="relative aspect-[5/6] w-[clamp(150px,min(62vw,240px,(100svh-420px)*0.83),240px)] cursor-pointer select-none [-webkit-touch-callout:none]"
+          className="relative aspect-[5/6] w-[clamp(160px,min(72vw,300px,(100svh-340px)*0.8),300px)] cursor-pointer select-none [-webkit-touch-callout:none]"
           // Touch: vertical moves still scroll the page; horizontal ones drag the front photo.
           style={{ marginRight: `${(count - 1) * 16}px`, touchAction: 'pan-y' }}
           onPointerDown={(e) => {
@@ -178,24 +186,6 @@ export function BenefitsDeck() {
         </div>
       </div>
 
-      {/* Dots: where you are, and a way to jump (which also stops the autoplay). */}
-      <div className="mt-5 flex justify-center gap-1.5" role="group" aria-label="Elegir ventaja">
-        {slides.map((slide, i) => (
-          <button
-            key={i}
-            type="button"
-            onClick={() => {
-              setPaused(true);
-              goTo(i);
-            }}
-            aria-label={slide.title}
-            aria-current={i === active || undefined}
-            className="flex h-6 items-center"
-          >
-            <span className={cx('block h-1.5 rounded-full transition-all duration-300', i === active ? 'w-5 bg-ink' : 'w-1.5 bg-line-strong')} />
-          </button>
-        ))}
-      </div>
     </section>
   );
 }

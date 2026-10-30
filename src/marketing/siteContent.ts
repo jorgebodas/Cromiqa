@@ -20,12 +20,14 @@ export interface StoredPhoto {
 
 // Order matters: need → transparency → convenience → trust → inspection. Each one is paired
 // with the bundled photo at the same position.
+// The title is the one big sentence shown on the landing; *asterisks* mark the highlighted
+// words (without them, the last word is highlighted). The text is read by screen readers.
 export const DEFAULT_BENEFITS: Benefit[] = [
-  { title: 'Empieza por el problema', text: 'Cuéntanos qué le pasa a tu bici y te ayudamos a encontrar al profesional adecuado.' },
-  { title: 'Precios claros', text: 'Consulta precios orientativos antes de pedir nada y decide con más tranquilidad.' },
-  { title: 'Donde tú prefieras', text: 'A domicilio o en taller. Elige la opción que mejor encaje contigo y con tu bici.' },
-  { title: 'Mecánicos de confianza', text: 'Profesionales especializados, con experiencia y valorados por otros ciclistas.' },
-  { title: 'Revisión antes de comprar', text: 'Haz revisar una bici de segunda mano antes de pagar y compra con más seguridad.' },
+  { title: 'Cuéntanos qué le pasa a tu *bici*', text: 'Cuéntanos qué le pasa a tu bici y te ayudamos a encontrar al profesional adecuado.' },
+  { title: 'Precios *claros* antes de pedir nada', text: 'Consulta precios orientativos antes de pedir nada y decide con más tranquilidad.' },
+  { title: 'En casa o en el taller, *tú eliges*', text: 'A domicilio o en taller. Elige la opción que mejor encaje contigo y con tu bici.' },
+  { title: 'Mecánicos de *confianza*, cerca de ti', text: 'Profesionales especializados, con experiencia y valorados por otros ciclistas.' },
+  { title: 'Revisa una bici usada *antes de comprar*', text: 'Haz revisar una bici de segunda mano antes de pagar y compra con más seguridad.' },
 ];
 
 // Bundled photos: any image in src/assets/mechanics/. File name → alt text
@@ -52,7 +54,7 @@ export interface SiteContent {
 }
 
 // Versioned so visitors don't briefly see a cached carousel from before the copy update.
-const CACHE_KEY = 'cromiqa:site-content:v2';
+const CACHE_KEY = 'cromiqa:site-content:v3';
 const DEFAULTS: SiteContent = { benefits: DEFAULT_BENEFITS, photos: DEFAULT_PHOTOS };
 
 const isBenefits = (v: unknown): v is Benefit[] =>

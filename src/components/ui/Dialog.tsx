@@ -67,7 +67,7 @@ export function Dialog({ open, onClose, title, description, children, footer, si
     return () => {
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = overflow;
-      previous?.focus();
+      previous?.focus({ preventScroll: true });
     };
   }, [open, onClose]);
 

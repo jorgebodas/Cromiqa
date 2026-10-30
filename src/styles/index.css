@@ -158,15 +158,19 @@
   0% { background-position: 100% 0; }
   30%, 100% { background-position: 0% 0; }
 }
-/* Benefits deck: the front photo flies off (lifted and blurred, or thrown where the finger
-   sent it), then reappears at the back of the fan. */
-@keyframes cq-deck-exit {
-  0% { transform: var(--cq-from); opacity: 1; filter: blur(0); }
-  42% { transform: var(--cq-fly); opacity: 0; filter: blur(8px); }
-  55% { transform: var(--cq-to); opacity: 0; filter: blur(4px); }
-  100% { transform: var(--cq-to); opacity: 1; filter: blur(0); }
+/* Benefits deck: the front photo flies off above the others (lifted and blurred, or thrown
+   where the finger sent it); then, in a separate step, fades in at the back of the fan. */
+@keyframes cq-deck-fly {
+  from { transform: var(--cq-from); opacity: 1; filter: blur(0); }
+  to { transform: var(--cq-fly); opacity: 0; filter: blur(8px); }
 }
-.cq-deck-exit { animation: cq-deck-exit 620ms cubic-bezier(.3, .7, .3, 1) both; }
+.cq-deck-fly { animation: cq-deck-fly 300ms cubic-bezier(.3, .6, .4, 1) both; }
+@keyframes cq-deck-return {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.cq-deck-return { animation: cq-deck-return 380ms ease-out both; }
+
 /* One-off nudge: the front photo leans left and back, hinting it can be swiped. */
 @keyframes cq-deck-hint {
   0%, 100% { transform: translateX(0) rotate(0); }

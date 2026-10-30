@@ -20,6 +20,15 @@ test('visitors only see the coming-soon page', async ({ page }) => {
   await expect(benefits.getByRole('heading', { level: 2 })).toHaveText('Empieza por el problema');
   await benefits.getByRole('img').first().click({ force: true });
   await expect(benefits.getByRole('heading', { level: 2 })).toHaveText('Precios claros');
+  // Dragging the photo sideways moves between benefits too.
+  const box = (await benefits.locator('img').first().boundingBox())!;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(box.x + box.width * 0.7, y);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.4, y, { steps: 5 });
+  await page.mouse.move(box.x + box.width * 0.1, y, { steps: 5 });
+  await page.mouse.up();
+  await expect(benefits.getByRole('heading', { level: 2 })).toHaveText('Donde tú prefieras');
   await benefits.getByRole('button', { name: 'Revisión antes de comprar' }).click();
   await expect(benefits.getByRole('heading', { level: 2 })).toHaveText('Revisión antes de comprar');
   await expect(page.getByTestId('benefits').locator('img')).toHaveCount(5);

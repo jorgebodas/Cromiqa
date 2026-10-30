@@ -11,6 +11,11 @@ function slotTransform(slot: number) {
   return `translate3d(${slot * 16}px, ${slot * 7}px, 0) rotate(${slot * 6 - 1}deg) scale(${1 - slot * 0.045})`;
 }
 
+/** The front photo following a finger: it slides and tilts a little with the drag. */
+function dragTransform(dx: number) {
+  return `translate3d(${dx}px, ${Math.abs(dx) * 0.06}px, 0) rotate(${-3 + dx / 18}deg) scale(1)`;
+}
+
 /** The last word of each title is the highlighted one ("Precios claros" → "claros"). */
 function Highlighted({ title }: { title: string }) {
   const cut = title.trimEnd().lastIndexOf(' ');
@@ -37,7 +42,10 @@ export function BenefitsDeck() {
   const [exiting, setExiting] = useState<number | null>(null);
   const [paused, setPaused] = useState(false);
   const reduced = useRef(typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-  const touchX = useRef<number | null>(null);
+  const [holding, setHolding] = useState(false);
+  const [dragX, setDragX] = useState(0);
+  const press = useRef<{ x: number; y: number; t: number; id: number; horizontal: boolean | null } | null>(null);
+  const exitFrom = useRef<string | null>(null);
 
   const goTo = useCallback(
     (next: number, animate = true) => {
@@ -53,17 +61,20 @@ export function BenefitsDeck() {
 
   useEffect(() => {
     if (exiting === null) return;
-    const t = window.setTimeout(() => setExiting(null), EXIT_MS);
+    const t = window.setTimeout(() => {
+      setExiting(null);
+      exitFrom.current = null;
+    }, EXIT_MS);
     return () => window.clearTimeout(t);
   }, [exiting]);
 
   useEffect(() => {
-    if (paused || reduced.current || count < 2) return;
+    if (paused || holding || reduced.current || count < 2) return;
     const t = window.setInterval(() => {
       if (!document.hidden) goTo(active + 1);
     }, INTERVAL_MS);
     return () => window.clearInterval(t);
-  }, [active, paused, count, goTo]);
+  }, [active, paused, holding, count, goTo]);
 
   if (!count) return null;
 
@@ -92,22 +103,44 @@ export function BenefitsDeck() {
       <div className="mt-6 flex justify-center sm:mt-10">
         <div
           // Sized by width and by the height left on screen, so the buttons never cover it.
-          className="relative aspect-[5/6] w-[clamp(150px,min(62vw,240px,(100svh-420px)*0.83),240px)] cursor-pointer select-none"
-          style={{ marginRight: `${(count - 1) * 16}px` }}
-          onClick={() => {
-            setPaused(true);
-            goTo(active + 1);
+          className="relative aspect-[5/6] w-[clamp(150px,min(62vw,240px,(100svh-420px)*0.83),240px)] cursor-pointer select-none [-webkit-touch-callout:none]"
+          // Touch: vertical moves still scroll the page; horizontal ones drag the front photo.
+          style={{ marginRight: `${(count - 1) * 16}px`, touchAction: 'pan-y' }}
+          onPointerDown={(e) => {
+            press.current = { x: e.clientX, y: e.clientY, t: Date.now(), id: e.pointerId, horizontal: null };
+            setHolding(true); // holding pauses the autoplay
           }}
-          onTouchStart={(e) => (touchX.current = e.touches[0]!.clientX)}
-          onTouchEnd={(e) => {
-            if (touchX.current === null) return;
-            const dx = e.changedTouches[0]!.clientX - touchX.current;
-            touchX.current = null;
-            if (Math.abs(dx) > 40) {
-              e.preventDefault();
+          onPointerMove={(e) => {
+            const p = press.current;
+            if (!p || p.id !== e.pointerId) return;
+            const dx = e.clientX - p.x;
+            const dy = e.clientY - p.y;
+            if (p.horizontal === null && Math.hypot(dx, dy) > 8) {
+              p.horizontal = Math.abs(dx) > Math.abs(dy);
+              if (p.horizontal) e.currentTarget.setPointerCapture(e.pointerId);
+            }
+            if (p.horizontal) setDragX(dx);
+          }}
+          onPointerUp={(e) => {
+            const p = press.current;
+            press.current = null;
+            setHolding(false);
+            if (!p) return;
+            const dx = e.clientX - p.x;
+            if (p.horizontal && Math.abs(dx) > 60) {
+              exitFrom.current = dragTransform(dx);
               setPaused(true);
               goTo(active + (dx < 0 ? 1 : -1));
+            } else if (p.horizontal === null && Date.now() - p.t < 400) {
+              setPaused(true);
+              goTo(active + 1);
             }
+            setDragX(0);
+          }}
+          onPointerCancel={() => {
+            press.current = null;
+            setHolding(false);
+            setDragX(0);
           }}
         >
           {slides.map((slide, i) => {
@@ -115,8 +148,8 @@ export function BenefitsDeck() {
             const leaving = i === exiting;
             const style = {
               zIndex: leaving ? count + 1 : count - slot,
-              transform: slotTransform(slot),
-              '--cq-from': slotTransform(0),
+              transform: slot === 0 && dragX ? dragTransform(dragX) : slotTransform(slot),
+              '--cq-from': (leaving && exitFrom.current) || slotTransform(0),
               '--cq-to': slotTransform(slot),
             } as CSSProperties;
             return (
@@ -125,7 +158,7 @@ export function BenefitsDeck() {
                 aria-hidden={i !== active || undefined}
                 className={cx(
                   'absolute inset-0 overflow-hidden rounded-[22px] bg-sand shadow-[0_18px_40px_-18px_rgb(23_23_23/0.45)] ring-1 ring-ink/5',
-                  leaving ? 'cq-deck-exit' : 'transition-transform duration-700 ease-[cubic-bezier(.2,.9,.25,1)]',
+                  leaving ? 'cq-deck-exit' : slot === 0 && dragX ? '' : 'transition-transform duration-700 ease-[cubic-bezier(.2,.9,.25,1)]',
                 )}
                 style={style}
               >

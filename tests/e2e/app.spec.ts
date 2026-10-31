@@ -326,6 +326,7 @@ test.describe('Navegación', () => {
     await hub.getByTestId('photo-input').setInputFiles({ name: 'doc.txt', mimeType: 'text/plain', buffer: Buffer.from('x') });
     await expect(hub.getByText('Solo se admiten imágenes')).toBeVisible();
     await hub.getByRole('button', { name: 'Continuar' }).click();
+    await expect(hub.getByLabel('Zona', { exact: true })).toHaveValue('rivas'); // their own zone, prefilled
     await hub.getByLabel('Zona', { exact: true }).selectOption('madrid-moratalaz');
     await hub.locator('label', { hasText: 'En taller' }).click();
     await hub.getByRole('button', { name: 'Continuar' }).click();

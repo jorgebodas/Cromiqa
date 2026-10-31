@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { ArrowRight } from 'lucide-react';
+import { Navigate } from 'react-router-dom';
 import { categoryLabel } from '@/domain/catalog';
 import { currentProposal } from '@/domain/logic/requests';
 import { searchMechanics } from '@/domain/logic/search';
@@ -8,7 +8,6 @@ import type { ServiceRequest } from '@/domain/types';
 import { useApp } from '@/state/store';
 import { ACTIVE_STATUSES, useCurrentUser, useOwnerBikes, useRequestsFor } from '@/state/selectors';
 import { useOwnerActivity } from '@/state/activity';
-import { useSwitchAccount } from '@/components/layout/AccountSwitcher';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { OwnerQuickActions } from '@/components/layout/QuickActions';
 import { StatusBadge } from '@/components/domain/Status';
@@ -66,17 +65,6 @@ function MechanicsWidget() {
           </li>
         ))}
       </ul>
-    </Widget>
-  );
-}
-
-function MechanicDemoWidget() {
-  const switchAccount = useSwitchAccount();
-  return (
-    <Widget title="Soy mecánico" caption="Prueba el panel" tone="ink" onClick={() => switchAccount('u-carlos', { to: '/pro' })} testId="widget-pro">
-      <p className="mt-auto flex items-center gap-1.5 text-sm font-semibold text-lime">
-        Demo <ArrowRight className="size-4" aria-hidden />
-      </p>
     </Widget>
   );
 }
@@ -139,7 +127,13 @@ function OwnerWidgets({ ownerId }: { ownerId: string }) {
         <WidgetFigure value={unread} unit="sin leer" accent={unread > 0} />
       </Widget>
 
-      {appointment ? (
+      <Widget title="Solicitudes" caption="En curso" to="/actividad" testId="widget-requests">
+        <WidgetFigure value={active.length} unit={active.length === 1 ? 'activa' : 'activas'} />
+      </Widget>
+
+      <NeedWidget />
+
+      {appointment && (
         <Widget
           title="Próxima cita"
           caption={mechanics.find((m) => m.id === appointment.r.mechanicId)?.name}
@@ -148,28 +142,19 @@ function OwnerWidgets({ ownerId }: { ownerId: string }) {
         >
           <WidgetFigure value={formatDate(appointment.p!.date)} unit={appointment.p!.time} />
         </Widget>
-      ) : (
-        <Widget title="Solicitudes" caption="En curso" to="/actividad" testId="widget-requests">
-          <WidgetFigure value={active.length} unit={active.length === 1 ? 'activa' : 'activas'} />
-        </Widget>
       )}
-
-      <NeedWidget />
-
-      <Widget title="Garaje" caption={lastService ? `Último: ${formatDate(lastService.date)}` : 'Tus bicis'} to="/garaje" testId="widget-garage">
+      {/* Full width when it has no partner, so the grid never leaves a gap. */}
+      <Widget
+        title="Garaje"
+        caption={lastService ? `Último: ${formatDate(lastService.date)}` : 'Tus bicis'}
+        to="/garaje"
+        size={appointment ? 'half' : 'full'}
+        testId="widget-garage"
+      >
         <WidgetFigure value={bikes.length} unit={bikes.length === 1 ? 'bici' : 'bicis'} />
       </Widget>
 
-      {appointment ? (
-        <Widget title="Solicitudes" caption="En curso" to="/actividad" testId="widget-requests">
-          <WidgetFigure value={active.length} unit={active.length === 1 ? 'activa' : 'activas'} />
-        </Widget>
-      ) : (
-        <MechanicDemoWidget />
-      )}
-
       <MechanicsWidget />
-      {appointment && <MechanicDemoWidget />}
     </>
   );
 }
@@ -182,6 +167,8 @@ function OwnerWidgets({ ownerId }: { ownerId: string }) {
 export function HomePage() {
   const user = useCurrentUser();
   const isOwner = user?.role === 'owner';
+  // Mechanics have their own home (the panel); switching role happens from the account.
+  if (user?.role === 'mechanic') return <Navigate to="/pro" replace />;
   return (
     <>
       <ScreenHeader title="Inicio" description={todayLabel()} actions={<OwnerQuickActions />} />
@@ -192,10 +179,6 @@ export function HomePage() {
           ) : (
             <>
               <NeedWidget />
-              <Widget title="Demo" caption="Entra como ciclista" to="/demo" testId="widget-demo">
-                <p className="mt-auto text-sm text-muted">Datos ficticios</p>
-              </Widget>
-              <MechanicDemoWidget />
               <MechanicsWidget />
             </>
           )}

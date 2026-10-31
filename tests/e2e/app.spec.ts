@@ -144,6 +144,16 @@ test.describe('Navegación', () => {
     await expect(page.getByRole('navigation', { name: 'Principal (móvil)' }).getByRole('link', { name: 'Garaje' })).toBeVisible();
   });
 
+  test('mechanics never land on the cyclist home, and home has no account switching', async ({ page }) => {
+    await freshDemo(page, 'u-ana');
+    await expect(page.getByTestId('widget-pro')).toHaveCount(0);
+    await switchAccount(page, 'Carlos');
+    await page.goto('./#/');
+    await expect(page).toHaveURL(/#\/pro$/);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Panel');
+    await expect(page.getByTestId('new-request-fab')).toHaveCount(0);
+  });
+
   test('mechanics keep their own navigation', async ({ page }) => {
     await freshDemo(page, 'u-carlos');
     await page.goto('./#/pro');

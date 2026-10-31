@@ -11,6 +11,7 @@ import { RoleGate } from '@/components/layout/RoleGate';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { Feature, HeroWidget, Stat, Widget, WidgetGrid, heroButtonClass } from '@/components/home/Widget';
 import { cx } from '@/components/ui';
+import { ProfileAvatarButton } from '@/components/layout/QuickActions';
 
 function todayLabel() {
   const text = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' }).replace('.', '');
@@ -69,7 +70,7 @@ function Inner() {
 
   return (
     <>
-      <ScreenHeader title="Inicio" description={todayLabel()} />
+      <ScreenHeader title="Inicio" description={todayLabel()} actions={<ProfileAvatarButton />} />
       <div className="container-page pb-8">
         <WidgetGrid>
           {/* 1 · Where the day stands, with the one action that matters most. */}

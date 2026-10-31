@@ -1,10 +1,10 @@
-import { NavLink } from 'react-router-dom';
-import { Bell, Search } from 'lucide-react';
+import { Link, NavLink } from 'react-router-dom';
+import { Bell, Search, UserRound } from 'lucide-react';
 import { useCurrentUser } from '@/state/selectors';
 import { useOwnerActivity } from '@/state/activity';
 import { useMode } from '@/state/mode';
 import { useNavUi } from '@/state/ui';
-import { cx } from '@/components/ui';
+import { Avatar, cx } from '@/components/ui';
 import { headerButtonClass } from './ScreenHeader';
 
 /**
@@ -46,11 +46,22 @@ export function SearchButton({ className }: { className?: string }) {
  * Top-right of the cyclist's main screens on phones: search and notifications. Screens that
  * already have their own search field (Mecánicos) leave the search button out.
  */
+/** The account, top-right on phones: photo or initials. Opens Perfil. */
+export function ProfileAvatarButton() {
+  const user = useCurrentUser();
+  return (
+    <Link to="/cuenta" aria-label="Tu perfil" className={cx(headerButtonClass, 'overflow-hidden md:hidden')} data-testid="account-link">
+      {user ? <Avatar name={user.name} size="sm" className="size-11 text-sm" /> : <UserRound className="size-5" aria-hidden />}
+    </Link>
+  );
+}
+
+/** Phone header actions in cyclist mode: search and the account (notifications live in the bottom bar). */
 export function CyclistHeaderActions({ search = true }: { search?: boolean }) {
   return (
     <span className="flex items-center gap-2 md:hidden">
       {search && <SearchButton />}
-      <NotificationsButton />
+      <ProfileAvatarButton />
     </span>
   );
 }

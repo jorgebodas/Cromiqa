@@ -119,14 +119,14 @@ export function WaitlistForm({ autoFocus = false, formId, onState }: LeadFormPro
   return (
     <form id={formId} onSubmit={submit} noValidate className="relative" data-testid="waitlist-form">
       <div className="cq-rise flex items-center justify-between gap-3" style={rise(0)}>
-        <h2 className="font-display text-xl font-extrabold leading-tight tracking-tight">Apúntate a la lista de espera</h2>
+        <h2 className="font-display text-xl font-extrabold leading-tight tracking-tight">Lista de espera</h2>
         {/* Testers: opens the prototype's access dialog. */}
         <button
           type="button"
           onClick={openTesterLogin}
           aria-label="Probar el prototipo"
           title="Probar el prototipo"
-          className="flex size-11 shrink-0 items-center justify-center rounded-full bg-ink text-lime transition-transform hover:scale-105 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+          className="flex size-11 shrink-0 items-center justify-center rounded-full border border-line bg-paper text-ink shadow-[var(--shadow-surface)] transition-transform hover:scale-105 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
           data-testid="tester-login"
         >
           <FlaskConical className="size-5" aria-hidden />

@@ -115,7 +115,7 @@ visible focus rings, labelled controls, keyboard-accessible dialogs, reduced-mot
 Production builds show a public **coming-soon page** (logo, tagline, short description). The
 prototype opens (`src/access/`) from:
 
-- the **round button** next to “Apúntate a la lista de espera” (tap *Avísame*), or
+- the **round button** next to “Lista de espera” (tap *Avísame*), or
 - the direct link **`/#/entrar`** (handy as a phone bookmark).
 
 Both open a password dialog. Only a salted SHA-256 hash is in the code, never the password; input is

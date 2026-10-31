@@ -32,10 +32,11 @@ Node 20+ (CI uses 22). For e2e tests on a fresh machine: `npx playwright install
 ### Request lifecycle
 
 A cyclist's request goes out as **separate invitations** (up to 5 per send). Each invitation:
-`Solicitud enviada → (Propuesta abierta) → Presupuesto recibido → Confirmada → En curso → Completada`,
+`Solicitud enviada → (Propuesta abierta) → Presupuesto recibido → Contratado → En curso → Por confirmar → Completada`,
 or `Cancelada` / `No seleccionada`. Rejecting a quote closes that invitation only. Accepting one quote
 books that mechanic and closes the others as *No seleccionada*. Nothing is a booking until the owner
-accepts, and accepting is not a payment. Completing a job on a garage bike adds a maintenance record.
+accepts, and accepting is not a payment. The appointment is agreed after hiring. A completed job on a
+garage bike adds a maintenance record.
 
 ## Demo accounts
 
@@ -65,8 +66,10 @@ records. Dates are generated relative to the reset moment so the demo always loo
   elegir Carlos y otro mecánico → enviar (cuenta Ana) → hub de la solicitud con 2 invitaciones.
 - **B — Respuesta:** Carlos → *Presupuesto cerrado* → precio y cita → Ana → *Aceptar presupuesto* →
   *Confirmada*; la otra invitación pasa a *No seleccionado*.
-- **C — Completar:** Carlos → *Marcar en curso* → *Marcar como completado* → Ana ve *Completada* y el
-  registro en *Mi garaje*.
+- **C — Cita y cierre:** Ana confirma la fecha que propuso Carlos → Carlos *Empezar trabajo* →
+  *Trabajo terminado* → Ana *Confirmar que está terminado* → *Completada* y registro en el garaje.
+- **Después de contratar:** contrapropuesta de cita, incidencia que pausa el cierre a las 72 h,
+  cancelación con motivo y cierre automático tras recargar.
 - **D — Buscar:** buscar “suspensión” → filtro *Domicilio* → perfil → *Solicitar servicio*.
 - **E — Inspección:** desde el perfil de Nerea (preseleccionada) → datos de la bici usada → enviar.
 - **Varios mecánicos:** comparar presupuestos, rechazar uno, aceptar otro, invitar a más, propuesta
@@ -280,6 +283,28 @@ address (or FormSubmit's alias if provided) and deploy.
 - **Configurable hypotheses:** ranking weights `MATCH_WEIGHTS` (proximity 35 / specialization 30 /
   availability 20 / trust 15) and recovery timings `RECOVERY_HOURS` (4 h no response, 24 h no quote;
   all declined → immediately). Appointment negotiation is Phase 3.
+
+## After hiring (Phase 3 of the master brief)
+
+- **Appointment** (`ServiceRequest.appointment`): accepting a quote confirms price and scope, not the
+  date. The quote's date becomes the mechanic's first proposal. Either party proposes, the other
+  confirms or counters, and only mutual confirmation creates the appointment. A change keeps the
+  confirmed slot until the replacement is accepted. Work can't start without a confirmed appointment.
+- **Execution:** *Empezar trabajo* → *Trabajo terminado* (status `awaiting_completion`, stores
+  `finishedAt`). The cyclist confirms or reports a problem. A problem opens an incident (`incidents`),
+  pauses the closure, and is handled in the chat. There is no mediation or refunds in the demo.
+- **72 h closure:** `runScheduledTransitions` (pure, idempotent, driven by stored timestamps) closes
+  services 72 h after *Trabajo terminado*, or after the last resolved incident, never while one is open.
+  It marks them `autoClosed` (“no implica conformidad”) and adds the garage record. A 24 h reminder is
+  derived for notifications and the Home. The demo runs it on every read and every minute in the
+  browser; **integration point:** in production a server scheduler must run the same function.
+- **Cancellation:** before hiring, without penalty. After hiring and before work starts, either party
+  cancels with a mandatory reason. Once work has started, issues go through an incident.
+- **Service sub-state** for both sides is derived (`serviceState`): cita por acordar / propuesta /
+  confirmada, en curso, por confirmar, incidencia abierta, completado, cancelado. The mechanic's
+  Servicios tab has *Por agendar · Con cita · En curso · Por confirmar · Completados · Cancelados*.
+- **Reviews:** 1–5 stars plus text, only on completed services, one per service (unchanged).
+- Configurable: `AUTO_CLOSE_HOURS`, `AUTO_CLOSE_REMINDER_HOURS`.
 
 ## Navigation (cyclist, earlier notes)
 

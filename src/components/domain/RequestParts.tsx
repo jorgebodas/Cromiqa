@@ -89,7 +89,7 @@ export function ProposalCard({
         {formatPrice(proposal.price)}
       </p>
       <p className="text-sm text-muted">Precio cerrado para el trabajo descrito. Aceptarlo no es un pago: en la demo no se gestiona ninguno.</p>
-      <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-muted">Fecha que propone · se confirma tras contratar</p>
+      <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-muted">{proposal.status === 'pending' ? 'Fecha que propone · se confirma tras contratar' : 'Fecha propuesta en el presupuesto'}</p>
       <div className="mt-1.5 grid grid-cols-1 gap-2 text-[15px] sm:grid-cols-2">
         <p className="flex items-center gap-2">
           <CalendarDays className="size-4 text-muted" aria-hidden />

@@ -81,9 +81,13 @@ test.describe('Escenarios A, B y C: reparación de principio a fin', () => {
     await expect(page.getByTestId('proposal-price').first()).toHaveText(/45/);
     await expect(page.getByTestId('chat-locked')).toBeVisible();
     await page.getByRole('button', { name: 'Aceptar presupuesto' }).click();
-    await expect(statusTitle(page)).toHaveText('Confirmada');
-    await expect(page.getByText('Cita confirmada').first()).toBeVisible();
+    await expect(statusTitle(page)).toHaveText('Contratado');
+    // Hiring is not an appointment: Carlos's date is a proposal Ana confirms.
+    await expect(page.getByTestId('appointment-confirmed')).toHaveCount(0);
+    await expect(page.getByTestId('appointment-pending')).toContainText('Carlos propone');
     await expect(page.getByTestId('chat-locked')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Confirmar cita' }).click();
+    await expect(page.getByTestId('appointment-confirmed')).toContainText('18:30');
     const threadUrl = page.url();
 
     // Only one booking: the other invitation is closed as not selected.
@@ -95,16 +99,18 @@ test.describe('Escenarios A, B y C: reparación de principio a fin', () => {
     // C — completion
     await page.getByTestId('hired-card').click();
     await page.getByRole('button', { name: 'Ver como Carlos' }).click();
-    await page.getByRole('button', { name: 'Marcar en curso' }).click();
+    await page.getByRole('button', { name: 'Empezar trabajo' }).click();
     await expect(statusTitle(page)).toHaveText('En curso');
-    await page.getByRole('button', { name: 'Marcar como completado' }).click();
-    const dialog = page.getByRole('dialog', { name: 'Completar trabajo' });
+    await page.getByRole('button', { name: 'Trabajo terminado' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Trabajo terminado' });
     await dialog.getByLabel('Resumen del trabajo').fill('Cable y funda nuevos, patilla enderezada y desviador ajustado.');
-    await dialog.getByRole('button', { name: 'Marcar como completado' }).click();
-    await expect(statusTitle(page)).toHaveText('Completada');
+    await dialog.getByRole('button', { name: 'Marcar como terminado' }).click();
+    await expect(statusTitle(page)).toHaveText('Por confirmar');
 
     await page.getByRole('button', { name: 'Ver como Ana' }).click();
     await expect(page).toHaveURL(threadUrl);
+    await expect(page.getByTestId('auto-close-note')).toContainText('se cerrará automáticamente');
+    await page.getByRole('button', { name: 'Confirmar que está terminado' }).click();
     await expect(statusTitle(page)).toHaveText('Completada');
     await page.getByRole('link', { name: /Ver historial de/ }).click();
     await expect(page.getByRole('heading', { name: 'Orbea Alma H50' })).toBeVisible();
@@ -154,7 +160,7 @@ test.describe('Varios mecánicos por solicitud', () => {
     await page.getByTestId('response-row').filter({ hasText: 'Nerea Campos' }).click();
     await expect(page.getByText('las demás invitaciones de esta solicitud se cerrarán')).toBeVisible();
     await page.getByRole('button', { name: 'Aceptar presupuesto' }).click();
-    await expect(statusTitle(page)).toHaveText('Confirmada');
+    await expect(statusTitle(page)).toHaveText('Contratado');
 
     await page.goto('./#/solicitudes/r-03');
     await expect(caseStatus(page)).toHaveText('Servicio contratado');
@@ -221,6 +227,75 @@ test.describe('Varios mecánicos por solicitud', () => {
     await expect(page.getByTestId('proposal-card').first()).toContainText('versión 2');
     await expect(page.getByTestId('proposal-price').first()).toHaveText(/35/);
     await expect(page.getByText('ha revisado su presupuesto; necesita tu aprobación')).toBeVisible();
+  });
+});
+
+test.describe('Después de contratar', () => {
+  test('appointment: counter-proposal, then the other side confirms; work can only start with a date', async ({ page }) => {
+    // r-04: Javier proposed a date when quoting; Diego hasn't confirmed.
+    await freshDemo(page, 'u-diego');
+    await expect(page.getByTestId('attention-appointment')).toContainText('Javier Molina propone una cita');
+    await page.goto('./#/solicitudes/r-04/mecanico/r-04');
+    await expect(page.getByTestId('appointment-pending')).toContainText('Javier propone');
+    await page.getByRole('button', { name: 'Proponer otra fecha' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Proponer fecha' });
+    await dialog.getByLabel('Hora').fill('09:15');
+    await dialog.getByRole('button', { name: 'Enviar propuesta' }).click();
+    await expect(page.getByTestId('appointment-pending')).toContainText('Esperando a que Javier la confirme');
+
+    await switchAccount(page, 'Javier Molina');
+    await page.goto('./#/pro/solicitudes/r-04');
+    await expect(page.getByRole('button', { name: 'Empezar trabajo' })).toBeDisabled();
+    await page.getByRole('button', { name: 'Confirmar cita' }).click();
+    await expect(page.getByTestId('appointment-confirmed')).toContainText('09:15');
+    await expect(page.getByRole('button', { name: 'Empezar trabajo' })).toBeEnabled();
+  });
+
+  test('finished work: reporting a problem pauses the 72 h closure until it is resolved', async ({ page }) => {
+    // r-14: Carlos finished 50 h ago; it would close in about 22 h.
+    await freshDemo(page, 'u-ana');
+    const card = page.getByTestId('attention-confirm');
+    await expect(card).toContainText('menos de 24 h');
+    await card.click();
+    await expect(statusTitle(page)).toHaveText('Por confirmar');
+    await page.getByRole('button', { name: 'Reportar un problema' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Reportar un problema' });
+    await dialog.getByLabel('Qué ha pasado').fill('La maneta vuelve a irse hasta el puño tras una salida.');
+    await dialog.getByRole('button', { name: 'Reportar problema' }).click();
+    await expect(page.getByTestId('incident-card')).toContainText('El cierre automático está en pausa');
+
+    await page.getByRole('button', { name: 'Ver como Carlos' }).click();
+    await expect(page.getByTestId('incident-card')).toContainText('La maneta vuelve a irse');
+    await page.getByRole('button', { name: 'Ver como Ana' }).click();
+    await page.getByRole('button', { name: 'Está resuelto: confirmar' }).click();
+    await expect(statusTitle(page)).toHaveText('Completada');
+  });
+
+  test('cancelling a hired service needs a reason', async ({ page }) => {
+    await freshDemo(page, 'u-diego');
+    await page.goto('./#/solicitudes/r-11/mecanico/r-11');
+    await page.getByRole('button', { name: 'Cancelar servicio' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Cancelar servicio' });
+    await dialog.getByRole('button', { name: 'Cancelar servicio' }).click();
+    await expect(dialog.getByText('Indica el motivo.')).toBeVisible();
+    await dialog.getByLabel(/Motivo/).fill('Me ha surgido un viaje de trabajo.');
+    await dialog.getByRole('button', { name: 'Cancelar servicio' }).click();
+    await expect(statusTitle(page)).toHaveText('Cancelada');
+  });
+
+  test('the 72 h closure survives a reload and is labelled as administrative', async ({ page }) => {
+    await freshDemo(page, 'u-ana');
+    // Move r-14's finish time back past the deadline, as if the app had been closed for days.
+    await page.evaluate(() => {
+      const db = JSON.parse(localStorage.getItem('cromiqa:demo:db')!);
+      const r = db.requests.find((x: { id: string }) => x.id === 'r-14');
+      r.finishedAt = new Date(Date.now() - 80 * 3600_000).toISOString();
+      localStorage.setItem('cromiqa:demo:db', JSON.stringify(db));
+    });
+    await page.goto('./#/solicitudes/r-14/mecanico/r-14');
+    await page.reload();
+    await expect(statusTitle(page)).toHaveText('Completada');
+    await expect(page.getByTestId('auto-closed')).toContainText('No implica conformidad');
   });
 });
 

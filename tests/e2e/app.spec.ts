@@ -285,7 +285,7 @@ test.describe('Navegación', () => {
     await page.reload();
     await expect(chip()).toContainText('2 presupuestos');
     await chip().click();
-    await expect(hub.getByRole('heading', { name: 'Comparar presupuestos' })).toBeVisible();
+    await expect(hub.getByRole('heading', { name: 'Presupuestos', exact: true })).toBeVisible();
     await expect(hub.getByTestId('quick-quote')).toHaveCount(2);
     await expect(chip()).toContainText('2 presupuestos'); // still pending: nothing was accepted
     // Back to the overview, and a new request is one tap away.

@@ -212,3 +212,30 @@ a.surface:active, button.surface:active { transform: scale(0.99); }
 .cq-fade-in { animation: cq-fade 200ms ease-out; }
 @media (min-width: 768px) { .cq-sheet-up { animation-name: cq-panel-in; } }
 @media (prefers-reduced-motion: reduce) { .cq-sheet-up, .cq-fade-in { animation: none; } }
+
+/* Request Hub form: each block of a step sits in its own widget card, like the Home widgets,
+   with the block's legend or label as the card title. */
+.hub-steps > div > div > :is(fieldset, div):not(.surface),
+.hub-steps > div > #field-photos {
+  background-color: var(--color-paper);
+  border-radius: 22px;
+  box-shadow: var(--shadow-surface);
+  padding: 1rem 1rem 1.125rem;
+}
+.hub-steps > div > div > fieldset > legend {
+  float: left;
+  width: 100%;
+  margin-bottom: 0.75rem;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--color-ink);
+}
+.hub-steps > div > div > fieldset > legend + * { clear: both; }
+.hub-steps > div > div > div > label:first-child {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}

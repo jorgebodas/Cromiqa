@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, CalendarCheck, ChevronRight, ClipboardList, Plus, X } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, CalendarCheck, ChevronRight, ClipboardList, Plus, X } from 'lucide-react';
+import { headerButtonClass } from '@/components/layout/ScreenHeader';
 import type { ID, ServiceRequest } from '@/domain/types';
 import { bikeLabel, categoryLabel } from '@/domain/catalog';
 import { DomainError, currentProposal } from '@/domain/logic/requests';
@@ -113,6 +114,21 @@ function answer(r: ServiceRequest): string {
   return 'Pendiente';
 }
 
+/** A widget card, as on the Home screens: title top-left, optional element top-right. */
+function HubCard({ title, aside, children, className, testId }: { title?: ReactNode; aside?: ReactNode; children: ReactNode; className?: string; testId?: string }) {
+  return (
+    <section className={cx('surface rounded-[22px] p-4 sm:p-5', className)} data-testid={testId}>
+      {(title || aside) && (
+        <div className="mb-3 flex items-start justify-between gap-3">
+          {title && <h3 className="font-display text-[17px] font-semibold leading-tight tracking-tight">{title}</h3>}
+          {aside}
+        </div>
+      )}
+      {children}
+    </section>
+  );
+}
+
 function Overview({ items, onOpen }: { items: HubItem[]; onOpen: (item: HubItem) => void }) {
   const mechanics = useApp((s) => s.db.mechanics);
   const name = (id: ID) => mechanics.find((m) => m.id === id)?.name ?? 'Mecánico';
@@ -137,18 +153,18 @@ function Overview({ items, onOpen }: { items: HubItem[]; onOpen: (item: HubItem)
               : `${item.threads.length} mecánicos invitados`;
         return (
           <li key={item.caseId}>
-            <button type="button" onClick={() => onOpen(item)} className="surface flex w-full items-center gap-3 p-4 text-left" data-testid="hub-item">
-              <span className="min-w-0 flex-1">
-                <span className="flex items-center justify-between gap-2">
-                  <span className="truncate font-semibold">{categoryLabel(item.lead.category)}</span>
-                  <StatusChip item={item} />
-                </span>
-                <span className="mt-1 block truncate text-sm text-muted">
-                  {bikeLabel(item.lead.bike)} · {info}
-                </span>
-                {item.action && <span className="mt-1.5 block text-sm font-semibold">{item.action}</span>}
+            <button type="button" onClick={() => onOpen(item)} className="surface block w-full rounded-[22px] p-4 text-left sm:p-5" data-testid="hub-item">
+              <span className="flex items-start justify-between gap-3">
+                <span className="font-display text-[17px] font-semibold leading-tight tracking-tight">{categoryLabel(item.lead.category)}</span>
+                <ArrowUpRight className="size-[18px] shrink-0 text-muted" aria-hidden />
               </span>
-              <ChevronRight className="size-4 shrink-0 text-muted" aria-hidden />
+              <span className="mt-4 flex items-center gap-2">
+                <StatusChip item={item} />
+              </span>
+              <span className="mt-2 block truncate text-sm text-muted">
+                {bikeLabel(item.lead.bike)} · {info}
+              </span>
+              {item.action && <span className="mt-1 block text-[15px] font-semibold">{item.action}</span>}
             </button>
           </li>
         );
@@ -164,30 +180,26 @@ function Detail({ item, onGo }: { item: HubItem; onGo: (to: string) => void }) {
   const appt = hired?.appointment?.confirmed;
   const r = item.lead;
   return (
-    <div className="space-y-4" data-testid="hub-detail">
-      <div>
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-sm text-muted">{bikeLabel(r.bike)}</p>
-          <StatusChip item={item} />
-        </div>
-        {item.action && <p className="mt-2 text-lg font-bold leading-snug">{item.action}</p>}
-        <p className="mt-2 line-clamp-3 text-[15px] text-muted">{r.description}</p>
-      </div>
+    <div className="space-y-3" data-testid="hub-detail">
+      <HubCard title="Tu solicitud" aside={<StatusChip item={item} />}>
+        {item.action && <p className="text-lg font-bold leading-snug">{item.action}</p>}
+        <p className={cx('line-clamp-3 text-[15px] text-muted', item.action && 'mt-1')}>{r.description}</p>
+        <p className="mt-2 text-sm text-muted">{bikeLabel(r.bike)}</p>
+        {r.photos && r.photos.length > 0 && <PhotoStrip photos={r.photos} />}
+      </HubCard>
       {appt && (
-        <p className="flex items-center gap-2 rounded-2xl bg-ink px-4 py-3 text-paper">
-          <CalendarCheck className="size-5 text-lime" aria-hidden />
-          <span>
-            Cita: {formatDate(appt.date, { weekday: 'long', day: 'numeric', month: 'long' })}, {appt.time}
-          </span>
-        </p>
+        <HubCard title="Cita">
+          <p className="flex items-center gap-2 text-[15px] font-semibold first-letter:uppercase">
+            <CalendarCheck className="size-5 shrink-0 text-lime-text" aria-hidden />
+            {formatDate(appt.date, { weekday: 'long', day: 'numeric', month: 'long' })}, {appt.time}
+          </p>
+        </HubCard>
       )}
-      {r.photos && r.photos.length > 0 && <PhotoStrip photos={r.photos} />}
-      <section aria-label="Mecánicos">
-        <h3 className="mb-2 text-sm font-semibold text-muted">{item.threads.length === 1 ? 'Mecánico' : `${item.threads.length} mecánicos`}</h3>
-        <ul className="surface divide-y divide-line overflow-hidden">
+      <HubCard title={item.threads.length === 1 ? 'Mecánico' : `${item.threads.length} mecánicos`}>
+        <ul className="-mx-4 -mb-4 divide-y divide-line sm:-mx-5 sm:-mb-5">
           {item.threads.map((t) => (
             <li key={t.id}>
-              <button type="button" onClick={() => onGo(threadHref(t))} className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-canvas/60">
+              <button type="button" onClick={() => onGo(threadHref(t))} className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-canvas/60 sm:px-5">
                 <Avatar name={name(t.mechanicId)} size="sm" className="size-9" />
                 <span className="min-w-0 flex-1 truncate font-medium">{name(t.mechanicId)}</span>
                 <span className="shrink-0 text-sm font-semibold">{answer(t)}</span>
@@ -196,14 +208,14 @@ function Detail({ item, onGo }: { item: HubItem; onGo: (to: string) => void }) {
             </li>
           ))}
         </ul>
-      </section>
+      </HubCard>
     </div>
   );
 }
 
 const TITLES: Record<HubView['kind'], string> = { overview: 'Tus solicitudes', detail: 'Solicitud', new: 'Nueva solicitud' };
 const SCREEN_TITLES: Record<QuickScreen, string> = {
-  compare: 'Comparar presupuestos',
+  compare: 'Presupuestos',
   appointment: 'Cita',
   completion: 'Confirmar servicio',
   incident: 'Incidencia',
@@ -239,7 +251,7 @@ function CompareQuotes({ item, onGo, onAccepted }: { item: HubItem; onGo: (to: s
       {quotes.map((r) => {
         const p = currentProposal(r)!;
         return (
-          <article key={r.id} className="surface p-4" data-testid="quick-quote">
+          <article key={r.id} className="surface rounded-[22px] p-4 sm:p-5" data-testid="quick-quote">
             <div className="flex items-center gap-3">
               <Avatar name={name(r.mechanicId)} size="sm" className="size-9" />
               <span className="min-w-0 flex-1 truncate font-semibold">{name(r.mechanicId)}</span>
@@ -284,14 +296,14 @@ function QuickScreenView({
   const thread = item.threads.find((r) => r.id === item.quick.threadId) ?? item.lead;
   const mechanicName = mechanics.find((m) => m.id === thread.mechanicId)?.name ?? 'Mecánico';
   return (
-    <div className="space-y-4" data-testid={`quick-${screen}`}>
-      <div className="flex items-center justify-between gap-2">
-        <p className="min-w-0 truncate text-sm text-muted">
-          {categoryLabel(item.lead.category)} · {bikeLabel(item.lead.bike)}
+    <div className="space-y-3" data-testid={`quick-${screen}`}>
+      <HubCard title={categoryLabel(item.lead.category)} aside={<StatusChip item={item} />}>
+        <p className="truncate text-sm text-muted">
+          {bikeLabel(item.lead.bike)}
           {screen !== 'compare' ? ` · ${mechanicName}` : ''}
         </p>
-        <StatusChip item={item} />
-      </div>
+        {item.action && <p className="mt-1 text-[15px] font-semibold">{item.action}</p>}
+      </HubCard>
       {screen === 'compare' && <CompareQuotes item={item} onGo={onGo} onAccepted={() => onScreen('appointment')} />}
       {(screen === 'appointment' || screen === 'tracking') && ['confirmed', 'in_progress', 'awaiting_completion'].includes(thread.status) && (
         <AppointmentCard request={thread} viewer="owner" otherName={mechanicName} />
@@ -444,18 +456,18 @@ export function RequestHubOverlay() {
         </div>
         <header className="flex items-center gap-2 px-5 pb-2 pt-3 sm:px-6 md:pt-6">
           {back && (
-            <button type="button" onClick={back} aria-label="Volver a tus solicitudes" className="-ml-2 flex size-10 items-center justify-center rounded-full hover:bg-canvas">
+            <button type="button" onClick={back} aria-label="Volver a tus solicitudes" className={headerButtonClass}>
               <ArrowLeft className="size-5" aria-hidden />
             </button>
           )}
-          <h2 id="hub-title" tabIndex={-1} data-autofocus className="min-w-0 flex-1 truncate text-xl font-bold outline-none">
+          <h2 id="hub-title" tabIndex={-1} data-autofocus className="min-w-0 flex-1 truncate font-display text-[26px] font-bold tracking-tight outline-none">
             {screen ? SCREEN_TITLES[screen] : shown.kind === 'detail' && detailItem ? categoryLabel(detailItem.lead.category) : TITLES[shown.kind]}
           </h2>
-          <button type="button" onClick={requestClose} aria-label="Cerrar" className="-mr-2 flex size-10 items-center justify-center rounded-full hover:bg-canvas">
+          <button type="button" onClick={requestClose} aria-label="Cerrar" className={headerButtonClass}>
             <X className="size-5" aria-hidden />
           </button>
         </header>
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-[max(12px,env(safe-area-inset-bottom))] sm:px-6">{body}</div>
+        <div data-hub-scroll className="min-h-0 flex-1 overflow-y-auto px-5 pb-[max(12px,env(safe-area-inset-bottom))] sm:px-6">{body}</div>
         {footer && <div className="border-t border-line px-5 pb-[max(14px,env(safe-area-inset-bottom))] pt-3 sm:px-6">{footer}</div>}
       </div>
 

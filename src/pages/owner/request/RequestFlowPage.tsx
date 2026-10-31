@@ -120,7 +120,8 @@ export function RequestForm({ variant, originMechanicId, params = new URLSearchP
     // Entering provider selection: drop any choice the request no longer fits.
     if (s === STEP.providers) setDraft({ step: s, mechanicIds: draft.mechanicIds.filter((id) => matches.some((m) => m.mechanic.id === id)) });
     else setDraft({ step: s });
-    if (overlay) headingRef.current?.scrollIntoView({ block: 'start' });
+    // In the hub panel, back to the top of the panel (progress bar included).
+    if (overlay) headingRef.current?.closest('[data-hub-scroll]')?.scrollTo({ top: 0 });
     else window.scrollTo({ top: 0, behavior: 'smooth' });
     requestAnimationFrame(() => headingRef.current?.focus({ preventScroll: true }));
   };
@@ -239,7 +240,7 @@ export function RequestForm({ variant, originMechanicId, params = new URLSearchP
             {step === STEP.bike && draft.category === 'inspection' ? 'La bici que quieres comprar' : STEP_TITLES[step]}
           </h1>
 
-          <div className="mt-8" key={step}>
+          <div className={cx(overlay ? 'hub-steps mt-5' : 'mt-8')} key={step}>
             <div className="animate-fade-in">
               {step === STEP.need && <StepProblem {...stepProps} />}
               {step === STEP.bike && <StepBike {...stepProps} bikes={bikes} user={owner} guestHint={guestHint} />}

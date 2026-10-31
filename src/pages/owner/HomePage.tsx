@@ -13,7 +13,7 @@ import { useCurrentUser, useOwnerBikes, useRequestsFor } from '@/state/selectors
 import { useMode } from '@/state/mode';
 import { useNavUi } from '@/state/ui';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
-import { CyclistHeaderActions, ProfileButton } from '@/components/layout/QuickActions';
+import { CyclistHeaderActions } from '@/components/layout/QuickActions';
 import { Feature, HeroWidget, Stat, Widget, WidgetGrid, heroButtonClass } from '@/components/home/Widget';
 import { Avatar, DemoTag, cx } from '@/components/ui';
 
@@ -249,7 +249,7 @@ export function HomePage() {
   if (user && mode === 'mechanic') return <Navigate to="/pro" replace />;
   return (
     <>
-      <ScreenHeader title="Inicio" description={todayLabel()} leading={<ProfileButton />} actions={<CyclistHeaderActions />} />
+      <ScreenHeader title="Inicio" description={todayLabel()} actions={<CyclistHeaderActions />} />
       <div className="container-page pb-8">
         <CyclistHome user={user} />
       </div>

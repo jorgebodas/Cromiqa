@@ -9,7 +9,6 @@ import { useApp } from '@/state/store';
 import { useCurrentMechanic, useRequestsFor } from '@/state/selectors';
 import { RoleGate } from '@/components/layout/RoleGate';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
-import { ProfileButton } from '@/components/layout/QuickActions';
 import { Feature, HeroWidget, Stat, Widget, WidgetGrid, heroButtonClass } from '@/components/home/Widget';
 import { cx } from '@/components/ui';
 
@@ -70,7 +69,7 @@ function Inner() {
 
   return (
     <>
-      <ScreenHeader title="Inicio" description={todayLabel()} leading={<ProfileButton />} />
+      <ScreenHeader title="Inicio" description={todayLabel()} />
       <div className="container-page pb-8">
         <WidgetGrid>
           {/* 1 · Where the day stands, with the one action that matters most. */}

@@ -8,7 +8,6 @@ import { RoleGate } from '@/components/layout/RoleGate';
 import { RequestCard } from '@/components/domain/RequestCard';
 import { EmptyState, TabBar } from '@/components/ui';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
-import { ProfileButton } from '@/components/layout/QuickActions';
 
 /** Booked work (a quote was accepted): it belongs to Servicios, the rest to Solicitudes. */
 export function isBooked(r: ServiceRequest) {
@@ -67,7 +66,7 @@ function RequestList({ title, segments, booked }: { title: string; segments: Seg
 
   return (
     <>
-      <ScreenHeader title={title} leading={<ProfileButton />} />
+      <ScreenHeader title={title} />
       <div className="container-page pb-8 sm:pb-10">
         <TabBar tabs={segments} value={segment.id} onChange={(id) => setParams({ estado: id }, { replace: true })} counts={counts} />
         {visible.length === 0 ? (

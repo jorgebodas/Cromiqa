@@ -2,6 +2,7 @@ import type { HTMLAttributes, ReactNode } from 'react';
 import { FlaskConical, Star } from 'lucide-react';
 import { cx } from './cx';
 import { initials } from '@/domain/utils';
+import { demoPhoto } from '@/data/demoPhotos';
 
 export function Card({ className, children, ...rest }: HTMLAttributes<HTMLDivElement>) {
   return (
@@ -54,6 +55,10 @@ export function DemoTag({ children = 'Demo', className }: { children?: ReactNode
 
 export function Avatar({ name, tone = '#E4E1D8', size = 'md', className }: { name: string; tone?: string; size?: 'sm' | 'md' | 'lg' | 'xl'; className?: string }) {
   const sizes = { sm: 'size-8 text-xs', md: 'size-12 text-sm', lg: 'size-16 text-lg', xl: 'size-24 text-2xl' } as const;
+  const photo = demoPhoto(name);
+  if (photo) {
+    return <img src={photo} alt={`Foto de ${name}`} className={cx('shrink-0 select-none rounded-full object-cover', sizes[size], className)} draggable={false} />;
+  }
   return (
     <span
       className={cx('inline-flex shrink-0 select-none items-center justify-center rounded-full font-display font-bold text-ink', sizes[size], className)}

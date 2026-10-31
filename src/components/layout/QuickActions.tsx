@@ -1,25 +1,16 @@
-import { Link, NavLink } from 'react-router-dom';
-import { Bell, Search, UserRound } from 'lucide-react';
+import { NavLink } from 'react-router-dom';
+import { Bell, Search } from 'lucide-react';
 import { useCurrentUser } from '@/state/selectors';
 import { useOwnerActivity } from '@/state/activity';
 import { useMode } from '@/state/mode';
 import { useNavUi } from '@/state/ui';
-import { Avatar, cx } from '@/components/ui';
+import { cx } from '@/components/ui';
 import { headerButtonClass } from './ScreenHeader';
 
 /**
  * Top-left of every main screen (phones; desktop has it in the top bar): the avatar, which
  * opens the profile, where the account also switches mode.
  */
-export function ProfileButton() {
-  const user = useCurrentUser();
-  return (
-    <Link to="/cuenta" aria-label="Tu perfil" className={cx(headerButtonClass, 'overflow-hidden md:hidden')} data-testid="account-link">
-      {user ? <Avatar name={user.name} size="sm" className="size-11 text-sm" /> : <UserRound className="size-5" aria-hidden />}
-    </Link>
-  );
-}
-
 /** Cyclist notifications bell, with the number of updates not seen yet. */
 export function NotificationsButton({ className }: { className?: string }) {
   const user = useCurrentUser();

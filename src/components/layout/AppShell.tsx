@@ -189,6 +189,19 @@ function OwnerHeader({ tabHref, onNewRequest, onSearch }: { tabHref: (t: OwnerTa
   );
 }
 
+const TAB_W = 64; // px per tab: the pill hugs its icons
+const ROUND = 'float-pill pointer-events-auto flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-full';
+
+/** Phone navigation, left: the account, as its own circle (photo or initials). Opens Perfil. */
+function AvatarCircle() {
+  const user = useCurrentUser();
+  return (
+    <Link to="/cuenta" aria-label="Tu perfil" className={cx(ROUND, 'text-ink transition-transform active:scale-95')} data-testid="account-link">
+      {user ? <Avatar name={user.name} size="lg" className="size-full text-base" /> : <UserRound className="size-6" aria-hidden />}
+    </Link>
+  );
+}
+
 /**
  * The floating pill of the phone navigation: icons only, a white pill with a soft halo, and a
  * round highlight that slides to the active tab. Labels stay as accessible names.
@@ -197,7 +210,7 @@ function FloatingTabs({ tabs, className, hidden }: { hidden?: boolean; tabs: { k
   const index = tabs.findIndex((t) => t.active);
   return (
     <nav aria-label="Principal (móvil)" className={cx('h-full p-1.5', className)} {...(hidden ? { inert: '' } : {})}>
-      <ul className="relative grid h-full" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
+      <ul className="relative grid h-full" style={{ gridTemplateColumns: `repeat(${tabs.length}, ${TAB_W}px)` }}>
         {index >= 0 && (
           <li
             aria-hidden
@@ -248,15 +261,14 @@ function OwnerBottomNav({
   const CurrentIcon = current?.icon ?? Menu;
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(12px,env(safe-area-inset-bottom))] md:hidden">
-      <div className="mx-auto flex max-w-md items-center justify-between gap-3">
+      <div className="mx-auto flex max-w-[380px] items-center justify-between gap-3">
+        <AvatarCircle />
         <div
-          className={cx(
-            'float-pill pointer-events-auto relative h-16 overflow-hidden rounded-full transition-[width] duration-300 ease-out',
-            condensed ? 'w-16' : 'w-[calc(100%-76px)]',
-          )}
+          className="float-pill pointer-events-auto relative h-16 overflow-hidden rounded-full transition-[width] duration-300 ease-out"
+          style={{ width: condensed ? 64 : OWNER_TABS.length * TAB_W + 12 }}
         >
           <FloatingTabs
-            className={cx('min-w-[220px] transition-opacity duration-200', condensed ? 'opacity-0' : 'opacity-100')}
+            className={cx('transition-opacity duration-200', condensed ? 'opacity-0' : 'opacity-100')}
             tabs={OWNER_TABS.map((t) => ({ key: t.id, to: tabHref(t), label: t.label, icon: t.icon, active: t.owns(pathname), state: { tab: true } }))}
             hidden={condensed}
           />
@@ -280,7 +292,7 @@ function OwnerBottomNav({
           type="button"
           onClick={onNewRequest}
           aria-label="Nueva solicitud"
-          className="float-pill pointer-events-auto flex size-16 shrink-0 items-center justify-center rounded-full text-ink transition-transform active:scale-95"
+          className={cx(ROUND, 'text-ink transition-transform active:scale-95')}
           style={{ backgroundColor: 'var(--color-lime)' }}
           data-testid="new-request-fab"
         >
@@ -371,8 +383,11 @@ function MechanicBottomTabs({ items }: { items: NavItem[] }) {
   const isActive = (i: NavItem) => (i.end ? pathname === i.to : pathname === i.to || pathname.startsWith(i.to + '/'));
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(12px,env(safe-area-inset-bottom))] md:hidden">
-      <div className="float-pill pointer-events-auto mx-auto h-16 max-w-[300px] rounded-full">
-        <FloatingTabs tabs={items.map((i) => ({ key: i.to, to: i.to, label: i.label, icon: i.icon, active: isActive(i), badge: i.badge }))} />
+      <div className="mx-auto flex items-center justify-center gap-3">
+        <AvatarCircle />
+        <div className="float-pill pointer-events-auto h-16 rounded-full" style={{ width: items.length * TAB_W + 12 }}>
+          <FloatingTabs tabs={items.map((i) => ({ key: i.to, to: i.to, label: i.label, icon: i.icon, active: isActive(i), badge: i.badge }))} />
+        </div>
       </div>
     </div>
   );

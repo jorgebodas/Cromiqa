@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, Outlet, matchPath, useLocation, useNavigationType } from 'react-router-dom';
-import { Bell, Bike, CalendarClock, FlaskConical, House, Inbox, LayoutDashboard, Menu, Plus, RefreshCw, UserRound, Wrench } from 'lucide-react';
+import { Bell, ClipboardList, FlaskConical, Hammer, House, Inbox, Menu, Plus, RefreshCw, Search, UserRound, Wrench } from 'lucide-react';
 import { Wordmark } from '@/brand/Wordmark';
 import { useCurrentUser } from '@/state/selectors';
 import { useApp } from '@/state/store';
@@ -9,6 +9,9 @@ import { useNavUi } from '@/state/ui';
 import { Avatar, Toaster, cx } from '@/components/ui';
 import { AccountSwitcherDialog } from './AccountSwitcher';
 import { NewRequestSheet } from './NewRequestSheet';
+import { GlobalSearch } from './GlobalSearch';
+import { useMode, useModeStore } from '@/state/mode';
+import { modeOfPath, type AppMode } from '@/domain/logic/modes';
 
 interface NavItem {
   to: string;
@@ -19,26 +22,28 @@ interface NavItem {
   badge?: number;
 }
 
-/** The professional navigation is unchanged: five sections, top links on desktop and tabs on phones. */
+/**
+ * Mechanic mode: Inicio · Solicitudes · Servicios (no +). Profile, catalogue and availability
+ * are reached from the avatar. The badge counts invitations still waiting for an answer.
+ */
 function useMechanicNavItems(): NavItem[] {
   const user = useCurrentUser();
   const requests = useApp((s) => s.db.requests);
   const pending = requests.filter((r) => r.mechanicId === user?.mechanicId && (r.status === 'sent' || r.status === 'awaiting_proposal')).length;
   return [
-    { to: '/pro', label: 'Panel principal', short: 'Panel', icon: LayoutDashboard, end: true },
+    { to: '/pro', label: 'Inicio', short: 'Inicio', icon: House, end: true },
     { to: '/pro/solicitudes', label: 'Solicitudes', short: 'Solicitudes', icon: Inbox, badge: pending },
-    { to: '/pro/servicios', label: 'Servicios', short: 'Servicios', icon: Wrench },
-    { to: '/pro/disponibilidad', label: 'Disponibilidad', short: 'Agenda', icon: CalendarClock },
-    { to: '/pro/perfil', label: 'Mi perfil', short: 'Perfil', icon: UserRound },
+    { to: '/pro/trabajos', label: 'Servicios', short: 'Servicios', icon: Hammer },
   ];
 }
 
 // ── Cyclist navigation ───────────────────────────────────────────────────────
-// Three destinations (bottom bar), one global action (+), and a header with account,
-// search and activity. Screen-specific actions live inside each screen.
+// Three destinations (Inicio · Mecánicos · Solicitudes), one global action (+), and a header
+// with the avatar (profile and mode) on the left, search and notifications on the right.
+// The garage is secondary: reached from the profile and from a bike within a request.
 
 interface OwnerTab {
-  id: 'inicio' | 'mecanicos' | 'garaje';
+  id: 'inicio' | 'mecanicos' | 'solicitudes';
   root: string;
   label: string;
   icon: typeof House;
@@ -48,7 +53,7 @@ interface OwnerTab {
 const OWNER_TABS: OwnerTab[] = [
   { id: 'inicio', root: '/', label: 'Inicio', icon: House, owns: (p) => p === '/' },
   { id: 'mecanicos', root: '/mecanicos', label: 'Mecánicos', icon: Wrench, owns: (p) => p === '/mecanicos' || p.startsWith('/mecanicos/') },
-  { id: 'garaje', root: '/garaje', label: 'Garaje', icon: Bike, owns: (p) => p === '/garaje' || p.startsWith('/garaje/') },
+  { id: 'solicitudes', root: '/solicitudes', label: 'Solicitudes', icon: ClipboardList, owns: (p) => p === '/solicitudes' || p.startsWith('/solicitudes/') },
 ];
 
 /** Focused flows hide the bottom bar and the + so nothing competes with finishing the task. */
@@ -72,7 +77,7 @@ function BellLink({ unread, className }: { unread: number; className?: string })
   return (
     <NavLink
       to="/actividad"
-      aria-label={unread ? `Actividad, ${unread} ${unread === 1 ? 'novedad' : 'novedades'} sin leer` : 'Actividad'}
+      aria-label={unread ? `Notificaciones, ${unread} sin leer` : 'Notificaciones'}
       className={({ isActive }) =>
         cx('relative flex size-12 items-center justify-center rounded-full transition-colors hover:bg-sand md:size-10', isActive && 'bg-sand', className)
       }
@@ -91,7 +96,7 @@ function BellLink({ unread, className }: { unread: number; className?: string })
 function AccountLink({ className }: { className?: string }) {
   const user = useCurrentUser();
   return (
-    <Link to="/cuenta" aria-label="Tu cuenta" className={cx('flex size-12 items-center justify-center rounded-full md:size-10', className)} data-testid="account-link">
+    <Link to="/cuenta" aria-label="Tu perfil" className={cx('flex size-12 items-center justify-center rounded-full md:size-10', className)} data-testid="account-link">
       {user ? (
         <Avatar name={user.name} size="sm" className="size-10 text-sm md:size-8 md:text-xs" />
       ) : (
@@ -135,9 +140,9 @@ function useCondensedChrome() {
 }
 
 /** Desktop only: logo · destinations · new request, activity, account. Phones use each screen's header. */
-function OwnerHeader({ tabHref, onNewRequest }: { tabHref: (t: OwnerTab) => string; onNewRequest: () => void }) {
+function OwnerHeader({ tabHref, onNewRequest, onSearch }: { tabHref: (t: OwnerTab) => string; onNewRequest: () => void; onSearch: () => void }) {
   const user = useCurrentUser();
-  const { unread } = useOwnerActivity(user?.role === 'owner' ? user.id : undefined);
+  const { unread } = useOwnerActivity(user?.id);
   const { pathname } = useLocation();
   return (
     <header className="sticky top-0 z-40 hidden border-b border-line bg-paper/90 backdrop-blur md:block">
@@ -171,6 +176,9 @@ function OwnerHeader({ tabHref, onNewRequest }: { tabHref: (t: OwnerTab) => stri
             className="mr-2 flex h-10 items-center gap-1.5 rounded-full bg-lime px-4 text-sm font-semibold text-ink transition-colors hover:bg-lime-deep"
           >
             <Plus className="size-4" aria-hidden /> Nueva solicitud
+          </button>
+          <button type="button" onClick={onSearch} aria-label="Buscar" className="flex size-10 items-center justify-center rounded-full transition-colors hover:bg-sand">
+            <Search className="size-5" aria-hidden />
           </button>
           <BellLink unread={unread} />
           <AccountLink />
@@ -258,6 +266,7 @@ function OwnerBottomNav({
 
 function DemoBanner({ onSwitch }: { onSwitch: () => void }) {
   const user = useCurrentUser();
+  const mode = useMode();
   return (
     <div className="bg-ink text-paper">
       <div className="container-page flex h-9 items-center justify-between gap-3 text-xs">
@@ -276,7 +285,7 @@ function DemoBanner({ onSwitch }: { onSwitch: () => void }) {
             <RefreshCw className="size-3 shrink-0" aria-hidden />
             <span className="max-w-24 truncate sm:max-w-none">
               {user ? user.name.split(' ')[0] : 'Invitado'}
-              {user && <span className="hidden sm:inline"> · {user.role === 'mechanic' ? 'mecánico' : 'propietario'}</span>}
+              {user && <span className="hidden sm:inline"> · {mode === 'mechanic' ? 'modo mecánico' : 'modo ciclista'}</span>}
             </span>
             <span className="hidden sm:inline text-paper/60">· Cambiar</span>
           </button>
@@ -291,8 +300,7 @@ function DemoBanner({ onSwitch }: { onSwitch: () => void }) {
 }
 
 /** Desktop only; on phones each screen has its own header and the tabs sit at the bottom. */
-function MechanicHeader({ items, onSwitch }: { items: NavItem[]; onSwitch: () => void }) {
-  const user = useCurrentUser();
+function MechanicHeader({ items }: { items: NavItem[] }) {
   return (
     <header className="sticky top-0 z-40 hidden border-b border-line bg-paper/90 backdrop-blur md:block">
       <div className="container-page flex h-16 items-center justify-between gap-6">
@@ -325,15 +333,7 @@ function MechanicHeader({ items, onSwitch }: { items: NavItem[]; onSwitch: () =>
             ))}
           </ul>
         </nav>
-        <button
-          type="button"
-          onClick={onSwitch}
-          className="flex items-center gap-2 rounded-full border border-line py-1 pl-1 pr-3 text-sm font-medium hover:border-line-strong md:hidden"
-          aria-label="Cambiar de cuenta de demostración"
-        >
-          {user ? <Avatar name={user.name} size="sm" /> : <span className="flex size-8 items-center justify-center rounded-full bg-sand"><UserRound className="size-4" aria-hidden /></span>}
-          <span className="max-w-24 truncate">{user ? user.name.split(' ')[0] : 'Invitado'}</span>
-        </button>
+        <AccountLink />
       </div>
     </header>
   );
@@ -342,7 +342,7 @@ function MechanicHeader({ items, onSwitch }: { items: NavItem[]; onSwitch: () =>
 function MechanicBottomTabs({ items }: { items: NavItem[] }) {
   return (
     <nav aria-label="Principal (móvil)" className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-paper/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
-      <ul className="grid grid-cols-5">
+      <ul className="grid grid-cols-3">
         {items.map((item) => (
           <li key={item.to}>
             <NavLink
@@ -411,11 +411,22 @@ function useScrollMemory() {
   }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
+/** Each mode remembers the last place visited in it, so switching back returns there. */
+function useRememberPlace(userId: string | undefined, mode: AppMode) {
+  const { pathname, search } = useLocation();
+  const remember = useModeStore((s) => s.remember);
+  useEffect(() => {
+    if (userId && modeOfPath(pathname) === mode) remember(userId, mode, pathname + search);
+  }, [userId, mode, pathname, search, remember]);
+}
+
 export function AppShell({ children }: { children?: ReactNode }) {
   const [switcherOpen, setSwitcherOpen] = useState(false);
-  const { newRequestOpen, openNewRequest, closeNewRequest } = useNavUi();
+  const { newRequestOpen, openNewRequest, closeNewRequest, searchOpen, openSearch, closeSearch } = useNavUi();
   const user = useCurrentUser();
-  const isPro = user?.role === 'mechanic';
+  const mode = useMode();
+  const isPro = mode === 'mechanic';
+  useRememberPlace(user?.id, mode);
   const mechanicItems = useMechanicNavItems();
   const tabHref = useTabMemory();
   const { pathname } = useLocation();
@@ -433,9 +444,9 @@ export function AppShell({ children }: { children?: ReactNode }) {
       </a>
       <DemoBanner onSwitch={() => setSwitcherOpen(true)} />
       {isPro ? (
-        <MechanicHeader items={mechanicItems} onSwitch={() => setSwitcherOpen(true)} />
+        <MechanicHeader items={mechanicItems} />
       ) : (
-        <OwnerHeader tabHref={tabHref} onNewRequest={openNewRequest} />
+        <OwnerHeader tabHref={tabHref} onNewRequest={openNewRequest} onSearch={openSearch} />
       )}
       <main id="main" className={cx('flex-1 md:pb-0', isPro ? 'pb-28' : showOwnerBar ? 'pb-32' : 'pb-10')}>
         {children ?? <Outlet />}
@@ -445,7 +456,10 @@ export function AppShell({ children }: { children?: ReactNode }) {
       <Toaster />
       <AccountSwitcherDialog open={switcherOpen} onClose={() => setSwitcherOpen(false)} />
       {!isPro && (
-        <NewRequestSheet open={newRequestOpen} onClose={closeNewRequest} />
+        <>
+          <NewRequestSheet open={newRequestOpen} onClose={closeNewRequest} />
+          <GlobalSearch open={searchOpen} onClose={closeSearch} />
+        </>
       )}
     </div>
   );

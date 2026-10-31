@@ -2,6 +2,9 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Check, UserRound, Wrench } from 'lucide-react';
 import type { ID, User } from '@/domain/types';
 import { useApp } from '@/state/store';
+import { useCurrentUser } from '@/state/selectors';
+import { lastPlaceIn, useModeStore } from '@/state/mode';
+import { availableModes, modeOfPath, resolveMode, type AppMode } from '@/domain/logic/modes';
 import { Avatar, Dialog, DemoTag, cx } from '@/components/ui';
 
 /** Hook that switches the demo account and moves to a sensible screen for the new role. */
@@ -16,10 +19,30 @@ export function useSwitchAccount() {
     const user = users.find((u) => u.id === userId) ?? null;
     switchUser(userId);
     toast(user ? `Ahora usas la cuenta de ${user.name}` : 'Navegas como invitado', 'info');
-    if (opts.to) return navigate(opts.to);
-    const onPro = location.pathname.startsWith('/pro');
-    if (user?.role === 'mechanic' && !onPro) navigate('/pro');
-    else if (user?.role !== 'mechanic' && onPro) navigate(user ? '/actividad' : '/');
+    if (opts.to) {
+      // Going somewhere specific: enter the mode that place belongs to, when the account has it.
+      const target = modeOfPath(opts.to.split('?')[0]!);
+      if (user && target && availableModes(user).includes(target)) useModeStore.getState().setMode(user.id, target);
+      return navigate(opts.to);
+    }
+    // Land where the new account was last, in the mode it last used.
+    const mode = resolveMode(user, user ? useModeStore.getState().byUser[user.id]?.mode : undefined);
+    const here = modeOfPath(location.pathname);
+    if (here !== mode) navigate(lastPlaceIn(user?.id, mode));
+  };
+}
+
+/** Switches the current account between cyclist and mechanic mode, back to where it was. */
+export function useSwitchMode() {
+  const user = useCurrentUser();
+  const setMode = useModeStore((s) => s.setMode);
+  const toast = useApp((s) => s.toast);
+  const navigate = useNavigate();
+  return (mode: AppMode) => {
+    if (!user || !availableModes(user).includes(mode)) return;
+    setMode(user.id, mode);
+    toast(mode === 'mechanic' ? 'Modo mecánico' : 'Modo ciclista', 'info');
+    navigate(lastPlaceIn(user.id, mode));
   };
 }
 

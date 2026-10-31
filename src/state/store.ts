@@ -8,6 +8,7 @@ import type {
   LocationId,
   MechanicProfilePatch,
   NewRequestInput,
+  Role,
   ServiceCategory,
   ServiceMode,
   ServiceRequest,
@@ -134,7 +135,11 @@ export const useApp = create<AppState>((set, get) => {
 
     async actOnRequest(requestId, action) {
       const user = currentUser();
-      const request = await backend.updateRequest(requestId, action, user.role);
+      // One account can be both sides: the role comes from how it relates to this request.
+      const target = get().db.requests.find((r) => r.id === requestId);
+      const actor: Role | null = !target ? null : target.ownerId === user.id ? 'owner' : target.mechanicId === user.mechanicId ? 'mechanic' : null;
+      if (!actor) throw new Error('Esta solicitud no es tuya.');
+      const request = await backend.updateRequest(requestId, action, actor);
       await refresh();
       return request;
     },

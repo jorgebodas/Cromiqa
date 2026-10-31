@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { ClipboardList } from 'lucide-react';
 import type { RequestStatus } from '@/domain/types';
 import { useApp } from '@/state/store';
@@ -6,20 +7,22 @@ import { ACTIVE_STATUSES, useCurrentUser, useRequestsFor } from '@/state/selecto
 import { RequestCard } from '@/components/domain/RequestCard';
 import { EmptyState, TabBar } from '@/components/ui';
 
-type Tab = 'active' | 'completed' | 'cancelled' | 'all';
+type Tab = 'activas' | 'completadas' | 'canceladas' | 'todas';
 const TABS: { id: Tab; label: string; statuses?: RequestStatus[] }[] = [
-  { id: 'active', label: 'Activas', statuses: ACTIVE_STATUSES },
-  { id: 'completed', label: 'Completadas', statuses: ['completed'] },
-  { id: 'cancelled', label: 'Canceladas', statuses: ['cancelled'] },
-  { id: 'all', label: 'Todas' },
+  { id: 'activas', label: 'Activas', statuses: ACTIVE_STATUSES },
+  { id: 'completadas', label: 'Completadas', statuses: ['completed'] },
+  { id: 'canceladas', label: 'Canceladas', statuses: ['cancelled'] },
+  { id: 'todas', label: 'Todas' },
 ];
 
-/** The owner's requests with status filters. Shown in Actividad → Solicitudes. */
+/** The owner's requests with status segments (kept in the URL, `?estado=`). */
 export function OwnerRequestsList({ onNewRequest }: { onNewRequest?: () => void }) {
   const user = useCurrentUser()!;
   const requests = useRequestsFor({ ownerId: user.id });
   const mechanics = useApp((s) => s.db.mechanics);
-  const [tab, setTab] = useState<Tab>('active');
+  const [params, setParams] = useSearchParams();
+  const tab = (TABS.find((t) => t.id === params.get('estado'))?.id ?? 'activas') as Tab;
+  const setTab = (t: Tab) => setParams(t === 'activas' ? {} : { estado: t }, { replace: true });
 
   const counts = useMemo(
     () => Object.fromEntries(TABS.map((t) => [t.id, t.statuses ? requests.filter((r) => t.statuses!.includes(r.status)).length : requests.length])) as Record<Tab, number>,

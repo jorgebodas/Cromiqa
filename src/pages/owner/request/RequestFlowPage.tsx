@@ -5,6 +5,7 @@ import type { ID } from '@/domain/types';
 import { DomainError } from '@/domain/logic/requests';
 import { useApp, type RequestDraft } from '@/state/store';
 import { useCurrentUser, useMechanic, useOwnerBikes } from '@/state/selectors';
+import { useMode } from '@/state/mode';
 import { useSwitchAccount } from '@/components/layout/AccountSwitcher';
 import { Avatar, Button, ChoiceCard, FieldError, IconButton, cx } from '@/components/ui';
 import { BackLink } from '@/components/layout/BackLink';
@@ -29,13 +30,16 @@ export function RequestFlowPage() {
   const paramMechanic = params.get('mecanico') ?? undefined;
   const mechanicId = paramMechanic ?? draft.mechanicId;
   const mechanic = useMechanic(mechanicId);
-  const isOwner = user?.role === 'owner';
-  const bikes = useOwnerBikes(isOwner ? user.id : undefined);
+  // Any account in cyclist mode sends as itself; guests pick a demo account at the end.
+  const mode = useMode();
+  const owner = user && mode === 'cyclist' ? user : null;
+  const isOwner = owner !== null;
+  const bikes = useOwnerBikes(owner ? owner.id : undefined);
 
   const [errors, setErrors] = useState<DraftErrors>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [pickedOwner, setPickedOwner] = useState<ID | null>(isOwner ? user.id : null);
+  const [pickedOwner, setPickedOwner] = useState<ID | null>(owner ? owner.id : null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const initialised = useRef(false);
 
@@ -49,7 +53,7 @@ export function RequestFlowPage() {
     const category = draft.category ?? f.category;
     if (category && mechanic.services.some((s) => s.category === category)) patch.category = category;
     else patch.category = undefined;
-    patch.location = draft.location ?? f.location ?? (isOwner ? user.location : undefined);
+    patch.location = draft.location ?? f.location ?? (owner ? owner.location : undefined);
     const mode = draft.mode ?? f.mode;
     patch.mode = mode === 'home' && !mechanic.homeService ? undefined : mode === 'workshop' && !mechanic.workshop ? undefined : mode;
     if (!mechanic.homeService) patch.mode = 'workshop';
@@ -67,8 +71,8 @@ export function RequestFlowPage() {
   }, [bikes, draft.bikeChoice, draft.bikeId, draft.bike.type, mechanic, setDraft]);
 
   useEffect(() => {
-    if (isOwner) setPickedOwner(user.id);
-  }, [isOwner, user]);
+    if (owner) setPickedOwner(owner.id);
+  }, [owner]);
 
   const step = Math.min(Math.max(draft.step, 0), 3);
   const owners = useMemo(() => users.filter((u) => u.role === 'owner'), [users]);
@@ -110,7 +114,7 @@ export function RequestFlowPage() {
       setErrors(validateStep(invalid, draft, mechanic, bikes));
       return;
     }
-    const ownerId = isOwner ? user.id : pickedOwner;
+    const ownerId = owner ? owner.id : pickedOwner;
     if (!ownerId) {
       setErrors({ owner: 'Elige con qué cuenta de demostración envías la solicitud.' });
       document.getElementById('field-owner')?.focus();
@@ -222,7 +226,7 @@ export function RequestFlowPage() {
           <div className="mt-8" key={step}>
             <div className="animate-fade-in">
               {step === 0 && <StepProblem {...stepProps} />}
-              {step === 1 && <StepBike {...stepProps} bikes={bikes} user={isOwner ? user : null} guestHint={guestHint} />}
+              {step === 1 && <StepBike {...stepProps} bikes={bikes} user={owner} guestHint={guestHint} />}
               {step === 2 && <StepWhereWhen {...stepProps} />}
               {step === 3 && <StepReview draft={draft} mechanic={mechanic} bikes={bikes} goTo={goTo} ownerPicker={ownerPicker} />}
             </div>

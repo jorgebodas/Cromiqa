@@ -1,32 +1,55 @@
-import { useMemo } from 'react';
-import { Navigate } from 'react-router-dom';
-import { categoryLabel } from '@/domain/catalog';
+import { useMemo, type ReactNode } from 'react';
+import { Link, Navigate } from 'react-router-dom';
+import { ArrowRight, ChevronRight, Home as HomeIcon, Store } from 'lucide-react';
+import type { BikeType, LocationId, ServiceRequest, User } from '@/domain/types';
+import { bikeTypeLabel, categoryLabel, locationShort, specializationLabel } from '@/domain/catalog';
 import { currentProposal } from '@/domain/logic/requests';
-import { searchMechanics } from '@/domain/logic/search';
-import { formatDate } from '@/domain/utils';
-import type { ServiceRequest } from '@/domain/types';
+import { searchMechanics, type MechanicResult } from '@/domain/logic/search';
+import { cyclistAttention, cyclistInProgress, type CyclistAttention } from '@/domain/logic/home';
+import { formatDate, formatPrice } from '@/domain/utils';
 import { useApp } from '@/state/store';
-import { ACTIVE_STATUSES, useCurrentUser, useOwnerBikes, useRequestsFor } from '@/state/selectors';
-import { useOwnerActivity } from '@/state/activity';
+import { useCurrentUser, useOwnerBikes, useRequestsFor } from '@/state/selectors';
+import { useMode } from '@/state/mode';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
-import { OwnerQuickActions } from '@/components/layout/QuickActions';
+import { CyclistHeaderActions, ProfileButton } from '@/components/layout/QuickActions';
 import { StatusBadge } from '@/components/domain/Status';
-import { Widget, WidgetFigure } from '@/components/widgets/Widget';
-import { Avatar, Rating, cx } from '@/components/ui';
+import { Avatar, DemoTag, cx } from '@/components/ui';
 import { CATEGORY_ICONS, NEED_OPTIONS, useStartRequest } from './startRequest';
 
-/** "Sábado, 31 oct", like the date under a Fitness summary. */
+/** "Sábado, 31 oct", locale-aware. */
 function todayLabel() {
   const text = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' }).replace('.', '');
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-/** The four needs as big tap targets: the main thing anyone can do from here. */
-function NeedWidget() {
+function Section({ title, action, children, testId }: { title: string; action?: ReactNode; children: ReactNode; testId?: string }) {
+  return (
+    <section aria-label={title} data-testid={testId}>
+      <div className="mb-3 flex items-baseline justify-between gap-3 px-1">
+        <h2 className="font-display text-[19px] font-bold tracking-tight">{title}</h2>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+const SeeAll = ({ to, children = 'Ver todas' }: { to: string; children?: ReactNode }) => (
+  <Link to={to} className="text-sm font-semibold hover:underline">
+    {children}
+  </Link>
+);
+
+/** 1 · Primary intent: start a request. Compact, since the + is always there too. */
+function NeedSection({ intro }: { intro?: boolean }) {
   const start = useStartRequest();
   return (
-    <Widget title="¿Qué necesita tu bici?" caption="Elige y te mostramos quién puede ayudarte" size="full" testId="widget-need">
-      <ul className="grid grid-cols-2 gap-2">
+    <section className="surface p-4 sm:p-5" aria-labelledby="need-title" data-testid="widget-need">
+      {intro && <p className="mb-1 text-sm text-muted">Te ayudamos a encontrar al mecánico adecuado.</p>}
+      <h2 id="need-title" className="font-display text-[22px] font-bold tracking-tight">
+        ¿Qué necesita tu bici?
+      </h2>
+      <ul className="mt-3 grid grid-cols-2 gap-2">
         {NEED_OPTIONS.map((o) => {
           const Icon = CATEGORY_ICONS[o.id];
           return (
@@ -34,7 +57,7 @@ function NeedWidget() {
               <button
                 type="button"
                 onClick={() => start(o.id)}
-                className="flex h-full min-h-16 w-full items-center gap-2.5 rounded-2xl bg-canvas px-3 py-3 text-left text-[15px] font-semibold leading-tight transition-colors hover:bg-sand-deep active:scale-[0.98]"
+                className="flex h-full min-h-14 w-full items-center gap-2.5 rounded-2xl bg-canvas px-3 py-2.5 text-left text-[15px] font-semibold leading-tight transition-colors hover:bg-sand-deep active:scale-[0.98]"
               >
                 <Icon className="size-5 shrink-0" aria-hidden />
                 {o.label}
@@ -43,146 +66,193 @@ function NeedWidget() {
           );
         })}
       </ul>
-    </Widget>
+    </section>
   );
 }
 
-function MechanicsWidget() {
+/** 2 · Requires your attention: one card per item, with the action that moves it forward. */
+function AttentionCard({ item, mechanicName }: { item: CyclistAttention; mechanicName: string }) {
+  const r = item.request;
+  const proposal = currentProposal(r);
+  const content = {
+    proposal: {
+      title: `Propuesta de ${mechanicName}`,
+      detail: proposal ? `${categoryLabel(r.category)} · ${formatPrice(proposal.price)} · ${formatDate(proposal.date, { weekday: 'short', day: 'numeric', month: 'short' })}, ${proposal.time}` : categoryLabel(r.category),
+      cta: 'Revisar propuesta',
+      to: `/solicitudes/${r.id}`,
+    },
+    declined: {
+      title: `${mechanicName} no puede atenderte`,
+      detail: `${categoryLabel(r.category)} · Busca otro profesional para esta solicitud`,
+      cta: 'Buscar otro mecánico',
+      to: `/mecanicos?servicio=${r.category}`,
+    },
+    review: {
+      title: `¿Qué tal con ${mechanicName}?`,
+      detail: `${categoryLabel(r.category)} · Servicio completado`,
+      cta: 'Valorar el servicio',
+      to: `/solicitudes/${r.id}`,
+    },
+  }[item.kind];
+  const dark = item.kind === 'proposal';
+  return (
+    <Link
+      to={content.to}
+      className={cx('surface flex items-center gap-3 p-4', dark && '!bg-ink text-paper')}
+      data-testid={`attention-${item.kind}`}
+    >
+      <span className="min-w-0 flex-1">
+        <span className="block font-semibold leading-snug">{content.title}</span>
+        <span className={cx('mt-0.5 block text-sm', dark ? 'text-paper/70' : 'text-muted')}>{content.detail}</span>
+        <span className={cx('mt-2 inline-flex items-center gap-1 text-sm font-semibold', dark ? 'text-lime' : 'text-ink')}>
+          {content.cta} <ArrowRight className="size-4" aria-hidden />
+        </span>
+      </span>
+    </Link>
+  );
+}
+
+/** 3 · In progress: a short summary; the full list lives in Solicitudes. */
+function InProgressRow({ request: r, mechanicName }: { request: ServiceRequest; mechanicName: string }) {
+  const p = currentProposal(r);
+  const booked = r.status === 'confirmed' || r.status === 'in_progress';
+  return (
+    <li>
+      <Link to={`/solicitudes/${r.id}`} className="flex items-center gap-3 px-4 py-3.5 hover:bg-canvas/60">
+        <span className="min-w-0 flex-1">
+          <span className="block truncate font-semibold">
+            {categoryLabel(r.category)} <span className="font-normal text-muted">· {mechanicName}</span>
+          </span>
+          <span className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted">
+            <StatusBadge status={r.status} />
+            {booked && p && <span>{formatDate(p.date, { weekday: 'short', day: 'numeric', month: 'short' })}, {p.time}</span>}
+          </span>
+        </span>
+        <ChevronRight className="size-4 shrink-0 text-muted" aria-hidden />
+      </Link>
+    </li>
+  );
+}
+
+/** Why this mechanic is suggested, only from facts in their profile. */
+function reasonsFor(result: MechanicResult, location?: LocationId, bikeType?: BikeType): string[] {
+  const m = result.mechanic;
+  const reasons: string[] = [];
+  if (location && result.coversLocation) reasons.push(`Cubre ${locationShort(location)}`);
+  if (bikeType && m.bikeTypes.includes(bikeType)) reasons.push(`Trabaja con ${bikeTypeLabel(bikeType).toLowerCase()}`);
+  if (m.specializations[0]) reasons.push(`Especialista en ${specializationLabel(m.specializations[0]).toLowerCase()}`);
+  return reasons.slice(0, 2);
+}
+
+/** 4 · Discover: a few relevant professionals, with grounded reasons and no invented ratings. */
+function DiscoverSection({ user }: { user: User | null }) {
   const mechanics = useApp((s) => s.db.mechanics);
   const reviews = useApp((s) => s.db.reviews);
-  const top = useMemo(() => searchMechanics(mechanics, reviews, { sort: 'rating' }).slice(0, 3), [mechanics, reviews]);
+  const bikes = useOwnerBikes(user?.id);
+  const location = user?.location;
+  const bikeType = bikes[0]?.type;
+  const picks = useMemo(() => {
+    // Never suggest the account's own workshop (accounts can be both cyclist and mechanic).
+    const others = mechanics.filter((m) => m.id !== user?.mechanicId);
+    const near = searchMechanics(others, reviews, { location, bikeType });
+    const rest = searchMechanics(others, reviews, {}).filter((r) => !near.some((n) => n.mechanic.id === r.mechanic.id));
+    return [...near, ...rest].slice(0, 3);
+  }, [mechanics, reviews, location, bikeType, user?.mechanicId]);
+
   return (
-    <Widget title="Mecánicos" caption="Los mejor valorados" to="/mecanicos" size="full" testId="widget-mechanics">
-      <ul className="space-y-2.5">
-        {top.map(({ mechanic: m, rating, reviewCount }) => (
-          <li key={m.id} className="flex items-center gap-3">
-            <Avatar name={m.name} tone={m.avatarTone} size="sm" className="size-10" />
-            <span className="min-w-0 flex-1">
-              <span className="block truncate font-semibold">{m.name}</span>
-              <span className="block truncate text-sm text-muted">{m.headline}</span>
-            </span>
-            <Rating rating={rating} count={reviewCount} compact />
-          </li>
-        ))}
+    <Section title={user ? 'Mecánicos para ti' : 'Mecánicos'} action={<SeeAll to="/mecanicos">Ver todos</SeeAll>} testId="discover">
+      <ul className="surface divide-y divide-line overflow-hidden">
+        {picks.map((r) => {
+          const m = r.mechanic;
+          const reasons = reasonsFor(r, location, bikeType);
+          return (
+            <li key={m.id}>
+              <Link to={`/mecanicos/${m.id}`} className="flex items-center gap-3 px-4 py-3.5 hover:bg-canvas/60">
+                <Avatar name={m.name} tone={m.avatarTone} size="sm" className="size-11" />
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-2">
+                    <span className="truncate font-semibold">{m.name}</span>
+                    <DemoTag />
+                  </span>
+                  <span className="mt-0.5 block truncate text-sm text-muted">{reasons.join(' · ') || m.headline}</span>
+                  <span className="mt-1 flex items-center gap-3 text-xs text-muted">
+                    {m.workshop && (
+                      <span className="inline-flex items-center gap-1">
+                        <Store className="size-3.5" aria-hidden /> Taller
+                      </span>
+                    )}
+                    {m.homeService && (
+                      <span className="inline-flex items-center gap-1">
+                        <HomeIcon className="size-3.5" aria-hidden /> A domicilio
+                      </span>
+                    )}
+                  </span>
+                </span>
+                <ChevronRight className="size-4 shrink-0 text-muted" aria-hidden />
+              </Link>
+            </li>
+          );
+        })}
       </ul>
-    </Widget>
+    </Section>
   );
 }
 
-/** The request that needs the owner most: a proposal to answer first, then the latest active one. */
-function RequestWidget({ request, total }: { request: ServiceRequest; total: number }) {
+function CyclistHome({ user }: { user: User | null }) {
+  const requests = useRequestsFor({ ownerId: user?.id ?? '__guest__' });
+  const reviews = useApp((s) => s.db.reviews);
   const mechanics = useApp((s) => s.db.mechanics);
-  const mechanic = mechanics.find((m) => m.id === request.mechanicId);
-  const decide = request.status === 'proposal_received';
-  const proposal = currentProposal(request);
+  const name = (id: string) => mechanics.find((m) => m.id === id)?.name ?? 'El mecánico';
+  const attention = useMemo(() => cyclistAttention(requests, reviews), [requests, reviews]);
+  const inProgress = useMemo(() => cyclistInProgress(requests), [requests]);
+  const firstTime = requests.length === 0;
+
   return (
-    <Widget
-      title={decide ? 'Tienes una propuesta' : 'Tu solicitud'}
-      caption={total > 1 ? `${total} en curso` : 'En curso'}
-      to={`/solicitudes/${request.id}`}
-      size="full"
-      tone={decide ? 'ink' : 'sand'}
-      testId="widget-request"
-    >
-      <p className="text-[17px] font-semibold">
-        {categoryLabel(request.category)}
-        {mechanic && <span className={cx('font-normal', decide ? 'text-paper/70' : 'text-muted')}> · {mechanic.name}</span>}
-      </p>
-      <div className="mt-auto flex items-center justify-between gap-3 pt-3">
-        <StatusBadge status={request.status} />
-        {decide && proposal && (
-          <span className="font-display text-2xl font-extrabold text-lime">
-            {proposal.price} €
-          </span>
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
+      <div className="space-y-6">
+        <NeedSection intro={firstTime} />
+        {attention.length > 0 && (
+          <Section title="Requiere tu atención" testId="attention">
+            <ul className="space-y-3">
+              {attention.map((item) => (
+                <li key={`${item.kind}-${item.request.id}`}>
+                  <AttentionCard item={item} mechanicName={name(item.request.mechanicId)} />
+                </li>
+              ))}
+            </ul>
+          </Section>
+        )}
+        {inProgress.length > 0 && (
+          <Section title="En curso" action={<SeeAll to="/solicitudes" />} testId="in-progress">
+            <ul className="surface divide-y divide-line overflow-hidden">
+              {inProgress.slice(0, 3).map((r) => (
+                <InProgressRow key={r.id} request={r} mechanicName={name(r.mechanicId)} />
+              ))}
+            </ul>
+          </Section>
         )}
       </div>
-    </Widget>
-  );
-}
-
-function OwnerWidgets({ ownerId }: { ownerId: string }) {
-  const requests = useRequestsFor({ ownerId });
-  const bikes = useOwnerBikes(ownerId);
-  const maintenance = useApp((s) => s.db.maintenance);
-  const mechanics = useApp((s) => s.db.mechanics);
-  const { unread } = useOwnerActivity(ownerId);
-
-  const active = requests
-    .filter((r) => ACTIVE_STATUSES.includes(r.status))
-    .sort((a, b) => Number(b.status === 'proposal_received') - Number(a.status === 'proposal_received'));
-  const appointment = requests
-    .filter((r) => r.status === 'confirmed' || r.status === 'in_progress')
-    .map((r) => ({ r, p: currentProposal(r) }))
-    .filter((x) => x.p)
-    .sort((a, b) => (a.p!.date + a.p!.time).localeCompare(b.p!.date + b.p!.time))[0];
-  const lastService = maintenance
-    .filter((m) => bikes.some((b) => b.id === m.bikeId))
-    .sort((a, b) => b.date.localeCompare(a.date))[0];
-
-  return (
-    <>
-      {active[0] && <RequestWidget request={active[0]} total={active.length} />}
-
-      <Widget title="Novedades" caption={unread ? 'Para ti' : 'Todo al día'} to="/actividad?ver=novedades" testId="widget-updates">
-        <WidgetFigure value={unread} unit="sin leer" accent={unread > 0} />
-      </Widget>
-
-      <Widget title="Solicitudes" caption="En curso" to="/actividad" testId="widget-requests">
-        <WidgetFigure value={active.length} unit={active.length === 1 ? 'activa' : 'activas'} />
-      </Widget>
-
-      <NeedWidget />
-
-      {appointment && (
-        <Widget
-          title="Próxima cita"
-          caption={mechanics.find((m) => m.id === appointment.r.mechanicId)?.name}
-          to={`/solicitudes/${appointment.r.id}`}
-          testId="widget-appointment"
-        >
-          <WidgetFigure value={formatDate(appointment.p!.date)} unit={appointment.p!.time} />
-        </Widget>
-      )}
-      {/* Full width when it has no partner, so the grid never leaves a gap. */}
-      <Widget
-        title="Garaje"
-        caption={lastService ? `Último: ${formatDate(lastService.date)}` : 'Tus bicis'}
-        to="/garaje"
-        size={appointment ? 'half' : 'full'}
-        testId="widget-garage"
-      >
-        <WidgetFigure value={bikes.length} unit={bikes.length === 1 ? 'bici' : 'bicis'} />
-      </Widget>
-
-      <MechanicsWidget />
-    </>
+      <DiscoverSection user={user} />
+    </div>
   );
 }
 
 /**
- * Home as the cyclist's control centre: widgets for what's pending (requests, proposals,
- * appointments, updates), what they can do (ask for a service), and useful information
- * (garage, mechanics). Every widget is a card that opens the matching screen.
+ * Cyclist Home, state-driven: start a request first; then only what needs the person (a
+ * proposal to review, a mechanic who could not take it, a service to rate), a short summary
+ * of what's in progress, and a few relevant mechanics. New accounts and guests see the
+ * request entry and discovery only.
  */
 export function HomePage() {
   const user = useCurrentUser();
-  const isOwner = user?.role === 'owner';
-  // Mechanics have their own home (the panel); switching role happens from the account.
-  if (user?.role === 'mechanic') return <Navigate to="/pro" replace />;
+  const mode = useMode();
+  // Mechanic mode has its own Home.
+  if (user && mode === 'mechanic') return <Navigate to="/pro" replace />;
   return (
     <>
-      <ScreenHeader title="Inicio" description={todayLabel()} actions={<OwnerQuickActions />} />
+      <ScreenHeader title="Inicio" description={todayLabel()} leading={<ProfileButton />} actions={<CyclistHeaderActions />} />
       <div className="container-page pb-8">
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          {isOwner ? (
-            <OwnerWidgets ownerId={user.id} />
-          ) : (
-            <>
-              <NeedWidget />
-              <MechanicsWidget />
-            </>
-          )}
-        </div>
+        <CyclistHome user={user} />
       </div>
     </>
   );

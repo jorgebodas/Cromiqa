@@ -238,7 +238,29 @@ address (or FormSubmit's alias if provided) and deploy.
 4. Garage → full maintenance timeline, reminders, and inspection reports with photos for resale.
 5. Analytics on the funnel (need → results → request → accepted proposal).
 
-## Navigation (cyclist)
+## Navigation and modes (Phase 1 of the master brief)
+
+- **One account, two modes.** Every account can use Cromiqa as a cyclist; mechanic mode exists only when the
+  account has a professional profile (`mechanicId`). Switch from the avatar → *Perfil* → *Modo*, never from a
+  permanent header toggle. Each mode remembers its last place (`src/state/mode.ts`, rules in
+  `src/domain/logic/modes.ts`). The role used for each request action comes from how the account relates to that
+  request (owner or its mechanic), not from the account type.
+- **Cyclist** (bottom bar): *Inicio* `/` · *Mecánicos* `/mecanicos` · *Solicitudes* `/solicitudes`, plus a
+  separate lime **+** (*Nueva solicitud*). Header: avatar (profile) on the left, search and notifications
+  (`/actividad`) on the right; Mecánicos omits the header search because it has its own field. The garage is
+  secondary: Perfil → Garaje, and from a bike inside a request.
+- **Mechanic** (bottom bar): *Inicio* `/pro` · *Solicitudes* `/pro/solicitudes` (sin responder, respondidas,
+  cerradas) · *Servicios* `/pro/trabajos` (con cita, en curso, completados, cancelados). No +. Professional
+  profile `/pro/perfil`, tariffs `/pro/servicios` and availability `/pro/disponibilidad` are reached from the
+  profile. Old `?estado=` links redirect to the matching segment.
+- **Homes** are state-driven from the stored requests (`src/domain/logic/home.ts`): the cyclist Home starts a
+  request, then shows only what needs them (proposal to review, mechanic who declined, service to rate), a short
+  in-progress summary and three suggested mechanics with factual reasons (no ratings or availability claims). The
+  mechanic Home lists the to-do by urgency (new invitations, client messages, proposals to send, appointments due,
+  jobs to finish), counts that open the filtered lists, upcoming appointments and the profile status/gaps.
+
+## Navigation (cyclist, earlier notes)
+
 
 - **Destinations** (bottom bar on phones, header links on desktop): Inicio `/`, Mecánicos `/mecanicos`, Garaje `/garaje`.
   Each tab remembers its last URL (filters live in the URL) and scroll; tapping the active tab returns to its root.

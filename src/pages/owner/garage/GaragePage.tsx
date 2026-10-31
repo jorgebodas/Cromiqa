@@ -10,7 +10,6 @@ import { RoleGate } from '@/components/layout/RoleGate';
 import { Button, EmptyState } from '@/components/ui';
 import { BikeFormDialog } from './BikeForm';
 import { ScreenHeader, headerButtonClass } from '@/components/layout/ScreenHeader';
-import { OwnerQuickActions } from '@/components/layout/QuickActions';
 
 export function BikePhoto({ bike, className = 'h-40' }: { bike: Bike; className?: string }) {
   return bike.photo ? (
@@ -32,15 +31,14 @@ function Inner() {
 
   return (
     <>
+      {/* Secondary screen: reached from the profile and from a bike in a request. */}
       <ScreenHeader
         title="Garaje"
+        back="/cuenta"
         actions={
-          <>
-            <button type="button" onClick={() => setAdding(true)} aria-label="Añadir bici" className={headerButtonClass}>
-              <Plus className="size-5" aria-hidden />
-            </button>
-            <OwnerQuickActions />
-          </>
+          <button type="button" onClick={() => setAdding(true)} aria-label="Añadir bici" className={headerButtonClass}>
+            <Plus className="size-5" aria-hidden />
+          </button>
         }
       />
       <div className="container-page pb-8 sm:pb-10">

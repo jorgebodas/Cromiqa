@@ -24,7 +24,7 @@ function Inner() {
 
   return (
     <>
-      <ScreenHeader title="Agenda" description="Orienta a los clientes. La cita concreta siempre la propones tú en cada solicitud." />
+      <ScreenHeader title="Disponibilidad" back="/cuenta" description="Orienta a los clientes. La cita concreta siempre la propones tú en cada solicitud." />
       <div className="container-page max-w-3xl pb-8 sm:pb-10">
 
       <Card className="p-5">

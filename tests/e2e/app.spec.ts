@@ -2,17 +2,17 @@ import { expect, test } from '@playwright/test';
 import { freshDemo, isMobile, switchAccount } from './helpers';
 
 test.describe('Navegación', () => {
-  test('owner routes render and deep links survive reloads', async ({ page }) => {
+  test('cyclist routes render and deep links survive reloads', async ({ page }) => {
     await freshDemo(page, 'u-ana');
     const routes: [string, RegExp][] = [
       ['#/', /^Inicio$/],
       ['#/mecanicos', /^Mecánicos$/],
       ['#/mecanicos/m-marta', /Marta Ibáñez/],
-      ['#/actividad', /^Actividad$/],
-      ['#/solicitudes', /^Actividad$/], // old link redirects
+      ['#/solicitudes', /^Solicitudes$/],
+      ['#/actividad', /^Notificaciones$/],
       ['#/garaje', /^Garaje$/],
       ['#/garaje/b-ana-mtb', /La de monte/],
-      ['#/cuenta', /^Cuenta$/],
+      ['#/cuenta', /^Perfil$/],
       ['#/demo', /^Demo$/],
       ['#/no-existe', /Esta página no existe/],
     ];
@@ -23,58 +23,110 @@ test.describe('Navegación', () => {
     }
   });
 
-  test('mechanic routes render', async ({ page }) => {
+  test('mechanic routes render, and old list links still land on the right segment', async ({ page }) => {
     await freshDemo(page, 'u-carlos');
     for (const [hash, heading] of [
-      ['#/pro', /^Panel$/],
+      ['#/pro', /^Inicio$/],
       ['#/pro/solicitudes', /^Solicitudes$/],
-      ['#/pro/servicios', /^Servicios$/],
-      ['#/pro/disponibilidad', /^Agenda$/],
-      ['#/pro/perfil', /^Perfil$/],
+      ['#/pro/trabajos', /^Servicios$/],
+      ['#/pro/servicios', /^Tarifas$/],
+      ['#/pro/disponibilidad', /^Disponibilidad$/],
+      ['#/pro/perfil', /^Perfil profesional$/],
     ] as const) {
       await page.goto('./' + hash);
       await expect(page.getByRole('heading', { level: 1 }).first()).toHaveText(heading);
     }
+    await page.goto('./#/pro/solicitudes?estado=agenda');
+    await expect(page).toHaveURL(/#\/pro\/trabajos\?estado=proximos/);
+    await expect(page.getByRole('tab', { name: /Con cita/ })).toHaveAttribute('aria-selected', 'true');
   });
 
-  test('cyclist navigation: three destinations, account, search and activity', async ({ page }) => {
+  test('cyclist: Inicio · Mecánicos · Solicitudes, a separate +, avatar left, search and bell right', async ({ page }) => {
     await freshDemo(page, 'u-ana');
     const mobile = isMobile(page);
     const nav = page.getByRole('navigation', { name: mobile ? 'Principal (móvil)' : 'Principal', exact: true });
-    await expect(nav.getByRole('link')).toHaveText(['Inicio', 'Mecánicos', 'Garaje']);
-    await nav.getByRole('link', { name: 'Garaje' }).click();
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Garaje');
-    await expect(nav.getByRole('link', { name: 'Garaje' })).toHaveAttribute('aria-current', 'page');
+    await expect(nav.getByRole('link')).toHaveText(['Inicio', 'Mecánicos', 'Solicitudes']);
+    await expect(mobile ? page.getByTestId('new-request-fab') : page.getByRole('button', { name: 'Nueva solicitud' })).toBeVisible();
 
-    // Avatar → the existing account screen.
-    await page.getByTestId('account-link').filter({ visible: true }).click();
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Cuenta');
-
-    // Header pattern: the screen name is the large title, actions are round buttons.
-    await expect(page.getByRole('button', { name: 'Buscar' })).toHaveCount(0);
-    await page.goto('./#/mecanicos/m-nerea');
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Nerea Campos');
-    await page.getByRole('link', { name: 'Volver' }).click();
-
-    // Bell → Actividad, with every request listed.
-    await page.getByTestId('activity-link').filter({ visible: true }).click();
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Actividad');
+    await nav.getByRole('link', { name: 'Solicitudes' }).click();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Solicitudes');
     await page.getByRole('tab', { name: /Todas/ }).click();
     await expect(page.getByTestId('request-card').first()).toBeVisible();
+    await page.getByTestId('request-card').first().click();
+    await expect(nav.getByRole('link', { name: 'Solicitudes' })).toHaveAttribute('aria-current', 'page');
+
+    // Search is a global action on the main screens.
+    await page.goto('./#/');
+    await page.getByRole('button', { name: 'Buscar', exact: true }).filter({ visible: true }).click();
+    const search = page.getByRole('dialog', { name: 'Buscar' });
+    await search.getByRole('searchbox').fill('frenos');
+    await search.getByRole('button', { name: /Nerea Campos/ }).click();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Nerea Campos');
+
+    // Garage is secondary: not in the bar, reached from the profile.
+    await expect(nav.getByRole('link', { name: 'Garaje' })).toHaveCount(0);
+    await page.goto('./#/');
+    await page.getByTestId('account-link').filter({ visible: true }).click();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Perfil');
+    await page.getByRole('link', { name: /^Garaje/ }).click();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Garaje');
   });
 
-  test('activity badge counts unread updates and clears once seen', async ({ page }) => {
+  test('notifications badge counts unread updates and clears once seen', async ({ page }) => {
     await freshDemo(page, 'u-ana');
     const bell = page.getByTestId('activity-link').filter({ visible: true });
     await expect(bell).toHaveAttribute('aria-label', /sin leer/);
     await bell.click();
-    await page.getByRole('tab', { name: /Novedades/ }).click();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Notificaciones');
     await expect(page.getByTestId('updates').getByRole('link').first()).toBeVisible();
-    // Back on a main screen (they carry the bell), the count is gone, also after a reload.
     await page.goto('./#/');
-    await expect(bell).toHaveAttribute('aria-label', 'Actividad');
+    await expect(bell).toHaveAttribute('aria-label', 'Notificaciones');
     await page.reload();
-    await expect(page.getByTestId('activity-link').filter({ visible: true })).toHaveAttribute('aria-label', 'Actividad');
+    await expect(page.getByTestId('activity-link').filter({ visible: true })).toHaveAttribute('aria-label', 'Notificaciones');
+  });
+
+  test('mechanic: Inicio · Solicitudes · Servicios, without +', async ({ page }) => {
+    await freshDemo(page, 'u-carlos');
+    await page.goto('./#/pro');
+    const nav = page.getByRole('navigation', { name: isMobile(page) ? 'Principal (móvil)' : 'Principal', exact: true });
+    await expect(nav.getByRole('link')).toHaveText([/^Inicio/, /^Solicitudes/, /^Servicios/]);
+    await expect(page.getByTestId('new-request-fab')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Nueva solicitud' })).toHaveCount(0);
+  });
+
+  test('role switch from the profile, each mode returning to where it was', async ({ page }) => {
+    await freshDemo(page, 'u-carlos');
+    // Carlos has a professional profile: he starts in mechanic mode.
+    await page.goto('./#/pro/trabajos');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Servicios');
+    await page.getByTestId('account-link').filter({ visible: true }).click();
+    await page.getByRole('radio', { name: 'Ciclista' }).click();
+    // Cyclist mode, new to it: the Home invites to a first request, with no fake activity.
+    await expect(page).toHaveURL(/#\/$/);
+    await expect(page.getByText('Te ayudamos a encontrar al mecánico adecuado.')).toBeVisible();
+    await expect(page.getByTestId('attention')).toHaveCount(0);
+    await expect(page.getByTestId('discover')).not.toContainText('Carlos Ortega'); // never his own workshop
+    await page.goto('./#/mecanicos');
+    // Back to mechanic mode: the last mechanic place, not the start.
+    await page.getByTestId('account-link').filter({ visible: true }).click();
+    await page.getByRole('radio', { name: 'Mecánico' }).click();
+    await expect(page).toHaveURL(/#\/pro\/trabajos$/);
+    // …and cyclist mode remembers Mecánicos.
+    await page.getByTestId('account-link').filter({ visible: true }).click();
+    await page.getByRole('radio', { name: 'Ciclista' }).click();
+    await expect(page).toHaveURL(/#\/mecanicos$/);
+    // The choice survives a reload.
+    await page.reload();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Mecánicos');
+  });
+
+  test('cyclist-only accounts have no mechanic mode, and mechanic screens explain it', async ({ page }) => {
+    await freshDemo(page, 'u-ana');
+    await page.goto('./#/cuenta');
+    await expect(page.getByRole('radio', { name: 'Mecánico' })).toHaveCount(0);
+    await expect(page.getByTestId('mode-card')).toContainText('El modo mecánico se activa al crear un perfil profesional');
+    await page.goto('./#/pro');
+    await expect(page.getByText('Tu cuenta aún no tiene perfil profesional.')).toBeVisible();
   });
 
   test('new request: + opens the four needs and starts the existing flow', async ({ page }) => {
@@ -115,7 +167,7 @@ test.describe('Navegación', () => {
     await nav.getByRole('link', { name: 'Mecánicos' }).click();
     await page.getByRole('searchbox', { name: /Buscar/ }).fill('suspensión');
     await expect(page).toHaveURL(/q=suspensi/);
-    await nav.getByRole('link', { name: 'Garaje' }).click();
+    await nav.getByRole('link', { name: 'Solicitudes' }).click();
     await nav.getByRole('link', { name: 'Mecánicos' }).click();
     await expect(page.getByRole('searchbox', { name: /Buscar/ })).toHaveValue('suspensión');
 
@@ -141,25 +193,7 @@ test.describe('Navegación', () => {
     await page.mouse.wheel(0, 300);
     await expect.poll(async () => (await condensed.boundingBox())?.width).toBeLessThanOrEqual(68);
     await condensed.click();
-    await expect(page.getByRole('navigation', { name: 'Principal (móvil)' }).getByRole('link', { name: 'Garaje' })).toBeVisible();
-  });
-
-  test('mechanics never land on the cyclist home, and home has no account switching', async ({ page }) => {
-    await freshDemo(page, 'u-ana');
-    await expect(page.getByTestId('widget-pro')).toHaveCount(0);
-    await switchAccount(page, 'Carlos');
-    await page.goto('./#/');
-    await expect(page).toHaveURL(/#\/pro$/);
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Panel');
-    await expect(page.getByTestId('new-request-fab')).toHaveCount(0);
-  });
-
-  test('mechanics keep their own navigation', async ({ page }) => {
-    await freshDemo(page, 'u-carlos');
-    await page.goto('./#/pro');
-    const nav = page.getByRole('navigation', { name: isMobile(page) ? 'Principal (móvil)' : 'Principal', exact: true });
-    await expect(nav.getByRole('link')).toHaveCount(5);
-    await expect(page.getByTestId('new-request-fab')).toHaveCount(0);
+    await expect(page.getByRole('navigation', { name: 'Principal (móvil)' }).getByRole('link', { name: 'Solicitudes' })).toBeVisible();
   });
 
   test('role gates offer a demo account instead of a fake login', async ({ page }) => {
@@ -172,15 +206,25 @@ test.describe('Navegación', () => {
 });
 
 test.describe('Validación de formularios', () => {
-  test('home is a control centre of clickable widgets', async ({ page }) => {
+  test('cyclist home puts what needs you first, then a short summary and grounded suggestions', async ({ page }) => {
     await freshDemo(page, 'u-pablo');
-    await expect(page.getByTestId('widget-request')).toContainText('Tienes una propuesta');
-    await expect(page.getByTestId('widget-updates')).toContainText('sin leer');
-    await page.getByTestId('widget-garage').click();
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Garaje');
-    await page.goto('./#/');
-    await page.getByTestId('widget-request').click();
+    await expect(page.getByTestId('widget-need')).toBeVisible();
+    const proposal = page.getByTestId('attention-proposal');
+    await expect(proposal).toContainText('Propuesta de Carlos Ortega');
+    await expect(page.getByTestId('discover').getByRole('listitem')).toHaveCount(3);
+    await expect(page.getByTestId('discover')).not.toContainText('★');
+    await proposal.click();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Solicitud');
+  });
+
+  test('mechanic home: to-do by urgency, counts open filtered lists, profile status', async ({ page }) => {
+    await freshDemo(page, 'u-carlos');
+    await page.goto('./#/pro');
+    await expect(page.getByTestId('todo-respond').first()).toContainText('Responder');
+    await expect(page.getByTestId('profile-status')).toBeVisible();
+    await page.getByTestId('count-unanswered').click();
+    await expect(page).toHaveURL(/estado=sin-responder/);
+    await expect(page.getByRole('tab', { name: /Sin responder/ })).toHaveAttribute('aria-selected', 'true');
   });
 
   test('request flow blocks invalid steps', async ({ page }) => {

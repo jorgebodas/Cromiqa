@@ -13,6 +13,7 @@ import { StatusBadge, StatusProgress } from '@/components/domain/Status';
 import { ProposalCard, RequestSummary, RequestTimeline } from '@/components/domain/RequestParts';
 import { Avatar, Button, Card, Dialog, EmptyState, Field, Input, LinkButton, Textarea } from '@/components/ui';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
+import { isBooked } from './MechanicRequestsPage';
 
 const SLOT_TIME: Record<TimeSlot, string> = { morning: '10:00', afternoon: '17:00', evening: '19:30' };
 
@@ -146,7 +147,7 @@ function Inner() {
 
   return (
     <>
-      <ScreenHeader title="Solicitud" back="/pro/solicitudes" />
+      <ScreenHeader title={isBooked(request) ? 'Servicio' : 'Solicitud'} back={isBooked(request) ? '/pro/trabajos' : '/pro/solicitudes'} />
       <div className="container-page pb-8 sm:pb-10">
       <header className="mb-8">
         <div className="flex flex-wrap items-center gap-3">

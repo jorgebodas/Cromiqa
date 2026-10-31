@@ -30,7 +30,8 @@ function Inner() {
   return (
     <>
       <ScreenHeader
-        title="Perfil"
+        title="Perfil profesional"
+        back="/cuenta"
         description={`${mechanic.businessName}. Lo que edites aquí se refleja al instante en tu perfil público y en los resultados de búsqueda.`}
         actions={
           <Link to={`/mecanicos/${mechanic.id}`} aria-label="Ver perfil público" className={headerButtonClass}>

@@ -20,7 +20,8 @@ function Inner() {
   return (
     <>
       <ScreenHeader
-        title="Servicios"
+        title="Tarifas"
+        back="/cuenta"
         description="Los precios son orientativos («desde»). El precio final lo fijas en cada propuesta."
         actions={
           <button type="button" onClick={add} aria-label="Añadir servicio" className={headerButtonClass}>

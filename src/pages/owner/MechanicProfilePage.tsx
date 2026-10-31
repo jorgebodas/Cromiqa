@@ -3,6 +3,7 @@ import { ArrowRight, Award, CalendarDays, Clock, Languages, MapPin, Store, UserR
 import { CATEGORIES, TIME_SLOTS, WEEKDAYS, bikeTypeLabel, locationLabel, locationShort, specializationLabel } from '@/domain/catalog';
 import { formatDate, formatLongDate, formatPrice } from '@/domain/utils';
 import { useApp } from '@/state/store';
+import { useMode } from '@/state/mode';
 import { useCurrentUser, useMechanic, useMechanicRating } from '@/state/selectors';
 import { DemoVerifiedBadge, ModeIndicators } from '@/components/domain/MechanicCard';
 import { Avatar, Badge, Card, DemoTag, EmptyState, LinkButton, Rating, SectionTitle, Stars, cx } from '@/components/ui';
@@ -15,6 +16,7 @@ export function MechanicProfilePage() {
   const { rating, reviewCount } = useMechanicRating(id);
   const allReviews = useApp((s) => s.db.reviews);
   const user = useCurrentUser();
+  const mode = useMode();
 
   if (!mechanic) {
     return (
@@ -265,7 +267,7 @@ export function MechanicProfilePage() {
         <div
           className={cx(
             'fixed inset-x-0 z-30 border-t border-line bg-paper/95 p-3 backdrop-blur lg:hidden',
-            user?.role === 'mechanic' ? 'bottom-16' : 'bottom-0 pb-[max(12px,env(safe-area-inset-bottom))]',
+            mode === 'mechanic' ? 'bottom-16' : 'bottom-0 pb-[max(12px,env(safe-area-inset-bottom))]',
           )}
         >
           <LinkButton to={requestHref} block size="lg">

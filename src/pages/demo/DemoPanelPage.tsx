@@ -16,7 +16,7 @@ const SCENARIOS: { id: string; title: string; steps: string; start: { label: str
   {
     id: 'A',
     title: 'Solicitud de reparación',
-    steps: 'Inicio → Reparación → describe que los cambios saltan → MTB → A domicilio en Rivas → elige mecánico → envía → Actividad (campana).',
+    steps: 'Inicio → Reparación → describe que los cambios saltan → MTB → A domicilio en Rivas → elige mecánico → envía → Solicitudes.',
     start: { label: 'Empezar como Ana', user: 'u-ana', to: '/' },
   },
   {
@@ -163,7 +163,7 @@ export function DemoPanelPage() {
                         {u.demoBlurb} · {count} solicitudes
                       </p>
                     </div>
-                    <Button size="sm" variant={active ? 'ghost' : 'secondary'} disabled={active} onClick={() => switchAccount(u.id, { to: u.role === 'mechanic' ? '/pro' : '/actividad' })}>
+                    <Button size="sm" variant={active ? 'ghost' : 'secondary'} disabled={active} onClick={() => switchAccount(u.id, { to: u.role === 'mechanic' ? '/pro' : '/solicitudes' })}>
                       {active ? 'En uso' : 'Usar'}
                     </Button>
                   </li>

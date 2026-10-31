@@ -10,7 +10,7 @@ import { MechanicCard } from '@/components/domain/MechanicCard';
 import { Button, Dialog, EmptyState, Field, Input, Select, cx } from '@/components/ui';
 import { buildSearchParams, parseSearchParams } from './searchParams';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
-import { OwnerQuickActions } from '@/components/layout/QuickActions';
+import { CyclistHeaderActions, ProfileButton } from '@/components/layout/QuickActions';
 
 function FilterControls({ filters, set }: { filters: MechanicFilters; set: (patch: Partial<MechanicFilters>) => void }) {
   return (
@@ -145,7 +145,8 @@ export function FindMechanicPage() {
 
   return (
     <>
-      <ScreenHeader title="Mecánicos" actions={<OwnerQuickActions />} />
+      {/* This screen has its own search field, so the header leaves the search button out. */}
+      <ScreenHeader title="Mecánicos" leading={<ProfileButton />} actions={<CyclistHeaderActions search={false} />} />
       <div className="container-page pb-8 sm:pb-10">
 
       {showProblem && (

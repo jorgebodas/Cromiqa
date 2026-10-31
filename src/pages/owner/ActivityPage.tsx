@@ -1,18 +1,14 @@
 import { useEffect, useRef } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Bell, ChevronRight } from 'lucide-react';
 import { relativeTime } from '@/domain/utils';
 import { categoryLabel } from '@/domain/catalog';
 import { useApp } from '@/state/store';
 import { useCurrentUser } from '@/state/selectors';
 import { useActivitySeen, useOwnerActivity } from '@/state/activity';
-import { useNavUi } from '@/state/ui';
 import { RoleGate } from '@/components/layout/RoleGate';
 import { EmptyState, cx } from '@/components/ui';
-import { OwnerRequestsList } from './OwnerRequestsList';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
-
-type Section = 'solicitudes' | 'novedades';
 
 function Updates() {
   const user = useCurrentUser()!;
@@ -63,44 +59,13 @@ function Updates() {
   );
 }
 
+/** Notifications (the bell): what mechanics did on your requests, newest first. */
 function Inner() {
-  const user = useCurrentUser()!;
-  const { unread } = useOwnerActivity(user.id);
-  const openNewRequest = useNavUi((s) => s.openNewRequest);
-  const [params, setParams] = useSearchParams();
-  const section: Section = params.get('ver') === 'novedades' ? 'novedades' : 'solicitudes';
-  const tabs: { id: Section; label: string; badge?: number }[] = [
-    { id: 'solicitudes', label: 'Solicitudes' },
-    { id: 'novedades', label: 'Novedades', badge: unread },
-  ];
-
   return (
     <>
-      <ScreenHeader title="Actividad" back="/" />
-      <div className="container-page pb-8 sm:pb-10">
-      <div role="tablist" aria-label="Actividad" className="mb-6 flex gap-6 border-b border-line">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            role="tab"
-            id={`tab-${t.id}`}
-            aria-selected={section === t.id}
-            aria-controls={`panel-${t.id}`}
-            onClick={() => setParams(t.id === 'novedades' ? { ver: 'novedades' } : {}, { replace: true })}
-            className={cx(
-              '-mb-px flex h-11 items-center gap-2 border-b-2 text-[15px] font-semibold transition-colors',
-              section === t.id ? 'border-ink text-ink' : 'border-transparent text-muted hover:text-ink',
-            )}
-          >
-            {t.label}
-            {!!t.badge && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-ink px-1.5 text-[11px] font-bold text-paper">{t.badge}</span>}
-          </button>
-        ))}
-      </div>
-      <div role="tabpanel" id={`panel-${section}`} aria-labelledby={`tab-${section}`}>
-        {section === 'solicitudes' ? <OwnerRequestsList onNewRequest={openNewRequest} /> : <Updates />}
-      </div>
+      <ScreenHeader title="Notificaciones" back="/" />
+      <div className="container-page max-w-3xl pb-8 sm:pb-10">
+        <Updates />
       </div>
     </>
   );
@@ -108,7 +73,7 @@ function Inner() {
 
 export function ActivityPage() {
   return (
-    <RoleGate role="owner" reason="Actividad reúne las solicitudes de un propietario. Las cuentas de mecánico las gestionan desde su panel.">
+    <RoleGate role="owner" reason="Las notificaciones de tus solicitudes como ciclista.">
       <Inner />
     </RoleGate>
   );

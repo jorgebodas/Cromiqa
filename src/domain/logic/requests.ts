@@ -56,7 +56,10 @@ export function validateRequestInput(input: NewRequestInput, db: DemoDatabase): 
   const errors: Record<string, string> = {};
   const mechanic = db.mechanics.find((m) => m.id === input.mechanicId);
   if (!mechanic) errors.mechanicId = 'Elige un mecánico.';
-  if (!db.users.some((u) => u.id === input.ownerId && u.role === 'owner')) errors.ownerId = 'Elige una cuenta de propietario.';
+  // Any account can request a service as a cyclist, just not from its own workshop.
+  const owner = db.users.find((u) => u.id === input.ownerId);
+  if (!owner) errors.ownerId = 'Elige una cuenta.';
+  else if (mechanic && owner.mechanicId === mechanic.id) errors.mechanicId = 'No puedes enviarte una solicitud a ti mismo.';
   if (input.description.trim().length < 10) errors.description = 'Describe el problema con al menos 10 caracteres.';
   if (!input.bike.brand.trim()) errors.brand = 'Indica la marca.';
   if (!input.bike.model.trim()) errors.model = 'Indica el modelo.';

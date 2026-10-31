@@ -86,7 +86,7 @@ function Inner() {
           icon={<X className="size-6" />}
           title="No encontramos esta solicitud"
           description="Puede que pertenezca a otra cuenta de la demo o que los datos se hayan restablecido."
-          action={<LinkButton to="/actividad" variant="dark">Ver actividad</LinkButton>}
+          action={<LinkButton to="/solicitudes" variant="dark">Ver solicitudes</LinkButton>}
         />
       </div>
     );
@@ -114,7 +114,7 @@ function Inner() {
 
   return (
     <>
-      <ScreenHeader title="Solicitud" back="/actividad" />
+      <ScreenHeader title="Solicitud" back="/solicitudes" />
       <div className="container-page pb-8 sm:pb-10">
       <header className="mb-8">
         <div className="flex flex-wrap items-center gap-3">

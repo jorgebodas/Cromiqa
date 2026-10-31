@@ -37,6 +37,8 @@ interface ScreenHeaderProps {
   compactTitle?: string;
   /** Detail screens: where "back" goes when there is no history to return to. */
   back?: string;
+  /** Main screens: a round button on the left (the profile avatar). Detail screens use `back`. */
+  leading?: ReactNode;
   /** Round buttons on the right (use `headerButtonClass`). */
   actions?: ReactNode;
   /** Optional line under the title. */
@@ -52,7 +54,7 @@ interface ScreenHeaderProps {
  * Render it as the first child of a screen, outside the screen's own container, so the bar
  * can stay pinned for the whole page.
  */
-export function ScreenHeader({ title, compactTitle, back, actions, description }: ScreenHeaderProps) {
+export function ScreenHeader({ title, compactTitle, back, leading, actions, description }: ScreenHeaderProps) {
   const bar = useRef<HTMLDivElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   // 0 = title fully on its own line, 1 = title has gone up into the top row.
@@ -97,7 +99,7 @@ export function ScreenHeader({ title, compactTitle, back, actions, description }
         data-testid="screen-bar"
       >
         <div className="container-page relative flex h-16 items-center gap-3">
-          {back && <BackButton fallback={back} />}
+          {back ? <BackButton fallback={back} /> : leading}
           <p
             aria-hidden
             className="pointer-events-none min-w-0 flex-1 truncate font-display text-[22px] font-bold tracking-tight"

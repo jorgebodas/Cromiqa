@@ -1,4 +1,4 @@
-import { ArrowLeft, FlaskConical } from 'lucide-react';
+import { ChevronLeft, FlaskConical } from 'lucide-react';
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 import { LOCATIONS } from '@/domain/catalog';
 import { Checkbox, FieldError, Input, Select, cx } from '@/components/ui';
@@ -288,9 +288,15 @@ export function TesterLoginForm({ autoFocus = false, formId, onState, onBack }: 
 
   return (
     <form id={formId} onSubmit={submit} noValidate className="relative" data-testid="tester-form">
-      <div className="cq-rise flex items-center gap-3" style={rise(0)}>
-        <button type="button" onClick={onBack} aria-label="Volver a la lista de espera" className={roundButtonClass} data-testid="tester-back">
-          <ArrowLeft className="size-5" aria-hidden />
+      <div className="cq-rise flex items-center gap-1" style={rise(0)}>
+        <button
+          type="button"
+          onClick={onBack}
+          aria-label="Volver a la lista de espera"
+          className="-ml-2 flex size-10 shrink-0 items-center justify-center rounded-full text-ink transition-colors hover:bg-ink/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+          data-testid="tester-back"
+        >
+          <ChevronLeft className="size-6" strokeWidth={2.2} aria-hidden />
         </button>
         <h2 className="font-display text-xl font-extrabold leading-tight tracking-tight">Probar el prototipo</h2>
       </div>

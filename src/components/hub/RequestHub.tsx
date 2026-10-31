@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, ArrowUpRight, CalendarCheck, ChevronRight, ClipboardList, Loader2, Plus, Send, X } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ArrowUpRight, CalendarCheck, ChevronRight, ClipboardList, Loader2, Plus, Send, X } from 'lucide-react';
 import { HubActionContext, type HubActionApi, type HubPrimaryMeta } from './hubAction';
 import type { ID, ServiceRequest } from '@/domain/types';
 import { bikeLabel, categoryLabel } from '@/domain/catalog';
@@ -213,9 +213,12 @@ function Detail({ item, onGo }: { item: HubItem; onGo: (to: string) => void }) {
   );
 }
 
-/** Round buttons inside the box, same as the entrance card's back button. */
-const roundButtonClass =
-  'flex size-11 shrink-0 items-center justify-center rounded-full border border-line bg-paper text-ink shadow-[var(--shadow-surface)] transition-transform hover:scale-105 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink';
+/** Back: a bare chevron, no circle or shadow. */
+const plainBackClass =
+  '-ml-2 flex size-10 shrink-0 items-center justify-center rounded-full text-ink transition-colors hover:bg-canvas focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink';
+/** Close (and +): a small soft grey circle, top right. */
+const softCircleClass =
+  'flex size-9 shrink-0 items-center justify-center rounded-full bg-canvas text-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink';
 
 const TITLES: Record<HubView['kind'], string> = { overview: 'Tus solicitudes', detail: 'Solicitud', new: 'Nueva solicitud' };
 const SCREEN_TITLES: Record<QuickScreen, string> = {
@@ -448,20 +451,24 @@ export function RequestHubOverlay() {
         aria-labelledby="hub-title"
         className="glass-card cq-sheet-up absolute inset-x-2 bottom-[max(10px,env(safe-area-inset-bottom))] mx-auto flex h-[min(86dvh,800px)] max-w-md origin-bottom flex-col rounded-[30px]"
       >
-        <header className="flex items-center gap-3 px-6 pb-3 pt-8">
+        {/* Back and close up top, quiet; the bottom is only for the main action. */}
+        <header className="flex items-center gap-2 px-6 pb-3 pt-7">
           {meta?.canBack && (
-            <button type="button" onClick={onBack} aria-label={shown.kind === 'new' ? 'Atrás' : 'Volver a tus solicitudes'} className={roundButtonClass}>
-              <ArrowLeft className="size-5" aria-hidden />
+            <button type="button" onClick={onBack} aria-label={shown.kind === 'new' ? 'Atrás' : 'Volver a tus solicitudes'} className={plainBackClass}>
+              <ChevronLeft className="size-6" strokeWidth={2.2} aria-hidden />
             </button>
           )}
           <h2 id="hub-title" tabIndex={-1} data-autofocus className="min-w-0 flex-1 truncate font-display text-xl font-extrabold leading-tight tracking-tight outline-none">
             {screen ? SCREEN_TITLES[screen] : shown.kind === 'detail' && detailItem ? categoryLabel(detailItem.lead.category) : TITLES[shown.kind]}
           </h2>
           {shown.kind === 'detail' && (
-            <button type="button" onClick={toNew} aria-label="Nueva solicitud" className={roundButtonClass}>
-              <Plus className="size-5" aria-hidden />
+            <button type="button" onClick={toNew} aria-label="Nueva solicitud" className={softCircleClass}>
+              <Plus className="size-[18px]" aria-hidden />
             </button>
           )}
+          <button type="button" onClick={requestClose} aria-label="Cerrar" className={softCircleClass}>
+            <X className="size-[18px]" aria-hidden />
+          </button>
         </header>
         <HubActionContext.Provider value={api}>
           <div data-hub-scroll className="min-h-0 flex-1 overflow-y-auto px-6 pb-4">
@@ -469,15 +476,14 @@ export function RequestHubOverlay() {
           </div>
         </HubActionContext.Provider>
 
-        {/* Same row as the entrance card: the primary action, then close. */}
-        <div className="flex items-center gap-3 px-6 pb-6 pt-2">
+        {/* The main action, full width. */}
+        <div className="flex items-center px-6 pb-6 pt-2">
           {meta && (
             <button
               type="button"
               onClick={onPrimary}
               disabled={meta.loading}
               className="dock-btn-lime flex h-14 min-w-0 flex-1 items-center justify-center gap-2 rounded-[28px] text-[15px] font-semibold text-ink transition-transform active:scale-[0.97] disabled:opacity-70"
-              
               data-testid="hub-primary"
             >
               {meta.loading ? <Loader2 className="size-5 animate-spin" aria-hidden /> : meta.icon === 'plus' && <PrimaryIcon className="size-5" aria-hidden />}
@@ -485,14 +491,6 @@ export function RequestHubOverlay() {
               {!meta.loading && meta.icon !== 'plus' && <PrimaryIcon className="size-5" aria-hidden />}
             </button>
           )}
-          <button
-            type="button"
-            onClick={requestClose}
-            aria-label="Cerrar"
-            className="dock-btn flex h-14 shrink-0 items-center justify-center rounded-[28px] text-ink w-14 active:scale-[0.97]"
-          >
-            <X className="size-6" aria-hidden />
-          </button>
         </div>
       </div>
 

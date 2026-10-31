@@ -45,7 +45,10 @@ test.describe('Navegación', () => {
     await freshDemo(page, 'u-ana');
     const mobile = isMobile(page);
     const nav = page.getByRole('navigation', { name: mobile ? 'Principal (móvil)' : 'Principal', exact: true });
-    await expect(nav.getByRole('link')).toHaveText(['Inicio', 'Mecánicos', 'Solicitudes']);
+    // Phones show icons only; the labels stay as accessible names.
+    const links = nav.getByRole('link');
+    await expect(links).toHaveCount(3);
+    for (const [i, name] of ['Inicio', 'Mecánicos', 'Solicitudes'].entries()) await expect(links.nth(i)).toHaveAccessibleName(name);
     await expect(mobile ? page.getByTestId('new-request-fab') : page.getByRole('button', { name: 'Nueva solicitud' }).first()).toBeVisible();
 
     await nav.getByRole('link', { name: 'Solicitudes' }).click();
@@ -89,7 +92,9 @@ test.describe('Navegación', () => {
     await freshDemo(page, 'u-carlos');
     await page.goto('./#/pro');
     const nav = page.getByRole('navigation', { name: isMobile(page) ? 'Principal (móvil)' : 'Principal', exact: true });
-    await expect(nav.getByRole('link')).toHaveText([/^Inicio/, /^Solicitudes/, /^Servicios/]);
+    const links = nav.getByRole('link');
+    await expect(links).toHaveCount(3);
+    for (const [i, name] of [/^Inicio/, /^Solicitudes/, /^Servicios/].entries()) await expect(links.nth(i)).toHaveAccessibleName(name);
     await expect(page.getByTestId('new-request-fab')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Nueva solicitud' }).first()).toHaveCount(0);
   });

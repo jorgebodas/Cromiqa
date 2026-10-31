@@ -189,6 +189,49 @@ function OwnerHeader({ tabHref, onNewRequest, onSearch }: { tabHref: (t: OwnerTa
   );
 }
 
+/**
+ * The floating pill of the phone navigation: icons only, a white pill with a soft halo, and a
+ * round highlight that slides to the active tab. Labels stay as accessible names.
+ */
+function FloatingTabs({ tabs, className, hidden }: { hidden?: boolean; tabs: { key: string; to: string; label: string; icon: typeof House; active: boolean; badge?: number; state?: unknown }[]; className?: string }) {
+  const index = tabs.findIndex((t) => t.active);
+  return (
+    <nav aria-label="Principal (móvil)" className={cx('h-full p-1.5', className)} {...(hidden ? { inert: '' } : {})}>
+      <ul className="relative grid h-full" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
+        {index >= 0 && (
+          <li
+            aria-hidden
+            className="pointer-events-none absolute inset-y-0 left-0 flex items-center justify-center transition-transform duration-300 ease-[cubic-bezier(.3,1.25,.4,1)]"
+            style={{ width: `${100 / tabs.length}%`, transform: `translateX(${index * 100}%)` }}
+          >
+            <span className="size-[52px] rounded-full bg-canvas" />
+          </li>
+        )}
+        {tabs.map((t) => (
+          <li key={t.key} className="relative">
+            <Link
+              to={t.to}
+              state={t.state}
+              aria-label={t.badge ? `${t.label} (${t.badge} sin responder)` : t.label}
+              aria-current={t.active ? 'page' : undefined}
+              className={cx('flex h-full items-center justify-center rounded-full transition-colors', t.active ? 'text-ink' : 'text-muted hover:text-ink')}
+            >
+              <span className="relative">
+                <t.icon className="size-[26px]" strokeWidth={t.active ? 2.1 : 1.8} aria-hidden />
+                {!!t.badge && (
+                  <span className="absolute -right-2.5 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-lime px-1 text-[10px] font-bold text-ink ring-2 ring-paper" aria-hidden>
+                    {t.badge}
+                  </span>
+                )}
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}
+
 function OwnerBottomNav({
   tabHref,
   onNewRequest,
@@ -204,37 +247,19 @@ function OwnerBottomNav({
   const current = OWNER_TABS.find((t) => t.owns(pathname));
   const CurrentIcon = current?.icon ?? Menu;
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(10px,env(safe-area-inset-bottom))] md:hidden">
-      <div className="mx-auto flex max-w-md items-center justify-between">
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(12px,env(safe-area-inset-bottom))] md:hidden">
+      <div className="mx-auto flex max-w-md items-center justify-between gap-3">
         <div
           className={cx(
-            'pointer-events-auto relative h-16 overflow-hidden rounded-full border border-line bg-paper/95 shadow-card backdrop-blur transition-[width] duration-300 ease-out',
+            'float-pill pointer-events-auto relative h-16 overflow-hidden rounded-full transition-[width] duration-300 ease-out',
             condensed ? 'w-16' : 'w-[calc(100%-76px)]',
           )}
         >
-          <nav aria-label="Principal (móvil)" className={cx('h-full p-1 transition-opacity duration-200', condensed ? 'opacity-0' : 'opacity-100')} {...(condensed ? { inert: '' } : {})}>
-            <ul className="grid h-full min-w-[220px] grid-cols-3">
-              {OWNER_TABS.map((t) => {
-                const active = t.owns(pathname);
-                return (
-                  <li key={t.id}>
-                    <Link
-                      to={tabHref(t)}
-                      state={{ tab: true }}
-                      aria-current={active ? 'page' : undefined}
-                      className={cx(
-                        'flex h-14 flex-col items-center justify-center gap-0.5 rounded-full text-xs font-medium transition-colors',
-                        active ? 'bg-sand text-ink' : 'text-muted',
-                      )}
-                    >
-                      <t.icon className="size-6" strokeWidth={active ? 2.25 : 1.75} aria-hidden />
-                      {t.label}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </nav>
+          <FloatingTabs
+            className={cx('min-w-[220px] transition-opacity duration-200', condensed ? 'opacity-0' : 'opacity-100')}
+            tabs={OWNER_TABS.map((t) => ({ key: t.id, to: tabHref(t), label: t.label, icon: t.icon, active: t.owns(pathname), state: { tab: true } }))}
+            hidden={condensed}
+          />
           {/* Condensed: one circle with the current section; tapping it opens the bar again. */}
           <button
             type="button"
@@ -248,14 +273,15 @@ function OwnerBottomNav({
             )}
             data-testid="nav-condensed"
           >
-            <CurrentIcon className="size-7" strokeWidth={2.25} aria-hidden />
+            <CurrentIcon className="size-[26px]" strokeWidth={2.1} aria-hidden />
           </button>
         </div>
         <button
           type="button"
           onClick={onNewRequest}
           aria-label="Nueva solicitud"
-          className="pointer-events-auto flex size-16 shrink-0 items-center justify-center rounded-full bg-lime text-ink shadow-card transition-transform active:scale-95"
+          className="float-pill pointer-events-auto flex size-16 shrink-0 items-center justify-center rounded-full text-ink transition-transform active:scale-95"
+          style={{ backgroundColor: 'var(--color-lime)' }}
           data-testid="new-request-fab"
         >
           <Plus className="size-7" strokeWidth={2.25} aria-hidden />
@@ -341,36 +367,14 @@ function MechanicHeader({ items }: { items: NavItem[] }) {
 }
 
 function MechanicBottomTabs({ items }: { items: NavItem[] }) {
+  const { pathname } = useLocation();
+  const isActive = (i: NavItem) => (i.end ? pathname === i.to : pathname === i.to || pathname.startsWith(i.to + '/'));
   return (
-    <nav aria-label="Principal (móvil)" className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-paper/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
-      <ul className="grid grid-cols-3">
-        {items.map((item) => (
-          <li key={item.to}>
-            <NavLink
-              to={item.to}
-              end={item.end}
-              className={({ isActive }) =>
-                cx('relative flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium', isActive ? 'text-ink' : 'text-muted')
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  <span className={cx('flex h-7 w-12 items-center justify-center rounded-full transition-colors', isActive && 'bg-sand')}>
-                    <item.icon className="size-5" strokeWidth={isActive ? 2.25 : 1.75} aria-hidden />
-                  </span>
-                  {item.short}
-                  {!!item.badge && (
-                    <span className="absolute right-[calc(50%-22px)] top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-lime px-1 text-[10px] font-bold text-ink">
-                      {item.badge}
-                    </span>
-                  )}
-                </>
-              )}
-            </NavLink>
-          </li>
-        ))}
-      </ul>
-    </nav>
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(12px,env(safe-area-inset-bottom))] md:hidden">
+      <div className="float-pill pointer-events-auto mx-auto h-16 max-w-[300px] rounded-full">
+        <FloatingTabs tabs={items.map((i) => ({ key: i.to, to: i.to, label: i.label, icon: i.icon, active: isActive(i), badge: i.badge }))} />
+      </div>
+    </div>
   );
 }
 

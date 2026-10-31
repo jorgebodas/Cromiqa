@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, Outlet, matchPath, useLocation, useNavigationType } from 'react-router-dom';
-import { Bell, ClipboardList, FlaskConical, Hammer, House, Inbox, Menu, Plus, RefreshCw, Search, UserRound, Wrench } from 'lucide-react';
+import { Bell, ClipboardList, FlaskConical, Hammer, House, Inbox, Menu, Plus, RefreshCw, UserRound, Wrench } from 'lucide-react';
 import { Wordmark } from '@/brand/Wordmark';
 import { useCurrentUser } from '@/state/selectors';
 import { useApp } from '@/state/store';
@@ -9,7 +9,6 @@ import { useNavUi } from '@/state/ui';
 import { Avatar, Toaster, cx } from '@/components/ui';
 import { AccountSwitcherDialog } from './AccountSwitcher';
 import { NewRequestSheet } from './NewRequestSheet';
-import { GlobalSearch } from './GlobalSearch';
 import { useMode, useModeStore } from '@/state/mode';
 import { modeOfPath, type AppMode } from '@/domain/logic/modes';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -141,7 +140,7 @@ function useCondensedChrome() {
 }
 
 /** Desktop only: logo · destinations · new request, activity, account. Phones use each screen's header. */
-function OwnerHeader({ tabHref, onNewRequest, onSearch }: { tabHref: (t: OwnerTab) => string; onNewRequest: () => void; onSearch: () => void }) {
+function OwnerHeader({ tabHref, onNewRequest }: { tabHref: (t: OwnerTab) => string; onNewRequest: () => void }) {
   const user = useCurrentUser();
   const { unread } = useOwnerActivity(user?.id);
   const { pathname } = useLocation();
@@ -177,9 +176,6 @@ function OwnerHeader({ tabHref, onNewRequest, onSearch }: { tabHref: (t: OwnerTa
             className="mr-2 flex h-10 items-center gap-1.5 rounded-full bg-lime px-4 text-sm font-semibold text-ink transition-colors hover:bg-lime-deep"
           >
             <Plus className="size-4" aria-hidden /> Nueva solicitud
-          </button>
-          <button type="button" onClick={onSearch} aria-label="Buscar" className="flex size-10 items-center justify-center rounded-full transition-colors hover:bg-sand">
-            <Search className="size-5" aria-hidden />
           </button>
           <BellLink unread={unread} />
           <AccountLink />
@@ -431,7 +427,7 @@ function useRememberPlace(userId: string | undefined, mode: AppMode) {
 
 export function AppShell({ children }: { children?: ReactNode }) {
   const [switcherOpen, setSwitcherOpen] = useState(false);
-  const { newRequestOpen, openNewRequest, closeNewRequest, searchOpen, openSearch, closeSearch } = useNavUi();
+  const { newRequestOpen, openNewRequest, closeNewRequest } = useNavUi();
   const user = useCurrentUser();
   const mode = useMode();
   const isPro = mode === 'mechanic';
@@ -455,7 +451,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
       {isPro ? (
         <MechanicHeader items={mechanicItems} />
       ) : (
-        <OwnerHeader tabHref={tabHref} onNewRequest={openNewRequest} onSearch={openSearch} />
+        <OwnerHeader tabHref={tabHref} onNewRequest={openNewRequest} />
       )}
       <main id="main" className={cx('flex-1 md:pb-0', isPro ? 'pb-28' : showOwnerBar ? 'pb-32' : 'pb-10')}>
         <ErrorBoundary>{children ?? <Outlet />}</ErrorBoundary>
@@ -467,7 +463,6 @@ export function AppShell({ children }: { children?: ReactNode }) {
       {!isPro && (
         <>
           <NewRequestSheet open={newRequestOpen} onClose={closeNewRequest} />
-          <GlobalSearch open={searchOpen} onClose={closeSearch} />
         </>
       )}
     </div>

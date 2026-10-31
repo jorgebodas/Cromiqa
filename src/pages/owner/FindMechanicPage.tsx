@@ -146,7 +146,7 @@ export function FindMechanicPage() {
   return (
     <>
       {/* This screen has its own search field, so the header leaves the search button out. */}
-      <ScreenHeader title="Mecánicos" actions={<CyclistHeaderActions search={false} />} />
+      <ScreenHeader title="Mecánicos" actions={<CyclistHeaderActions />} />
       <div className="container-page pb-8 sm:pb-10">
 
       {showProblem && (

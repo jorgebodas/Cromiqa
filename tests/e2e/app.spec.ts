@@ -41,7 +41,7 @@ test.describe('Navegación', () => {
     await expect(page.getByRole('tab', { name: /Con cita/ })).toHaveAttribute('aria-selected', 'true');
   });
 
-  test('cyclist: Inicio · Mecánicos · Solicitudes, a separate +, avatar left, search and bell right', async ({ page }) => {
+  test('cyclist: Inicio · Mecánicos · Solicitudes, a separate +, bell and avatar top-right, no general search', async ({ page }) => {
     await freshDemo(page, 'u-ana');
     const mobile = isMobile(page);
     const nav = page.getByRole('navigation', { name: mobile ? 'Principal (móvil)' : 'Principal', exact: true });
@@ -58,13 +58,9 @@ test.describe('Navegación', () => {
     await page.getByTestId('case-card').first().click();
     await expect(nav.getByRole('link', { name: 'Solicitudes' })).toHaveAttribute('aria-current', 'page');
 
-    // Search is a global action on the main screens.
+    // No general search: searching lives in Mecánicos.
     await page.goto('./#/');
-    await page.getByRole('button', { name: 'Buscar', exact: true }).filter({ visible: true }).click();
-    const search = page.getByRole('dialog', { name: 'Buscar' });
-    await search.getByRole('searchbox').fill('frenos');
-    await search.getByRole('button', { name: /Nerea Campos/ }).click();
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Nerea Campos');
+    await expect(page.getByRole('button', { name: 'Buscar', exact: true })).toHaveCount(0);
 
     // Garage is secondary: not in the bar, reached from the profile.
     await expect(nav.getByRole('link', { name: 'Garaje' })).toHaveCount(0);

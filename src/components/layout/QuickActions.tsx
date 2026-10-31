@@ -1,9 +1,8 @@
 import { Link, NavLink } from 'react-router-dom';
-import { Bell, Search, UserRound } from 'lucide-react';
+import { Bell, UserRound } from 'lucide-react';
 import { useCurrentUser } from '@/state/selectors';
 import { useOwnerActivity } from '@/state/activity';
 import { useMode } from '@/state/mode';
-import { useNavUi } from '@/state/ui';
 import { Avatar, cx } from '@/components/ui';
 import { headerButtonClass } from './ScreenHeader';
 
@@ -33,19 +32,6 @@ export function NotificationsButton({ className }: { className?: string }) {
   );
 }
 
-export function SearchButton({ className }: { className?: string }) {
-  const openSearch = useNavUi((s) => s.openSearch);
-  return (
-    <button type="button" onClick={openSearch} aria-label="Buscar" className={cx(headerButtonClass, className)} data-testid="search-button">
-      <Search className="size-5" aria-hidden />
-    </button>
-  );
-}
-
-/**
- * Top-right of the cyclist's main screens on phones: search and notifications. Screens that
- * already have their own search field (Mecánicos) leave the search button out.
- */
 /** The account, top-right on phones: photo or initials. Opens Perfil. */
 export function ProfileAvatarButton() {
   const user = useCurrentUser();
@@ -56,11 +42,10 @@ export function ProfileAvatarButton() {
   );
 }
 
-/** Phone header actions in cyclist mode: search, notifications and the account. */
-export function CyclistHeaderActions({ search = true }: { search?: boolean }) {
+/** Phone header actions in cyclist mode: notifications and the account. */
+export function CyclistHeaderActions() {
   return (
     <span className="flex items-center gap-2 md:hidden">
-      {search && <SearchButton />}
       <NotificationsButton />
       <ProfileAvatarButton />
     </span>

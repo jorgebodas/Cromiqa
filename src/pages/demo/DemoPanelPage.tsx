@@ -12,7 +12,6 @@ import { StatusBadge } from '@/components/domain/Status';
 import { Avatar, Badge, Button, Card, Dialog, Field, Input, cx } from '@/components/ui';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { threadHref } from '@/domain/logic/cases';
-import { sharedMode } from '@/services';
 
 const SCENARIOS: { id: string; title: string; steps: string; start: { label: string; user?: ID | null; to: string } }[] = [
   {
@@ -102,7 +101,7 @@ function LeadActivation() {
   );
 }
 
-function LocalDemoPanel() {
+export function DemoPanelPage() {
   const db = useApp((s) => s.db);
   const sessionUserId = useApp((s) => s.sessionUserId);
   const resetDemo = useApp((s) => s.resetDemo);
@@ -318,67 +317,4 @@ function LocalDemoPanel() {
       </div>
     </>
   );
-}
-
-/** Shared test world: what's in it, and a reset that clears requests for everyone (accounts stay). */
-function SharedDataPanel() {
-  const db = useApp((s) => s.db);
-  const resetDemo = useApp((s) => s.resetDemo);
-  const toast = useApp((s) => s.toast);
-  const [confirm, setConfirm] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const active = db.requests.filter((r) => !['completed', 'cancelled', 'not_selected'].includes(r.status)).length;
-  return (
-    <>
-      <ScreenHeader title="Datos de prueba" back="/cuenta" />
-      <div className="container-page max-w-2xl pb-10">
-        <Card className="p-5">
-          <p className="text-[15px]">
-            Todos los probadores compartís estos datos: {db.users.length} cuentas, {db.mechanics.length} mecánicos y {db.requests.length} invitaciones ({active} activas).
-          </p>
-          <p className="mt-3 text-sm text-muted">
-            Restablecer borra todas las solicitudes, bicis y valoraciones <strong className="font-semibold text-ink">para todos</strong> y deja los talleres de prueba como al principio. Las cuentas se mantienen.
-          </p>
-          <Button variant="danger" className="mt-4" onClick={() => setConfirm(true)} data-testid="reset-shared">
-            Restablecer datos de prueba
-          </Button>
-        </Card>
-      </div>
-      <Dialog
-        open={confirm}
-        onClose={() => setConfirm(false)}
-        title="¿Restablecer para todos?"
-        description="Se borrarán las solicitudes de todos los probadores. No se puede deshacer."
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setConfirm(false)}>
-              Cancelar
-            </Button>
-            <Button
-              variant="danger"
-              loading={busy}
-              onClick={async () => {
-                setBusy(true);
-                try {
-                  await resetDemo({ keepSession: true });
-                  toast('Datos de prueba restablecidos');
-                  setConfirm(false);
-                } finally {
-                  setBusy(false);
-                }
-              }}
-            >
-              Restablecer
-            </Button>
-          </>
-        }
-      >
-        <span />
-      </Dialog>
-    </>
-  );
-}
-
-export function DemoPanelPage() {
-  return sharedMode ? <SharedDataPanel /> : <LocalDemoPanel />;
 }

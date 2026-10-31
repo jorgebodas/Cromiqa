@@ -83,11 +83,6 @@ export function RequestForm({ variant, originMechanicId, params = new URLSearchP
     setDraft(patch);
   }, [mechanic, draft, params, setDraft, isOwner, user]);
 
-  // Start from the cyclist's own zone (they can change it).
-  useEffect(() => {
-    if (!draft.location && owner?.location) setDraft({ location: owner.location });
-  }, [draft.location, owner?.location, setDraft]);
-
   // Preselect the first compatible garage bike.
   useEffect(() => {
     if (draft.bikeChoice === 'garage' && !draft.bikeId && bikes.length) {

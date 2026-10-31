@@ -363,19 +363,6 @@ The floating **+** became a context-aware control, bottom-right of the phone nav
 - **Notifications** moved inside the avatar: no bell; the avatar shows the unread count and
   *Perfil → Notificaciones* lists them.
 
-## Shared test world (real logins, several phones)
-
-Production builds with Supabase configured run in **shared mode** (`sharedMode`):
-- **Accounts:** testers sign in or sign up with email and password (Supabase Auth).
-- **Data:** everyone reads and writes one versioned document, `public.demo_world`, with
-  compare-and-swap and retries; changes reach the other phones through Realtime.
-- **Business rules:** the same pure domain functions (`DomainBackend` → `SharedBackend`).
-- **Starting data:** three test workshops with logins (`taller1–3@cromiqa.com`) and no requests.
-- **Demo shortcuts** (account switcher, “Ver como…”) are hidden.
-- **Off in:** dev, staging and e2e, which keep the per-browser demo (`VITE_SHARED_DEMO=on|off`
-  forces it).
-- **Setup:** see [`docs/prueba-compartida.md`](docs/prueba-compartida.md).
-
 ## Navigation (cyclist, earlier notes)
 
 

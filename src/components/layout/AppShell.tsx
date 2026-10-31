@@ -12,7 +12,6 @@ import { FloatingRequestHub, HeaderRequestChip, RequestHubOverlay } from '@/comp
 import { useMode, useModeStore } from '@/state/mode';
 import { modeOfPath, type AppMode } from '@/domain/logic/modes';
 import { ErrorBoundary } from './ErrorBoundary';
-import { sharedMode } from '@/services';
 
 interface NavItem {
   to: string;
@@ -262,39 +261,9 @@ function OwnerBottomNav({ tabHref, condensed, expand }: { tabHref: (t: OwnerTab)
   );
 }
 
-/** Shared test world: real accounts, so no switching, just who you are and sign out. */
-function SharedBanner() {
-  const user = useCurrentUser();
-  const mode = useMode();
-  const signOut = useApp((s) => s.signOut);
-  return (
-    <div className="bg-ink text-paper">
-      <div className="container-page flex h-9 items-center justify-between gap-3 text-xs">
-        <p className="flex min-w-0 items-center gap-2">
-          <FlaskConical className="size-3.5 shrink-0 text-lime" aria-hidden />
-          <span className="whitespace-nowrap font-semibold">Prueba compartida</span>
-          <span className="truncate text-paper/60">
-            · {user?.name.split(' ')[0]}
-            <span className="hidden sm:inline"> · {mode === 'mechanic' ? 'modo mecánico' : 'modo ciclista'}</span>
-          </span>
-        </p>
-        <button
-          type="button"
-          onClick={() => void signOut()}
-          className="shrink-0 rounded-full px-2.5 py-1 font-medium text-paper/80 hover:bg-paper/10 hover:text-paper focus-visible:outline-2 focus-visible:outline-lime"
-          data-testid="sign-out"
-        >
-          Salir
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function DemoBanner({ onSwitch }: { onSwitch: () => void }) {
   const user = useCurrentUser();
   const mode = useMode();
-  if (sharedMode) return <SharedBanner />;
   return (
     <div className="bg-ink text-paper">
       <div className="container-page flex h-9 items-center justify-between gap-3 text-xs">

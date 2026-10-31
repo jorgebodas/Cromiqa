@@ -16,7 +16,7 @@ import type {
 import { addDays, toISODate } from '@/domain/utils';
 import { testWorkshops } from './testWorkshops';
 
-export const SEED_VERSION = 7;
+export const SEED_VERSION = 8;
 
 const weekdays = (slots: WeeklyAvailability['slots'], days: number[]): WeeklyAvailability[] =>
   days.map((d) => ({ day: d as WeeklyAvailability['day'], slots }));

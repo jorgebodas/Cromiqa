@@ -18,8 +18,10 @@ import { canPerform, type RequestAction } from '@/domain/logic/requests';
 import { backend } from '@/services';
 import { storage } from '@/services/storage';
 import type { ProfessionalDraft } from '@/domain/logic/onboarding';
+import { DEFAULT_TEST_USER } from '@/data/testWorkshops';
 
-const SESSION_KEY = 'cromiqa:demo:session';
+// v2: every device starts once from the clean test cyclist (the Request Hub as a bare +).
+const SESSION_KEY = 'cromiqa:demo:session:v2';
 const DRAFT_KEY = 'cromiqa:demo:draft';
 
 export interface RequestDraft {
@@ -113,7 +115,9 @@ export const useApp = create<AppState>((set, get) => {
     async init() {
       const db = await backend.loadAll();
       const saved = storage.getJSON<{ userId: ID | null }>(SESSION_KEY);
-      const sessionUserId = saved?.userId && db.users.some((u) => u.id === saved.userId) ? saved.userId : null;
+      // First visit: the clean test cyclist, so everything starts from zero (a + and no requests).
+      const wanted = saved ? saved.userId : DEFAULT_TEST_USER;
+      const sessionUserId = wanted && db.users.some((u) => u.id === wanted) ? wanted : null;
       const draft = { ...emptyDraft(), ...(storage.getJSON<RequestDraft>(DRAFT_KEY) ?? {}) };
       if (!Array.isArray(draft.mechanicIds)) draft.mechanicIds = [];
       if (!Array.isArray(draft.photos)) draft.photos = [];
@@ -214,7 +218,7 @@ export const useApp = create<AppState>((set, get) => {
     async resetDemo(opts = {}) {
       const db = await backend.reset();
       const keep = opts.keepSession && db.users.some((u) => u.id === get().sessionUserId);
-      const sessionUserId = keep ? get().sessionUserId : null;
+      const sessionUserId = keep ? get().sessionUserId : db.users.some((u) => u.id === DEFAULT_TEST_USER) ? DEFAULT_TEST_USER : null;
       storage.setJSON(SESSION_KEY, { userId: sessionUserId });
       storage.remove(DRAFT_KEY);
       set({ db, sessionUserId, draft: emptyDraft() });

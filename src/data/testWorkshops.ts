@@ -1,12 +1,17 @@
-// Three "clean" test workshops for live tests: real-looking profiles with no requests, quotes
+// A clean cyclist (the default account) and three "clean" test workshops for live tests: real-looking profiles with no requests, quotes
 // or reviews yet, so a tester can follow one request end to end from both sides (switching
 // account) without the demo scenarios getting in the way.
 import type { Mechanic, User, WeeklyAvailability } from '@/domain/types';
 
 const week = (slots: WeeklyAvailability['slots'], days: number[]): WeeklyAvailability[] => days.map((d) => ({ day: d as WeeklyAvailability['day'], slots }));
 
+/** A fresh demo starts signed in as this clean cyclist (no requests, no bikes). */
+export const DEFAULT_TEST_USER = 'u-test';
+
 export function testWorkshops(): { users: User[]; mechanics: Mechanic[] } {
   const users: User[] = [
+    // The default account of a fresh demo: a cyclist with nothing yet, so the Request Hub starts as a +.
+    { id: DEFAULT_TEST_USER, name: 'Álex Moreno', role: 'owner', email: 'alex@demo.cromiqa.com', location: 'rivas', demoBlurb: 'Ciclista de prueba · sin solicitudes' },
     { id: 'u-t1', name: 'Rafa Gómez', role: 'mechanic', mechanicId: 'm-t1', email: 'taller1@demo.cromiqa.com', location: 'madrid-centro', demoBlurb: 'Mecánico de prueba · sin solicitudes · Madrid' },
     { id: 'u-t2', name: 'Laura Prieto', role: 'mechanic', mechanicId: 'm-t2', email: 'taller2@demo.cromiqa.com', location: 'rivas', demoBlurb: 'Mecánica de prueba · sin solicitudes · a domicilio' },
     { id: 'u-t3', name: 'Sergio Lara', role: 'mechanic', mechanicId: 'm-t3', email: 'taller3@demo.cromiqa.com', location: 'coslada', demoBlurb: 'Mecánico de prueba · sin solicitudes · Coslada' },

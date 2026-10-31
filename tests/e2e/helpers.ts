@@ -7,7 +7,8 @@ export async function freshDemo(page: Page, userId: string | null = null) {
     localStorage.clear();
     // Skip the private-preview gate (tested separately in access.spec.ts).
     localStorage.setItem('cromiqa:access', '66327b387c1d0b0049059ff0437b871d5bfebc1505a35e17c738f916c5aaa23d');
-    if (u) localStorage.setItem('cromiqa:demo:session', JSON.stringify({ userId: u }));
+    // `null` = guest (a fresh demo would otherwise sign in as the clean test cyclist).
+    localStorage.setItem('cromiqa:demo:session:v2', JSON.stringify({ userId: u }));
   }, userId);
   await page.reload();
   await expect(page.getByText('Entorno de demostración').first()).toBeVisible();

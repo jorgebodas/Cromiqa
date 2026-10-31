@@ -185,6 +185,22 @@ test.describe('Navegación', () => {
     await expect(page.getByTestId('mechanic-card').filter({ hasText: 'Pablo Serrano' })).toHaveCount(1);
   });
 
+  test('a fresh demo starts as a clean cyclist: just the +, no requests', async ({ page }) => {
+    await page.goto('./');
+    await page.evaluate(() => {
+      localStorage.clear();
+      localStorage.setItem('cromiqa:access', '66327b387c1d0b0049059ff0437b871d5bfebc1505a35e17c738f916c5aaa23d');
+    });
+    await page.reload();
+    await expect(page.getByTestId('demo-switch')).toContainText('Álex');
+    if (isMobile(page)) await expect(page.getByTestId('new-request-fab')).toBeVisible();
+    await expect(page.getByTestId('request-hub-chip')).toHaveCount(0);
+    await expect(page.getByTestId('header-hub-chip')).toHaveCount(0);
+    await expect(page.getByTestId('attention')).toHaveCount(0);
+    await page.goto('./#/solicitudes');
+    await expect(page.getByText('Aún no tienes solicitudes')).toBeVisible();
+  });
+
   test('request hub: a + with nothing active opens the new request in a panel, without leaving the page', async ({ page }) => {
     await freshDemo(page, 'u-carlos'); // Carlos in cyclist mode has no requests
     await page.goto('./#/cuenta');
@@ -504,7 +520,7 @@ test.describe('Persistencia y modo demo', () => {
     await expect(page.getByTestId('demo-requests-table').locator('tbody tr')).toHaveCount(14);
     await page.getByTestId('reset-demo').click();
     await page.getByTestId('confirm-reset').click();
-    await expect(page.getByTestId('demo-switch')).toContainText('Invitado');
+    await expect(page.getByTestId('demo-switch')).toContainText('Álex'); // back to the clean default account
     await switchAccount(page, 'Ana López');
     await page.goto('./#/garaje');
     await expect(page.getByTestId('bike-card')).toHaveCount(2);

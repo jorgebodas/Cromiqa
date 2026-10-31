@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 // The password is never in the repo; tests use a wrong one and the stored hash.
-const HASH = 'a4c7c39e9911444f184e4b3cbb271dfc46954288f89badfa62474431144684b3';
+const HASH = '66327b387c1d0b0049059ff0437b871d5bfebc1505a35e17c738f916c5aaa23d';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('./');

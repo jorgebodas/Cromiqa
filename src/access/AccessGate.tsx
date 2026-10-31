@@ -11,7 +11,7 @@ import { onOpenTesterLogin } from './testerLogin';
 const SALT = 'cromiqa-gate-v1:';
 // SHA-256 of SALT + password. Override at build time with VITE_ACCESS_HASH; set
 // VITE_ACCESS_GATE=off to disable the gate. Never commit the password itself.
-const DEFAULT_HASH = 'a4c7c39e9911444f184e4b3cbb271dfc46954288f89badfa62474431144684b3';
+const DEFAULT_HASH = '66327b387c1d0b0049059ff0437b871d5bfebc1505a35e17c738f916c5aaa23d';
 const HASH: string = import.meta.env.VITE_ACCESS_HASH || DEFAULT_HASH;
 export const ACCESS_KEY = 'cromiqa:access';
 const SECRET_ROUTE = '#/entrar';

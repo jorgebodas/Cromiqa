@@ -114,7 +114,7 @@ test('demo panel sends the FormSubmit activation from the browser', async ({ pag
     urls.push(route.request().url());
     await route.fulfill({ json: { success: 'false', message: 'This form needs Activation.' } });
   });
-  await page.evaluate(() => localStorage.setItem('cromiqa:access', 'a4c7c39e9911444f184e4b3cbb271dfc46954288f89badfa62474431144684b3'));
+  await page.evaluate(() => localStorage.setItem('cromiqa:access', '66327b387c1d0b0049059ff0437b871d5bfebc1505a35e17c738f916c5aaa23d'));
   await page.goto('./#/demo');
   await page.reload();
   await page.getByLabel('Email donde recibir los registros').fill('owner@example.com');

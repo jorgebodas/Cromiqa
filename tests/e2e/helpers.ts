@@ -6,7 +6,7 @@ export async function freshDemo(page: Page, userId: string | null = null) {
   await page.evaluate((u) => {
     localStorage.clear();
     // Skip the private-preview gate (tested separately in access.spec.ts).
-    localStorage.setItem('cromiqa:access', 'a4c7c39e9911444f184e4b3cbb271dfc46954288f89badfa62474431144684b3');
+    localStorage.setItem('cromiqa:access', '66327b387c1d0b0049059ff0437b871d5bfebc1505a35e17c738f916c5aaa23d');
     if (u) localStorage.setItem('cromiqa:demo:session', JSON.stringify({ userId: u }));
   }, userId);
   await page.reload();

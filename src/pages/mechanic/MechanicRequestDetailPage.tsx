@@ -16,6 +16,7 @@ import { Avatar, Button, Card, Dialog, EmptyState, Field, Input, LinkButton, Tex
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { isBooked } from './MechanicRequestsPage';
 import { threadHref } from '@/domain/logic/cases';
+import { sharedMode } from '@/services';
 
 const SLOT_TIME: Record<TimeSlot, string> = { morning: '10:00', afternoon: '17:00', evening: '19:30' };
 
@@ -349,22 +350,25 @@ function Inner() {
               No puedo atenderla
             </Button>
           )}
-          <div className="rounded-2xl border border-dashed border-line-strong p-4">
-            <p className="flex items-start gap-2 text-sm">
-              <FlaskConical className="mt-0.5 size-4 shrink-0" aria-hidden />
-              <span>Modo demo: mira cómo lo ve {ownerFirst}.</span>
-            </p>
-            <Button
-              variant="dark"
-              size="sm"
-              block
-              className="mt-3"
-              icon={<Repeat className="size-4" aria-hidden />}
-              onClick={() => switchAccount(request.ownerId, { to: threadHref(request) })}
-            >
-              Ver como {ownerFirst}
-            </Button>
-          </div>
+          {/* Demo shortcut; with real logins (shared test) each person is whoever signed in. */}
+          {!sharedMode && (
+            <div className="rounded-2xl border border-dashed border-line-strong p-4">
+              <p className="flex items-start gap-2 text-sm">
+                <FlaskConical className="mt-0.5 size-4 shrink-0" aria-hidden />
+                <span>Modo demo: mira cómo lo ve {ownerFirst}.</span>
+              </p>
+              <Button
+                variant="dark"
+                size="sm"
+                block
+                className="mt-3"
+                icon={<Repeat className="size-4" aria-hidden />}
+                onClick={() => switchAccount(request.ownerId, { to: threadHref(request) })}
+              >
+                Ver como {ownerFirst}
+              </Button>
+            </div>
+          )}
         </aside>
       </div>
 

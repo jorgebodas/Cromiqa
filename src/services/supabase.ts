@@ -32,6 +32,25 @@ export function getSupabase(): Promise<SupabaseClient | null> {
   return client;
 }
 
+/**
+ * Shared test world: testers sign in with real accounts and share one demo database. On in
+ * production builds when Supabase is configured; VITE_SHARED_DEMO=on|off forces it (staging,
+ * e2e and the local dev server keep the per-browser demo).
+ */
+const sharedFlag = import.meta.env.VITE_SHARED_DEMO;
+export const sharedMode = supabaseConfigured && (sharedFlag ? sharedFlag === 'on' : import.meta.env.MODE === 'production' && !import.meta.env.DEV);
+
+let appClient: Promise<SupabaseClient | null> | null = null;
+
+/** Client for testers' sessions (kept apart from the admin panel's session). */
+export function getAppSupabase(): Promise<SupabaseClient | null> {
+  if (!sharedMode) return Promise.resolve(null);
+  appClient ??= import('@supabase/supabase-js').then(({ createClient }) =>
+    createClient(url, anonKey, { auth: { persistSession: true, storageKey: 'cromiqa:app:auth', detectSessionInUrl: false } }),
+  );
+  return appClient;
+}
+
 /** Public URL of a file in the site bucket (no client needed). */
 export function publicFileUrl(path: string) {
   return supabaseConfigured ? `${url}/storage/v1/object/public/${SITE_BUCKET}/${path.split('/').map(encodeURIComponent).join('/')}` : '';

@@ -21,9 +21,15 @@ import { ProfilePage } from '@/pages/mechanic/ProfilePage';
 import { OnboardingPage } from '@/pages/mechanic/OnboardingPage';
 import { DemoPanelPage } from '@/pages/demo/DemoPanelPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
+import { AuthScreen } from '@/components/layout/AuthScreen';
+import { useApp } from '@/state/store';
+import { sharedMode } from '@/services';
 
 // Hash routing: deep links and refreshes work on GitHub Pages without server rewrites.
 export function App() {
+  const signedIn = useApp((s) => s.sessionUserId !== null);
+  // Shared test world: everyone uses their own account.
+  if (sharedMode && !signedIn) return <AuthScreen />;
   return (
     <HashRouter>
       <Routes>

@@ -15,7 +15,8 @@ import type {
   TimeSlot,
   User, RequestUrgency } from '@/domain/types';
 import { canPerform, type RequestAction } from '@/domain/logic/requests';
-import { backend } from '@/services';
+import { backend, sharedBackend, sharedMode } from '@/services';
+import { testerAuth } from '@/services/supabaseWorld';
 import { storage } from '@/services/storage';
 import type { ProfessionalDraft } from '@/domain/logic/onboarding';
 
@@ -69,6 +70,12 @@ interface AppState {
 
   init(): Promise<void>;
   switchUser(userId: ID | null): void;
+  /** Shared test world only: a problem reaching it (shown on the sign-in screen). */
+  sharedError: string | null;
+  signIn(email: string, password: string): Promise<void>;
+  /** Returns false when the new account must confirm its email first. */
+  signUp(email: string, password: string, profile: { name: string; location: LocationId }): Promise<boolean>;
+  signOut(): Promise<void>;
   setDraft(patch: Partial<RequestDraft>): void;
   resetDraft(patch?: Partial<RequestDraft>): void;
 
@@ -96,6 +103,19 @@ let toastSeq = 1;
 
 export const useApp = create<AppState>((set, get) => {
   const refresh = async () => set({ db: await backend.loadAll() });
+
+  // Shared test world: link the signed-in tester to their app user and follow everyone's changes live.
+  let unsubscribe: (() => void) | null = null;
+  let pending = 0;
+  const connect = async (email: string, meta: { name?: string; location?: LocationId } = {}) => {
+    const sessionUserId = await sharedBackend!.identify(email, meta);
+    const db = await backend.loadAll();
+    set({ db, sessionUserId, sharedError: null });
+    unsubscribe ??= sharedBackend!.subscribe(() => {
+      window.clearTimeout(pending);
+      pending = window.setTimeout(() => void refresh().catch(() => {}), 250);
+    });
+  };
   const currentUser = () => {
     const { db, sessionUserId } = get();
     const user = db.users.find((u) => u.id === sessionUserId);
@@ -110,7 +130,24 @@ export const useApp = create<AppState>((set, get) => {
     draft: emptyDraft(),
     toasts: [],
 
+    sharedError: null,
+
     async init() {
+      if (sharedMode) {
+        const draft = { ...emptyDraft(), ...(storage.getJSON<RequestDraft>(DRAFT_KEY) ?? {}) };
+        if (!Array.isArray(draft.mechanicIds)) draft.mechanicIds = [];
+        if (!Array.isArray(draft.photos)) draft.photos = [];
+        set({ draft });
+        try {
+          const session = await testerAuth.session();
+          if (session?.user.email) await connect(session.user.email, session.user.user_metadata);
+        } catch (e) {
+          set({ sharedError: e instanceof Error ? e.message : 'No se pudo conectar.' });
+        }
+        set({ ready: true });
+        if (typeof window !== 'undefined') window.setInterval(() => void (get().sessionUserId && refresh().catch(() => {})), 60_000);
+        return;
+      }
       const db = await backend.loadAll();
       const saved = storage.getJSON<{ userId: ID | null }>(SESSION_KEY);
       const sessionUserId = saved?.userId && db.users.some((u) => u.id === saved.userId) ? saved.userId : null;
@@ -122,7 +159,29 @@ export const useApp = create<AppState>((set, get) => {
       if (typeof window !== 'undefined') window.setInterval(() => void refresh(), 60_000);
     },
 
+    async signIn(email, password) {
+      const session = await testerAuth.signIn(email, password);
+      await connect(session.user.email ?? email, session.user.user_metadata);
+    },
+
+    async signUp(email, password, profile) {
+      const session = await testerAuth.signUp(email, password, profile);
+      if (!session) return false;
+      await connect(session.user.email ?? email, profile);
+      return true;
+    },
+
+    async signOut() {
+      unsubscribe?.();
+      unsubscribe = null;
+      await testerAuth.signOut().catch(() => {});
+      storage.remove(DRAFT_KEY);
+      set({ sessionUserId: null, db: emptyDb, draft: emptyDraft() });
+    },
+
     switchUser(userId) {
+      // With real logins, the account is whoever signed in.
+      if (sharedMode) return;
       storage.setJSON(SESSION_KEY, { userId });
       // A garage bike from another account must not leak into the draft.
       const draft = get().draft;
@@ -213,7 +272,7 @@ export const useApp = create<AppState>((set, get) => {
 
     async resetDemo(opts = {}) {
       const db = await backend.reset();
-      const keep = opts.keepSession && db.users.some((u) => u.id === get().sessionUserId);
+      const keep = (sharedMode || opts.keepSession) && db.users.some((u) => u.id === get().sessionUserId);
       const sessionUserId = keep ? get().sessionUserId : null;
       storage.setJSON(SESSION_KEY, { userId: sessionUserId });
       storage.remove(DRAFT_KEY);

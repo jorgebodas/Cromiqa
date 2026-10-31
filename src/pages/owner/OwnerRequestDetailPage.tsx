@@ -13,6 +13,7 @@ import { AppointmentCard, CompletionCard } from '@/components/domain/ServicePart
 import { OpenProposalCard, ProposalCard, RequestSummary, RequestTimeline } from '@/components/domain/RequestParts';
 import { Avatar, Button, Card, Dialog, EmptyState, Field, LinkButton, Textarea, cx } from '@/components/ui';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
+import { sharedMode } from '@/services';
 
 function ReviewForm({ requestId, mechanicName }: { requestId: string; mechanicName: string }) {
   const addReview = useApp((s) => s.addReview);
@@ -215,22 +216,25 @@ function Inner() {
               {request.status === 'confirmed' ? 'Cancelar servicio' : 'Cancelar invitación'}
             </Button>
           )}
-          <div className="rounded-2xl border border-dashed border-line-strong p-4">
-            <p className="flex items-start gap-2 text-sm">
-              <FlaskConical className="mt-0.5 size-4 shrink-0" aria-hidden />
-              <span>Modo demo: mira esta solicitud desde el panel de {first}.</span>
-            </p>
-            <Button
-              variant="dark"
-              size="sm"
-              block
-              className="mt-3"
-              icon={<Repeat className="size-4" aria-hidden />}
-              onClick={() => switchAccount(mechanic.userId, { to: `/pro/solicitudes/${request.id}` })}
-            >
-              Ver como {first}
-            </Button>
-          </div>
+          {/* Demo shortcut; with real logins (shared test) each person is whoever signed in. */}
+          {!sharedMode && (
+            <div className="rounded-2xl border border-dashed border-line-strong p-4">
+              <p className="flex items-start gap-2 text-sm">
+                <FlaskConical className="mt-0.5 size-4 shrink-0" aria-hidden />
+                <span>Modo demo: mira esta solicitud desde el panel de {first}.</span>
+              </p>
+              <Button
+                variant="dark"
+                size="sm"
+                block
+                className="mt-3"
+                icon={<Repeat className="size-4" aria-hidden />}
+                onClick={() => switchAccount(mechanic.userId, { to: `/pro/solicitudes/${request.id}` })}
+              >
+                Ver como {first}
+              </Button>
+            </div>
+          )}
         </aside>
       </div>
 

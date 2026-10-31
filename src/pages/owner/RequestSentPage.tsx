@@ -6,6 +6,7 @@ import { useApp } from '@/state/store';
 import { useCurrentUser } from '@/state/selectors';
 import { useSwitchAccount } from '@/components/layout/AccountSwitcher';
 import { Avatar, Button, Card, EmptyState, KeyValue, LinkButton } from '@/components/ui';
+import { sharedMode } from '@/services';
 
 /** Confirmation after sending a request: who got an invitation and what happens next. */
 export function RequestSentPage() {
@@ -94,7 +95,7 @@ export function RequestSentPage() {
         </LinkButton>
       </div>
 
-      {demo && (
+      {demo && !sharedMode && (
         <div className="mt-10 flex flex-col items-start gap-3 rounded-2xl border border-dashed border-line-strong p-5 sm:flex-row sm:items-center sm:justify-between">
           <p className="flex items-start gap-2 text-sm">
             <FlaskConical className="mt-0.5 size-4 shrink-0" aria-hidden />

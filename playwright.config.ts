@@ -19,13 +19,13 @@ export default defineConfig({
     timezoneId: 'Europe/Madrid',
   },
   projects: [
-    { name: 'desktop', testIgnore: /(leads|admin)\.spec/, use: { ...devices['Desktop Chrome'], viewport: { width: 1366, height: 900 } } },
-    { name: 'mobile', testIgnore: /(leads|admin)\.spec/, use: { ...devices['Pixel 7'] } },
+    { name: 'desktop', testIgnore: /(leads|admin|shared)\.spec/, use: { ...devices['Desktop Chrome'], viewport: { width: 1366, height: 900 } } },
+    { name: 'mobile', testIgnore: /(leads|admin|shared)\.spec/, use: { ...devices['Pixel 7'] } },
     // Lead forms only render when an email is configured: test them on a separate build
     // with a placeholder address (all requests to FormSubmit are mocked).
     { name: 'leads', testMatch: /leads\.spec/, use: { ...devices['Pixel 7'], baseURL: `http://localhost:${LEADS_PORT}/` } },
     // Supabase-connected build: admin panel and database-backed forms (network mocked).
-    { name: 'admin', testMatch: /admin\.spec/, use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, baseURL: `http://localhost:${ADMIN_PORT}/` } },
+    { name: 'admin', testMatch: /(admin|shared)\.spec/, use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 }, baseURL: `http://localhost:${ADMIN_PORT}/` } },
   ],
   webServer: process.env.E2E_BASE_URL
     ? undefined

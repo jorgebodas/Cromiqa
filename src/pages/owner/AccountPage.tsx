@@ -13,6 +13,7 @@ import { Avatar, Button, Card, Field, Input, LinkButton, Select, cx } from '@/co
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { hasProfessionalDraft } from '@/pages/mechanic/OnboardingPage';
 import { useOwnerActivity } from '@/state/activity';
+import { sharedMode } from '@/services';
 
 function LinkRow({ to, icon: Icon, label, detail, badge }: { to: string; icon: typeof Bike; label: string; detail?: string; badge?: number }) {
   return (
@@ -70,6 +71,7 @@ function Inner() {
   const bikes = useOwnerBikes(user.id);
   const requests = useRequestsFor({ ownerId: user.id });
   const switchAccount = useSwitchAccount();
+  const signOut = useApp((s) => s.signOut);
   const mode = useMode();
   const mechanic = useApp((s) => s.db.mechanics.find((m) => m.id === user.mechanicId));
   const [name, setName] = useState(user.name);
@@ -169,23 +171,40 @@ function Inner() {
         </div>
       </Card>
 
-      <Card className="mt-4 p-5">
-        <h2 className="flex items-center gap-2 font-bold">
-          <FlaskConical className="size-4" aria-hidden /> Entorno de demostración
-        </h2>
-        <p className="mt-1 text-sm text-muted">
-          No hay autenticación real. Puedes cambiar de cuenta al instante o restablecer los datos desde el{' '}
-          <Link to="/demo" className="font-medium text-ink underline">panel demo</Link>.
-        </p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button variant="dark" size="sm" icon={<Repeat className="size-4" aria-hidden />} onClick={() => setSwitcher(true)}>
-            Cambiar de cuenta
-          </Button>
-          <Button variant="secondary" size="sm" icon={<LogOut className="size-4" aria-hidden />} onClick={() => switchAccount(null, { to: '/' })}>
-            Salir (navegar como invitado)
-          </Button>
-        </div>
-      </Card>
+      {sharedMode ? (
+        <Card className="mt-4 p-5">
+          <h2 className="flex items-center gap-2 font-bold">
+            <FlaskConical className="size-4" aria-hidden /> Prueba compartida
+          </h2>
+          <p className="mt-1 text-sm text-muted">Has entrado como {user.email}. Lo que hagas lo ven en directo los demás probadores.</p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button variant="secondary" size="sm" icon={<LogOut className="size-4" aria-hidden />} onClick={() => void signOut()}>
+              Cerrar sesión
+            </Button>
+            <LinkButton to="/demo" variant="ghost" size="sm">
+              Datos de prueba
+            </LinkButton>
+          </div>
+        </Card>
+      ) : (
+        <Card className="mt-4 p-5">
+          <h2 className="flex items-center gap-2 font-bold">
+            <FlaskConical className="size-4" aria-hidden /> Entorno de demostración
+          </h2>
+          <p className="mt-1 text-sm text-muted">
+            No hay autenticación real. Puedes cambiar de cuenta al instante o restablecer los datos desde el{' '}
+            <Link to="/demo" className="font-medium text-ink underline">panel demo</Link>.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button variant="dark" size="sm" icon={<Repeat className="size-4" aria-hidden />} onClick={() => setSwitcher(true)}>
+              Cambiar de cuenta
+            </Button>
+            <Button variant="secondary" size="sm" icon={<LogOut className="size-4" aria-hidden />} onClick={() => switchAccount(null, { to: '/' })}>
+              Salir (navegar como invitado)
+            </Button>
+          </div>
+        </Card>
+      )}
       <AccountSwitcherDialog open={switcher} onClose={() => setSwitcher(false)} />
       </div>
     </>

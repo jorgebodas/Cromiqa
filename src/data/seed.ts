@@ -14,9 +14,9 @@ import type {
   WeeklyAvailability,
 } from '@/domain/types';
 import { addDays, toISODate } from '@/domain/utils';
-import { testWorkshops } from './testWorkshops';
+import { stateProfiles, testWorkshops } from './testWorkshops';
 
-export const SEED_VERSION = 8;
+export const SEED_VERSION = 9;
 
 const weekdays = (slots: WeeklyAvailability['slots'], days: number[]): WeeklyAvailability[] =>
   days.map((d) => ({ day: d as WeeklyAvailability['day'], slots }));
@@ -551,14 +551,16 @@ export function createSeed(now: Date = new Date()): DemoDatabase {
 
   // Plus three clean test workshops (no requests yet) for live tests.
   const clean = testWorkshops();
+  // And one cyclist per Request Hub state, to check each one by switching account.
+  const states = stateProfiles(now);
   return {
     version: SEED_VERSION,
-    users: [...users, ...clean.users],
+    users: [...users, ...clean.users, ...states.users],
     mechanics: [...mechanics, ...clean.mechanics].map((m) => ({ ...m, listing: 'active' as const })),
     reviews,
     bikes,
     maintenance,
-    requests,
+    requests: [...requests, ...states.requests],
   };
 }
 

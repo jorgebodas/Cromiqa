@@ -517,7 +517,7 @@ test.describe('Persistencia y modo demo', () => {
     await expect(page.getByTestId('demo-switch')).toContainText('Ana');
 
     await page.goto('./#/demo');
-    await expect(page.getByTestId('demo-requests-table').locator('tbody tr')).toHaveCount(14);
+    await expect(page.getByTestId('demo-requests-table').locator('tbody tr')).toHaveCount(22);
     await page.getByTestId('reset-demo').click();
     await page.getByTestId('confirm-reset').click();
     await expect(page.getByTestId('demo-switch')).toContainText('Álex'); // back to the clean default account

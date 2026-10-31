@@ -60,7 +60,7 @@ export function FloatingRequestHub({ className }: { className?: string }) {
       onClick={() => openHub(single ? { kind: 'detail', caseId: state.item.caseId, screen: state.item.quick.screen } : { kind: 'overview' })}
       aria-label={single ? `Tu solicitud: ${line1}. ${line2}. Abrir` : `${line1}, ${line2}. Abrir tus solicitudes`}
       className={cx(
-        'pointer-events-auto flex h-16 min-w-0 max-w-[168px] shrink items-center gap-2.5 rounded-full bg-ink pl-4 pr-5 text-left text-paper shadow-[0_8px_24px_rgb(0_0_0/0.22)] transition-transform active:scale-[0.97]',
+        'pointer-events-auto flex h-16 min-w-0 max-w-[220px] flex-1 items-center gap-2 rounded-full bg-ink pl-3.5 pr-4 text-left text-paper shadow-[0_8px_24px_rgb(0_0_0/0.22)] transition-transform active:scale-[0.97]',
         className,
       )}
       data-testid="request-hub-chip"
@@ -68,7 +68,7 @@ export function FloatingRequestHub({ className }: { className?: string }) {
     >
       {dot(pending)}
       <span className="min-w-0">
-        <span className="block truncate text-[15px] font-semibold leading-tight">{line1}</span>
+        <span className="block truncate text-[14px] font-semibold leading-tight">{line1}</span>
         <span className="block truncate text-xs leading-tight text-paper/60">{line2}</span>
       </span>
     </button>

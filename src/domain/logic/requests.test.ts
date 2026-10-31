@@ -47,7 +47,7 @@ describe('createRequest', () => {
     const { db: next, requests: [request] } = createRequest(db, baseInput(), now);
     if (!request) throw new Error('no request');
     expect(request.status).toBe('sent');
-    expect(request.code).toBe('CRQ-1015');
+    expect(request.code).toBe('CRQ-2009');
     expect(next.requests[0]!.id).toBe(request.id);
     expect(request.events[0]!.type).toBe('created');
   });

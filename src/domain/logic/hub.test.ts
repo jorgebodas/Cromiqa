@@ -53,3 +53,26 @@ describe('request hub', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 });
+
+describe('test profiles: one cyclist per hub state', () => {
+  it('each profile shows its state in the chip and opens the matching screen', () => {
+    const db = createSeed(now);
+    const expected: Record<string, [string, string]> = {
+      'u-test': ['', ''],
+      'u-bea': ['Esperando respuesta', 'status'],
+      'u-carla': ['2 presupuestos', 'compare'],
+      'u-dani': ['Confirmar cita', 'appointment'],
+      'u-eva': ['En curso', 'tracking'],
+      'u-fran': ['Confirmar servicio', 'completion'],
+      'u-gema': ['Incidencia abierta', 'incident'],
+    };
+    for (const [owner, [label, screen]] of Object.entries(expected)) {
+      const state = hubState(hubItems(forOwner(db, owner)));
+      if (!label) expect(state.kind, owner).toBe('empty');
+      else {
+        expect(state.kind, owner).toBe('single');
+        if (state.kind === 'single') expect(state.item.quick, owner).toMatchObject({ label, screen });
+      }
+    }
+  });
+});

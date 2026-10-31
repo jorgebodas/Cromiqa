@@ -34,7 +34,7 @@ function NeedWidget() {
               <button
                 type="button"
                 onClick={() => start(o.id)}
-                className="flex h-full min-h-16 w-full items-center gap-2.5 rounded-2xl bg-paper px-3 py-3 text-left text-[15px] font-semibold leading-tight transition-colors hover:bg-paper/70 active:scale-[0.98]"
+                className="flex h-full min-h-16 w-full items-center gap-2.5 rounded-2xl bg-canvas px-3 py-3 text-left text-[15px] font-semibold leading-tight transition-colors hover:bg-sand-deep active:scale-[0.98]"
               >
                 <Icon className="size-5 shrink-0" aria-hidden />
                 {o.label}

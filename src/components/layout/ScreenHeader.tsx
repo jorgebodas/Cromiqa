@@ -5,7 +5,7 @@ import { cx } from '@/components/ui';
 
 /** Round header button (Fitness-style): use for every action in a screen header. */
 export const headerButtonClass =
-  'relative flex size-11 shrink-0 items-center justify-center rounded-full bg-sand text-ink transition-colors hover:bg-sand-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink';
+  'relative flex size-11 shrink-0 items-center justify-center rounded-full bg-paper text-ink shadow-[var(--shadow-surface)] transition-shadow hover:shadow-[var(--shadow-surface-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink';
 
 /**
  * Round "back" button. Steps back in history when the user came from inside the app, and
@@ -44,10 +44,10 @@ interface ScreenHeaderProps {
 }
 
 /**
- * The one header pattern used by every screen of the app: the screen name as a large title
- * on the left with round action buttons on the right (detail screens add a round back button
- * on the left, above the title). When the title scrolls away, a compact bar stays pinned at
- * the top with the name in small type and the same buttons.
+ * The one header pattern used by every screen of the app (Airbnb-style): a top row with
+ * round buttons (back on the left on detail screens, actions on the right) and, on the line
+ * below, the screen name as a large title. Scrolling pushes the title up into the top row,
+ * where it settles in smaller type while the row turns into a white bar.
  *
  * Render it as the first child of a screen, outside the screen's own container, so the bar
  * can stay pinned for the whole page.
@@ -55,7 +55,8 @@ interface ScreenHeaderProps {
 export function ScreenHeader({ title, compactTitle, back, actions, description }: ScreenHeaderProps) {
   const bar = useRef<HTMLDivElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
-  const [compact, setCompact] = useState(false);
+  // 0 = title fully on its own line, 1 = title has gone up into the top row.
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
     let frame = 0;
@@ -63,10 +64,9 @@ export function ScreenHeader({ title, compactTitle, back, actions, description }
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
         if (!bar.current || !heading.current) return;
-        // Top-level screens start with the title inside the bar's row, so they shrink once it
-        // has slid a little under the bar; detail screens once the title has gone under it.
-        const slack = back ? 0 : 24;
-        setCompact(heading.current.getBoundingClientRect().bottom < bar.current.getBoundingClientRect().bottom - slack);
+        const h = heading.current.getBoundingClientRect();
+        const covered = bar.current.getBoundingClientRect().bottom - h.top;
+        setProgress(Math.min(Math.max(covered / h.height, 0), 1));
       });
     };
     check();
@@ -77,9 +77,14 @@ export function ScreenHeader({ title, compactTitle, back, actions, description }
       window.removeEventListener('scroll', check);
       window.removeEventListener('resize', check);
     };
-  }, [back]);
+  }, []);
 
   const name = compactTitle ?? (typeof title === 'string' ? title : '');
+  const compact = progress >= 0.98;
+  // The large title fades out over the first part of the push; only then does the small one
+  // rise into the top row, so the two never show on top of each other.
+  const leave = Math.min(progress / 0.55, 1);
+  const arrive = Math.min(Math.max((progress - 0.6) / 0.4, 0), 1);
 
   return (
     <>
@@ -87,34 +92,27 @@ export function ScreenHeader({ title, compactTitle, back, actions, description }
         ref={bar}
         className={cx(
           'sticky top-0 z-30 transition-[background-color,box-shadow] duration-200 md:top-16',
-          compact ? 'bg-paper/90 shadow-[0_1px_0_var(--color-line)] backdrop-blur' : 'bg-transparent',
+          compact ? 'bg-paper shadow-[0_1px_0_var(--color-line)]' : 'bg-transparent',
         )}
         data-testid="screen-bar"
       >
-        <div className="container-page relative flex h-16 items-center gap-2">
+        <div className="container-page relative flex h-16 items-center gap-3">
           {back && <BackButton fallback={back} />}
           <p
             aria-hidden
-            className={cx(
-              'pointer-events-none min-w-0 flex-1 truncate text-[17px] font-bold transition-[opacity,transform] duration-200',
-              back ? 'text-center' : 'text-left',
-              compact ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0',
-            )}
+            className="pointer-events-none min-w-0 flex-1 truncate font-display text-[22px] font-bold tracking-tight"
+            style={{ opacity: arrive, transform: `translateY(${(1 - arrive) * 14}px)` }}
           >
             {name}
           </p>
-          {/* Keeps a detail screen's small title centred when there are no buttons on the right. */}
-          {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : back && <span className="size-11 shrink-0" />}
+          {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
         </div>
       </div>
-      <div className={cx('container-page', back ? 'pb-5 pt-1' : '-mt-16 pb-5')}>
+      <div className="container-page pb-5">
         <h1
           ref={heading}
-          className={cx(
-            'font-display text-[34px] font-extrabold leading-tight tracking-tight sm:text-[40px]',
-            // Top-level screens share the row with the buttons, like Fitness.
-            !back && 'flex min-h-16 items-center pr-40',
-          )}
+          className="origin-left font-display text-[34px] font-bold leading-tight tracking-[-0.02em] sm:text-[40px]"
+          style={{ opacity: 1 - leave, transform: `translateY(${-progress * 6}px) scale(${1 - progress * 0.12})` }}
         >
           {title}
         </h1>

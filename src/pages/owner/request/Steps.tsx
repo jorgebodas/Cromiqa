@@ -158,7 +158,7 @@ export function StepBike({
       )}
 
       {showNewForm && (
-        <div className="space-y-5 rounded-2xl border border-line p-4 sm:p-5">
+        <div className="surface space-y-5 p-4 sm:p-5">
           <BikeTypePicker value={draft.bike.type} onChange={(type) => setBike({ type })} mechanic={mechanic} error={errors.type} />
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Marca" error={errors.brand}>
@@ -339,7 +339,7 @@ export function StepWhereWhen({ draft, set, mechanic, errors }: StepProps) {
 
 function ReviewBlock({ title, onEdit, children }: { title: string; onEdit: () => void; children: ReactNode }) {
   return (
-    <section className="rounded-2xl border border-line p-4 sm:p-5">
+    <section className="surface p-4 sm:p-5">
       <div className="mb-2 flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-muted">{title}</h3>
         <button type="button" onClick={onEdit} className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-sm font-semibold hover:bg-sand" aria-label={`Editar: ${title}`}>

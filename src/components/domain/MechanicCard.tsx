@@ -35,7 +35,7 @@ export function DemoVerifiedBadge({ verified }: { verified: boolean }) {
 export function MechanicCard({ result, requestHref }: { result: MechanicResult; requestHref: string }) {
   const { mechanic: m, rating, reviewCount, priceFrom, distanceKm, coversLocation, matchedSpecializations } = result;
   return (
-    <article className="group rounded-3xl border border-line bg-paper p-5 transition-shadow hover:shadow-card sm:p-6" data-testid="mechanic-card">
+    <article className="surface group p-5 sm:p-6" data-testid="mechanic-card">
       <div className="flex gap-4">
         <Avatar name={m.name} tone={m.avatarTone} size="lg" />
         <div className="min-w-0 flex-1">

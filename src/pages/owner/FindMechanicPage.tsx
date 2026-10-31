@@ -149,7 +149,7 @@ export function FindMechanicPage() {
       <div className="container-page pb-8 sm:pb-10">
 
       {showProblem && (
-        <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-line bg-sand p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mb-6 flex flex-col gap-3 surface p-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm">
             <span className="font-semibold">Tu necesidad: {categoryLabel(draft.category!)}</span>
             {draft.description && <span className="text-muted"> · “{draft.description.length > 90 ? `${draft.description.slice(0, 90)}…` : draft.description}”</span>}

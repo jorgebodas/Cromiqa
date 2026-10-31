@@ -57,7 +57,7 @@ function Inner() {
             const records = maintenance.filter((m) => m.bikeId === b.id).sort((x, y) => y.date.localeCompare(x.date));
             return (
               <li key={b.id}>
-                <Link to={`/garaje/${b.id}`} className="group flex h-full flex-col rounded-3xl border border-line p-4 transition-shadow hover:shadow-card" data-testid="bike-card">
+                <Link to={`/garaje/${b.id}`} className="surface group flex h-full flex-col p-4" data-testid="bike-card">
                   <BikePhoto bike={b} />
                   <div className="mt-4 flex items-start justify-between gap-2">
                     <div className="min-w-0">

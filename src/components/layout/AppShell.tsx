@@ -427,7 +427,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const showOwnerBar = !isPro && !focused && !ownAction;
 
   return (
-    <div className="flex min-h-dvh flex-col">
+    <div className="flex min-h-dvh flex-col bg-canvas">
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[70] focus:rounded-full focus:bg-lime focus:px-4 focus:py-2 focus:font-semibold">
         Saltar al contenido
       </a>

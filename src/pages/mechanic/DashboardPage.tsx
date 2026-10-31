@@ -13,7 +13,7 @@ import { ScreenHeader } from '@/components/layout/ScreenHeader';
 
 function Stat({ label, value, icon: Icon, highlight, to }: { label: string; value: number; icon: typeof Inbox; highlight?: boolean; to: string }) {
   return (
-    <Link to={to} className={cx('rounded-2xl border p-4 transition-colors hover:border-ink', highlight && value > 0 ? 'border-ink' : 'border-line')}>
+    <Link to={to} className={cx('surface p-4', highlight && value > 0 && 'ring-2 ring-ink')}>
       <span className="flex items-center justify-between text-sm text-muted">
         {label}
         <Icon className="size-4" aria-hidden />
@@ -76,7 +76,7 @@ function Inner() {
             {upcoming.length === 0 ? (
               <p className="rounded-2xl border border-dashed border-line-strong p-5 text-sm text-muted">No hay servicios agendados.</p>
             ) : (
-              <ul className="divide-y divide-line rounded-2xl border border-line">
+              <ul className="surface divide-y divide-line">
                 {upcoming.map((r) => {
                   const p = currentProposal(r);
                   return (
@@ -143,7 +143,7 @@ function Inner() {
               </LinkButton>
             </div>
           </Card>
-          <Link to="/pro/disponibilidad" className="flex items-center justify-between rounded-2xl border border-line p-4 text-sm hover:border-ink">
+          <Link to="/pro/disponibilidad" className="surface flex items-center justify-between p-4 text-sm">
             <span>
               <span className="block font-semibold">Disponibilidad</span>
               <span className="text-muted">{mechanic.availabilityNote}</span>

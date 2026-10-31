@@ -183,7 +183,7 @@ export function DemoPanelPage() {
         <h2 id="scenarios" className="mb-4 text-lg font-bold">Escenarios de prueba</h2>
         <ol className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
           {SCENARIOS.map((s) => (
-            <li key={s.id} className="flex flex-col rounded-2xl border border-line p-5">
+            <li key={s.id} className="surface flex flex-col p-5">
               <p className="font-display text-sm font-bold text-muted">Escenario {s.id}</p>
               <h3 className="mt-1 font-bold">{s.title}</h3>
               <p className="mt-2 flex-1 text-sm text-muted">{s.steps}</p>
@@ -221,7 +221,7 @@ export function DemoPanelPage() {
             ))}
           </div>
         </div>
-        <div className="relative overflow-x-auto rounded-2xl border border-line">
+        <div className="surface relative overflow-x-auto">
           <table className="w-full min-w-[760px] text-left text-sm" data-testid="demo-requests-table">
             <thead className="bg-sand text-xs uppercase tracking-wider text-muted">
               <tr>

@@ -110,7 +110,7 @@ export function MechanicProfilePage() {
                     <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-muted">
                       <Icon className="size-4" aria-hidden /> {c.label}
                     </h3>
-                    <ul className="divide-y divide-line rounded-2xl border border-line">
+                    <ul className="surface divide-y divide-line">
                       {c.services.map((s) => (
                         <li key={s.id} className="flex items-start justify-between gap-4 p-4">
                           <div>
@@ -147,7 +147,7 @@ export function MechanicProfilePage() {
             <SectionTitle id="portfolio">Trabajos anteriores</SectionTitle>
             <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {m.portfolio.map((p) => (
-                <li key={p.id} className="rounded-2xl border border-line p-5">
+                <li key={p.id} className="surface p-5">
                   <Badge tone="outline">{bikeTypeLabel(p.bikeType)}</Badge>
                   <h3 className="mt-3 font-bold">{p.title}</h3>
                   <p className="mt-1 text-sm leading-relaxed text-muted">{p.description}</p>
@@ -166,7 +166,7 @@ export function MechanicProfilePage() {
             ) : (
               <ul className="space-y-3">
                 {reviews.map((r) => (
-                  <li key={r.id} className="rounded-2xl border border-line p-5">
+                  <li key={r.id} className="surface p-5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-3">
                         <Avatar name={r.authorName} size="sm" />

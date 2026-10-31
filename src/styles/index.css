@@ -10,6 +10,8 @@
   --color-paper: #ffffff;
   --color-sand: #f6f4ef;
   --color-sand-deep: #ece9e1;
+  /* App background: light grey under white cards (Airbnb-style). */
+  --color-canvas: #f4f4f2;
   --color-ink: #171717;
   --color-ink-soft: #2a2a2a;
   --color-muted: #737373;
@@ -30,6 +32,9 @@
 
   --shadow-card: 0 1px 2px rgb(23 23 23 / 0.04), 0 4px 16px -8px rgb(23 23 23 / 0.08);
   --shadow-pop: 0 12px 40px -12px rgb(23 23 23 / 0.25);
+  /* Soft lift for content cards on the grey canvas. */
+  --shadow-surface: 0 1px 2px rgb(0 0 0 / 0.04), 0 6px 20px -6px rgb(0 0 0 / 0.1);
+  --shadow-surface-hover: 0 2px 4px rgb(0 0 0 / 0.05), 0 12px 28px -8px rgb(0 0 0 / 0.16);
 }
 
 @layer base {
@@ -121,6 +126,17 @@
 @media (prefers-reduced-motion: reduce) {
   .cq-draw { stroke-dashoffset: 0; }
 }
+
+/* Content card: white, rounded, softly lifted off the grey canvas. Links and buttons lift a
+   little more on hover. */
+.surface {
+  background-color: var(--color-paper);
+  border-radius: 1.5rem;
+  box-shadow: var(--shadow-surface);
+}
+a.surface, button.surface { transition: box-shadow 200ms ease, transform 150ms ease; }
+a.surface:hover, button.surface:hover { box-shadow: var(--shadow-surface-hover); }
+a.surface:active, button.surface:active { transform: scale(0.99); }
 
 /* Flat dock buttons with a very light lime-tinted shadow. The white one adds a hairline. */
 .dock-btn-lime { box-shadow: 0 6px 14px -8px rgb(110 170 0 / 0.45); }

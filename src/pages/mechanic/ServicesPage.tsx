@@ -32,7 +32,7 @@ function Inner() {
       {errors.services && <div className="mb-4"><FieldError>{errors.services}</FieldError></div>}
       <ul className="space-y-3">
         {form.services.map((s, i) => (
-          <li key={s.id} className="rounded-2xl border border-line p-4 sm:p-5" data-testid="service-row">
+          <li key={s.id} className="surface p-4 sm:p-5" data-testid="service-row">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_200px]">
               <Field label="Nombre del servicio" error={errors[`service-${i}`]}>
                 <Input name={`service-name-${i}`} value={s.name} onChange={(e) => update(s.id, { name: e.target.value })} />

@@ -30,11 +30,11 @@ export function Widget({ title, caption, to, onClick, size = 'half', tone = 'san
     <>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="line-clamp-2 text-[19px] font-bold leading-tight">{title}</h2>
+          <h2 className="line-clamp-2 font-display text-[19px] font-bold leading-tight tracking-tight">{title}</h2>
           {caption && <p className={cx('mt-0.5 line-clamp-2 text-[15px] leading-snug', dark ? 'text-paper/70' : 'text-muted')}>{caption}</p>}
         </div>
         {interactive && (
-          <span className={cx('flex size-7 shrink-0 items-center justify-center rounded-full', dark ? 'bg-paper/15' : 'bg-paper')} aria-hidden>
+          <span className={cx('flex size-7 shrink-0 items-center justify-center rounded-full', dark ? 'bg-paper/15' : 'bg-canvas')} aria-hidden>
             <ChevronRight className="size-4" />
           </span>
         )}
@@ -43,11 +43,10 @@ export function Widget({ title, caption, to, onClick, size = 'half', tone = 'san
     </>
   );
   const className = cx(
-    'flex min-h-40 flex-col rounded-[26px] p-4 text-left sm:p-5',
+    'flex min-h-40 flex-col p-4 text-left sm:p-5',
     size === 'full' ? 'col-span-2' : 'col-span-1',
-    dark ? 'bg-ink text-paper' : 'bg-sand text-ink',
-    interactive && 'transition-transform duration-150 active:scale-[0.98]',
-    interactive && (dark ? 'hover:bg-ink-soft' : 'hover:bg-sand-deep'),
+    // Dark cards keep the same lift as the white ones.
+    dark ? 'surface !bg-ink text-paper' : 'surface text-ink',
   );
   if (to) {
     return (
@@ -74,7 +73,7 @@ export function Widget({ title, caption, to, onClick, size = 'half', tone = 'san
 export function WidgetFigure({ value, unit, accent }: { value: ReactNode; unit?: ReactNode; accent?: boolean }) {
   return (
     <p className="mt-auto flex items-baseline gap-1.5">
-      <span className={cx('font-display text-[40px] font-extrabold leading-none tracking-tight', accent && 'text-lime-text')}>{value}</span>
+      <span className={cx('font-display text-[40px] font-bold leading-none tracking-tight', accent && 'text-lime-text')}>{value}</span>
       {unit && <span className="text-[15px] font-semibold text-muted">{unit}</span>}
     </p>
   );

@@ -257,7 +257,7 @@ export function RequestFlowPage() {
         </div>
 
         <aside className="hidden lg:block">
-          <div className="sticky top-24 rounded-3xl border border-line p-5">
+          <div className="surface sticky top-24 p-5">
             <div className="flex items-center gap-3">
               <Avatar name={mechanic.name} tone={mechanic.avatarTone} />
               <div>

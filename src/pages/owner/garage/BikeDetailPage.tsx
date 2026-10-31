@@ -82,7 +82,7 @@ function Inner() {
               <ul className="space-y-2">
                 {related.map((r) => (
                   <li key={r.id}>
-                    <Link to={`/solicitudes/${r.id}`} className="flex items-center justify-between gap-3 rounded-2xl border border-line p-4 hover:border-line-strong">
+                    <Link to={`/solicitudes/${r.id}`} className="surface flex items-center justify-between gap-3 p-4">
                       <span className="flex items-center gap-3">
                         <ClipboardList className="size-5 text-muted" aria-hidden />
                         <span>
@@ -109,7 +109,7 @@ function Inner() {
             ) : (
               <ol className="space-y-3" data-testid="maintenance-list">
                 {records.map((m) => (
-                  <li key={m.id} className="rounded-2xl border border-line p-5" data-testid="maintenance-record">
+                  <li key={m.id} className="surface p-5" data-testid="maintenance-record">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div>
                         <p className="text-xs text-muted">{formatDate(m.date, { day: 'numeric', month: 'long', year: 'numeric' })}</p>

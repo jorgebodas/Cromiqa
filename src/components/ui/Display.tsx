@@ -5,7 +5,7 @@ import { initials } from '@/domain/utils';
 
 export function Card({ className, children, ...rest }: HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cx('rounded-2xl border border-line bg-paper', className)} {...rest}>
+    <div className={cx('surface', className)} {...rest}>
       {children}
     </div>
   );
@@ -108,7 +108,7 @@ export function EmptyState({
   className?: string;
 }) {
   return (
-    <div className={cx('flex flex-col items-center rounded-3xl border border-dashed border-line-strong bg-paper px-6 py-12 text-center', className)}>
+    <div className={cx('surface flex flex-col items-center px-6 py-12 text-center', className)}>
       <span className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-sand text-ink" aria-hidden>
         {icon}
       </span>

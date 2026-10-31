@@ -26,8 +26,8 @@ export function RequestCard({
     <Link
       to={href}
       className={cx(
-        'group block rounded-2xl border bg-paper p-4 transition-colors hover:border-line-strong sm:p-5',
-        needsMe ? 'border-ink' : 'border-line',
+        'surface group block p-4 sm:p-5',
+        needsMe && 'ring-2 ring-ink',
       )}
       data-testid="request-card"
       data-request-id={request.id}

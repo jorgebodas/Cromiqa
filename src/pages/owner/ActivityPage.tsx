@@ -35,7 +35,7 @@ function Updates() {
     );
   }
   return (
-    <ul className="divide-y divide-line rounded-3xl border border-line" data-testid="updates">
+    <ul className="surface divide-y divide-line overflow-hidden" data-testid="updates">
       {items.map((item) => {
         const request = requests.find((r) => r.id === item.requestId);
         const isNew = !seenOnOpen.current || item.at > seenOnOpen.current;

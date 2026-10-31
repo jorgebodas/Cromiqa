@@ -34,11 +34,16 @@ test('visitors only see the coming-soon page', async ({ page }) => {
   await expect(page.getByText('Mecánicos para tu bici')).toHaveCount(0);
 });
 
-test('hidden top-right corner opens the login; wrong password is rejected', async ({ page }) => {
+test('the round button in the waitlist card opens the tester login; wrong password is rejected', async ({ page }) => {
   await page.reload();
+  // The old hidden corner entrance is gone.
   const vp = page.viewportSize()!;
   await page.mouse.click(vp.width - 10, 10);
-  const dialog = page.getByRole('dialog', { name: 'Acceso privado' });
+  await expect(page.getByRole('dialog', { name: 'Probar el prototipo' })).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Avísame' }).click();
+  await page.getByTestId('tester-login').click();
+  const dialog = page.getByRole('dialog', { name: 'Probar el prototipo' });
   await expect(dialog).toBeVisible();
   await dialog.getByLabel('Contraseña').fill('no-es-esta');
   await dialog.getByRole('button', { name: 'Entrar' }).click();
@@ -48,7 +53,7 @@ test('hidden top-right corner opens the login; wrong password is rejected', asyn
 test('secret link opens the login directly', async ({ page }) => {
   await page.goto('./#/entrar');
   await page.reload();
-  await expect(page.getByRole('dialog', { name: 'Acceso privado' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Probar el prototipo' })).toBeVisible();
 });
 
 test('a remembered device goes straight into the prototype', async ({ page }) => {

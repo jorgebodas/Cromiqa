@@ -113,10 +113,10 @@ visible focus rings, labelled controls, keyboard-accessible dialogs, reduced-mot
 ## Private preview gate
 
 Production builds show a public **coming-soon page** (logo, tagline, short description). The
-prototype opens from a hidden entrance (`src/access/`):
+prototype opens (`src/access/`) from:
 
-- an invisible hotspot in the **top-right corner**, or
-- the secret link **`/#/entrar`** (handy as a phone bookmark).
+- the **round button** next to “Apúntate a la lista de espera” (tap *Avísame*), or
+- the direct link **`/#/entrar`** (handy as a phone bookmark).
 
 Both open a password dialog. Only a salted SHA-256 hash is in the code, never the password; input is
 trimmed and lowercased (phone keyboards), and hashing has a pure-JS fallback so it also works on plain

@@ -1,7 +1,9 @@
+import { FlaskConical } from 'lucide-react';
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 import { LOCATIONS } from '@/domain/catalog';
 import { FieldError, Input, Select, cx } from '@/components/ui';
 import { DuplicateLeadError, isEmail, submitLead, type LeadKind } from './leads';
+import { openTesterLogin } from '@/access/testerLogin';
 
 export interface LeadFormState {
   sending: boolean;
@@ -116,9 +118,20 @@ export function WaitlistForm({ autoFocus = false, formId, onState }: LeadFormPro
 
   return (
     <form id={formId} onSubmit={submit} noValidate className="relative" data-testid="waitlist-form">
-      <h2 className="cq-rise font-display text-xl font-extrabold leading-tight tracking-tight" style={rise(0)}>
-        Apúntate a la lista de espera
-      </h2>
+      <div className="cq-rise flex items-center justify-between gap-3" style={rise(0)}>
+        <h2 className="font-display text-xl font-extrabold leading-tight tracking-tight">Apúntate a la lista de espera</h2>
+        {/* Testers: opens the prototype's access dialog. */}
+        <button
+          type="button"
+          onClick={openTesterLogin}
+          aria-label="Probar el prototipo"
+          title="Probar el prototipo"
+          className="flex size-11 shrink-0 items-center justify-center rounded-full bg-ink text-lime transition-transform hover:scale-105 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+          data-testid="tester-login"
+        >
+          <FlaskConical className="size-5" aria-hidden />
+        </button>
+      </div>
       <div className="cq-rise mt-6 space-y-3" style={rise(2)}>
         <label htmlFor="waitlist-email" className="sr-only">
           Tu email

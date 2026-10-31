@@ -1,11 +1,12 @@
-// Private-preview gate. The public sees a "coming soon" page; the prototype opens from a
-// hidden hotspot (top-right corner) or the secret link #/entrar.
+// Private-preview gate. The public sees a "coming soon" page; testers open the prototype
+// from the round button in the waitlist card ("Avísame") or the direct link #/entrar.
 // GitHub Pages is static and this repo is public, so this is a curtain, not real
 // security: it keeps casual visitors out, but the bundle is public (see README).
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Button, Checkbox, Dialog, Field, Input } from '@/components/ui';
 import { ComingSoonPage } from '@/marketing/ComingSoonPage';
 import { sha256Hex } from './sha256';
+import { onOpenTesterLogin } from './testerLogin';
 
 const SALT = 'cromiqa-gate-v1:';
 // SHA-256 of SALT + password. Override at build time with VITE_ACCESS_HASH; set
@@ -69,7 +70,7 @@ function LoginDialog({ open, onClose, onUnlock }: { open: boolean; onClose: () =
   };
 
   return (
-    <Dialog open={open} onClose={onClose} title="Acceso privado" description="Solo para el equipo de Cromiqa.">
+    <Dialog open={open} onClose={onClose} title="Probar el prototipo" description="Introduce la contraseña de acceso que te hemos dado.">
       <form onSubmit={submit} noValidate className="pb-2">
         <Field label="Contraseña" error={error}>
           <Input
@@ -105,7 +106,11 @@ export function AccessGate({ children }: { children: ReactNode }) {
     if (unlocked) return;
     const onHash = () => window.location.hash.startsWith(SECRET_ROUTE) && setLoginOpen(true);
     window.addEventListener('hashchange', onHash);
-    return () => window.removeEventListener('hashchange', onHash);
+    const off = onOpenTesterLogin(() => setLoginOpen(true));
+    return () => {
+      window.removeEventListener('hashchange', onHash);
+      off();
+    };
   }, [unlocked]);
 
   if (unlocked) return <>{children}</>;
@@ -122,15 +127,6 @@ export function AccessGate({ children }: { children: ReactNode }) {
   return (
     <>
       <ComingSoonPage />
-      {/* Hidden entrance: invisible 56px hotspot in the top-right corner. */}
-      <button
-        type="button"
-        aria-label="Acceso del equipo"
-        tabIndex={-1}
-        onClick={() => setLoginOpen(true)}
-        className="fixed right-0 top-0 z-40 size-14 cursor-default opacity-0"
-        data-testid="hidden-login"
-      />
       <LoginDialog open={loginOpen} onClose={close} onUnlock={unlock} />
     </>
   );

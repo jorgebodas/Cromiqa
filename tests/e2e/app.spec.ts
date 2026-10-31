@@ -51,8 +51,8 @@ test.describe('Navegación', () => {
     await nav.getByRole('link', { name: 'Solicitudes' }).click();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Solicitudes');
     await page.getByRole('tab', { name: /Todas/ }).click();
-    await expect(page.getByTestId('request-card').first()).toBeVisible();
-    await page.getByTestId('request-card').first().click();
+    await expect(page.getByTestId('case-card').first()).toBeVisible();
+    await page.getByTestId('case-card').first().click();
     await expect(nav.getByRole('link', { name: 'Solicitudes' })).toHaveAttribute('aria-current', 'page');
 
     // Search is a global action on the main screens.
@@ -129,7 +129,7 @@ test.describe('Navegación', () => {
     await expect(page.getByText('Tu cuenta aún no tiene perfil profesional.')).toBeVisible();
   });
 
-  test('new request: + opens the four needs and starts the existing flow', async ({ page }) => {
+  test('new request: + opens the four needs and starts the request flow', async ({ page }) => {
     await freshDemo(page, 'u-ana');
     const mobile = isMobile(page);
     if (mobile) await page.getByTestId('new-request-fab').click();
@@ -141,11 +141,8 @@ test.describe('Navegación', () => {
       'Inspección antes de comprar',
       'No sé qué le pasa',
     ]);
+    // Request first: the need opens the flow; mechanics are chosen in step 4.
     await sheet.getByRole('button', { name: 'Mantenimiento' }).click();
-    await expect(page).toHaveURL(/#\/mecanicos\?servicio=maintenance/);
-    await expect(page.getByText('Tu necesidad: Mantenimiento')).toBeVisible();
-
-    await page.getByRole('link', { name: /^Solicitar servicio/ }).first().click();
     await expect(page).toHaveURL(/#\/solicitar/);
     await expect(page.getByRole('radio', { name: /Mantenimiento/ })).toBeChecked();
     // Focused flow: no tab bar and no + while filling it in.
@@ -210,11 +207,13 @@ test.describe('Validación de formularios', () => {
     await freshDemo(page, 'u-pablo');
     await expect(page.getByTestId('widget-need')).toBeVisible();
     const proposal = page.getByTestId('attention-proposal');
-    await expect(proposal).toContainText('Propuesta de Carlos Ortega');
+    // Pablo has two quotes for the same request: one card to compare them.
+    await expect(proposal).toContainText('2 presupuestos para comparar');
     await expect(page.getByTestId('discover').getByRole('listitem')).toHaveCount(3);
     await expect(page.getByTestId('discover')).not.toContainText('★');
     await proposal.click();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Solicitud');
+    await expect(page.getByTestId('case-status')).toHaveText('Propuestas recibidas');
   });
 
   test('mechanic home: to-do by urgency, counts open filtered lists, profile status', async ({ page }) => {
@@ -252,9 +251,10 @@ test.describe('Validación de formularios', () => {
   test('proposal form rejects a zero price', async ({ page }) => {
     await freshDemo(page, 'u-carlos');
     await page.goto('./#/pro/solicitudes/r-02');
+    await page.getByTestId('respond-options').getByRole('button', { name: 'Presupuesto cerrado' }).click();
     const form = page.getByTestId('proposal-form');
     await form.getByLabel('Precio total (€)').fill('0');
-    await form.getByRole('button', { name: 'Enviar propuesta' }).click();
+    await form.getByRole('button', { name: 'Enviar presupuesto' }).click();
     await expect(form.getByText('Indica un precio mayor que 0 €.')).toBeVisible();
   });
 
@@ -310,7 +310,7 @@ test.describe('Persistencia y modo demo', () => {
     await expect(page.getByTestId('demo-switch')).toContainText('Ana');
 
     await page.goto('./#/demo');
-    await expect(page.getByTestId('demo-requests-table').locator('tbody tr')).toHaveCount(12);
+    await expect(page.getByTestId('demo-requests-table').locator('tbody tr')).toHaveCount(13);
     await page.getByTestId('reset-demo').click();
     await page.getByTestId('confirm-reset').click();
     await expect(page.getByTestId('demo-switch')).toContainText('Invitado');

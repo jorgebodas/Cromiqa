@@ -31,10 +31,11 @@ Node 20+ (CI uses 22). For e2e tests on a fresh machine: `npx playwright install
 
 ### Request lifecycle
 
-`Solicitud enviada → Esperando propuesta → Propuesta recibida → Confirmada → En curso → Completada`
-(+ `Cancelada` from the owner or the mechanic). A rejected proposal returns the request to
-*Esperando propuesta* so the mechanic can send another. Completing a job on a garage bike adds a
-maintenance record to that bike. Nothing is called a booking until the owner accepts a proposal.
+A cyclist's request goes out as **separate invitations** (up to 5 per send). Each invitation:
+`Solicitud enviada → (Propuesta abierta) → Presupuesto recibido → Confirmada → En curso → Completada`,
+or `Cancelada` / `No seleccionada`. Rejecting a quote closes that invitation only. Accepting one quote
+books that mechanic and closes the others as *No seleccionada*. Nothing is a booking until the owner
+accepts, and accepting is not a payment. Completing a job on a garage bike adds a maintenance record.
 
 ## Demo accounts
 
@@ -61,14 +62,15 @@ records. Dates are generated relative to the reset moment so the demo always loo
 ## Test scenarios (all automated in `tests/e2e/scenarios.spec.ts`)
 
 - **A — Reparación:** Inicio → *Reparación* → “los cambios saltan…” → MTB → A domicilio en Rivas →
-  Carlos → enviar → visible en *Actividad* (campana).
-- **B — Respuesta:** cambiar a Carlos → abrir la solicitud → *Aceptar para valorar* → precio y cita →
-  volver a Ana → *Aceptar propuesta* → *Confirmada*.
+  elegir Carlos y otro mecánico → enviar (cuenta Ana) → hub de la solicitud con 2 invitaciones.
+- **B — Respuesta:** Carlos → *Presupuesto cerrado* → precio y cita → Ana → *Aceptar presupuesto* →
+  *Confirmada*; la otra invitación pasa a *No seleccionado*.
 - **C — Completar:** Carlos → *Marcar en curso* → *Marcar como completado* → Ana ve *Completada* y el
   registro en *Mi garaje*.
 - **D — Buscar:** buscar “suspensión” → filtro *Domicilio* → perfil → *Solicitar servicio*.
-- **E — Inspección:** *Inspección antes de comprar* → datos de la bici usada → mecánico que inspecciona →
-  enviar → revisar estado.
+- **E — Inspección:** desde el perfil de Nerea (preseleccionada) → datos de la bici usada → enviar.
+- **Varios mecánicos:** comparar presupuestos, rechazar uno, aceptar otro, invitar a más, propuesta
+  abierta (chat antes del precio) y revisión versionada de un presupuesto.
 
 Shortcut buttons (“Ver como Carlos”, “Ver como Ana”) on request pages jump to the other side of the
 same request.
@@ -258,6 +260,26 @@ address (or FormSubmit's alias if provided) and deploy.
   in-progress summary and three suggested mechanics with factual reasons (no ratings or availability claims). The
   mechanic Home lists the to-do by urgency (new invitations, client messages, proposals to send, appointments due,
   jobs to finish), counts that open the filtered lists, upcoming appointments and the profile status/gaps.
+
+## Requests to several mechanics (Phase 2 of the master brief)
+
+- **Request first, then providers.** The flow has 5 steps: need → bike → where/when → *Mecánicos* →
+  review. Step 4 shows 3 recommended providers with factual reasons and the rest of the compatible
+  ones (`src/domain/logic/matching.ts`). Nothing is preselected except the mechanic the request started
+  from; the cyclist confirms recipients on the review step. Never auto-dispatched.
+- **Model.** Each invitation is a `ServiceRequest` thread; `caseId` groups them. The case status
+  (*Esperando respuestas · Propuestas recibidas · Servicio contratado · Completada · Retirada · Sin
+  mecánico disponible*) is derived in `src/domain/logic/cases.ts`, never stored.
+- **Hub** `#/solicitudes/:caseId`: every provider and their answer (cheapest quote first), the hired
+  service, recovery hints, *Invitar a más mecánicos* (compatible, not yet invited, max 5) and *Retirar
+  solicitud*. One provider's thread: `#/solicitudes/:caseId/mecanico/:threadId`. Old links with a
+  thread id redirect to its case.
+- **Mechanic answers:** closed quote, open proposal (a question; opens the chat, binds nobody) or “no
+  puedo”. A pending quote can be revised; the new version needs the cyclist's approval.
+- **Chat gate:** closed quote → chat only after acceptance; open proposal → chat right away.
+- **Configurable hypotheses:** ranking weights `MATCH_WEIGHTS` (proximity 35 / specialization 30 /
+  availability 20 / trust 15) and recovery timings `RECOVERY_HOURS` (4 h no response, 24 h no quote;
+  all declined → immediately). Appointment negotiation is Phase 3.
 
 ## Navigation (cyclist, earlier notes)
 

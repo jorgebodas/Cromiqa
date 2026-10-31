@@ -170,20 +170,19 @@ test.describe('Varios mecánicos por solicitud', () => {
   });
 
   test('inviting more mechanics adds invitations without duplicates', async ({ page }) => {
-    await freshDemo(page, 'u-pablo');
-    await page.goto('./#/solicitudes/r-03');
+    await freshDemo(page, 'u-ana');
+    await page.goto('./#/solicitudes/r-01');
+    await expect(page.getByTestId('response-row')).toHaveCount(1);
     await page.getByRole('button', { name: 'Invitar a más mecánicos' }).first().click();
     const dialog = page.getByRole('dialog', { name: 'Invitar a más mecánicos' });
     const options = dialog.getByTestId('provider-option');
+    await expect(options.first()).toBeVisible();
     await expect(options.filter({ hasText: 'Carlos Ortega' })).toHaveCount(0);
-    await expect(options.filter({ hasText: 'Nerea Campos' })).toHaveCount(0);
-    const count = await options.count();
-    test.skip(count === 0, 'No other compatible mechanic in the demo data');
     await options.first().click();
     await dialog.getByRole('button', { name: 'Invitar' }).click();
     await expect(dialog).toBeHidden();
-    await expect(page.getByTestId('response-row')).toHaveCount(3);
-    await expect(page.getByTestId('response-row').filter({ hasText: 'Pendiente de respuesta' })).toHaveCount(1);
+    await expect(page.getByTestId('response-row')).toHaveCount(2);
+    await expect(page.getByTestId('response-row').filter({ hasText: 'Pendiente de respuesta' })).toHaveCount(2);
   });
 
   test('open proposal: opens the chat before any price, without hiring anyone', async ({ page }) => {

@@ -20,8 +20,8 @@ import { StepProviders } from './request/StepProviders';
 function responseOf(r: ServiceRequest): { label: string; detail?: string; rank: number } {
   const p = currentProposal(r);
   if (r.status === 'proposal_received' && p?.status === 'pending')
-    return { label: formatPrice(p.price), detail: `Presupuesto cerrado${r.proposals.length > 1 ? ` · versión ${r.proposals.length}` : ''} · propone ${formatDate(p.date, { weekday: 'short', day: 'numeric', month: 'short' })}`, rank: 0 };
-  if (r.openProposal && r.status === 'awaiting_proposal') return { label: 'Necesita aclarar algo', detail: 'Propuesta abierta · chat disponible', rank: 1 };
+    return { label: formatPrice(p.price), detail: `${formatDate(p.date, { weekday: 'short', day: 'numeric', month: 'short' })}, ${p.time}${r.proposals.length > 1 ? ` · versión ${r.proposals.length}` : ''}`, rank: 0 };
+  if (r.openProposal && r.status === 'awaiting_proposal') return { label: 'Necesita aclarar algo', detail: 'Propuesta abierta · chat abierto', rank: 1 };
   if (r.status === 'sent' || r.status === 'awaiting_proposal') return { label: 'Pendiente de respuesta', rank: 2 };
   if (r.status === 'not_selected') return { label: 'No seleccionado', rank: 4 };
   if (r.status === 'cancelled') return { label: r.events.some((e) => e.type === 'rejected_by_mechanic') ? 'No puede atenderte' : 'Cancelada', rank: 3 };

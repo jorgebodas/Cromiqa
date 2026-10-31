@@ -182,14 +182,14 @@ export const STATUSES: Record<
   sent: {
     label: 'Solicitud enviada',
     ownerHint: 'El mecánico aún no ha revisado tu solicitud.',
-    mechanicHint: 'Nueva solicitud. Revísala y acéptala para valorarla o recházala.',
+    mechanicHint: 'Responde con un presupuesto cerrado, una propuesta abierta si necesitas aclarar algo, o dile que no puedes.',
     tone: 'neutral',
     step: 0,
   },
   awaiting_proposal: {
     label: 'Esperando presupuesto',
     ownerHint: 'El mecánico está valorando tu caso y te enviará precio y fecha.',
-    mechanicHint: 'Has aceptado valorarla. Envía una propuesta de precio y cita.',
+    mechanicHint: 'Cuando lo tengas claro, envía un presupuesto cerrado con precio y fecha.',
     tone: 'waiting',
     step: 1,
   },

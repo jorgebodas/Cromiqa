@@ -34,26 +34,32 @@ test('visitors only see the coming-soon page', async ({ page }) => {
   await expect(page.getByText('Mecánicos para tu bici')).toHaveCount(0);
 });
 
-test('the round button in the waitlist card opens the tester login; wrong password is rejected', async ({ page }) => {
+test('the round button in the waitlist card swaps it to tester access; wrong password is rejected; back returns', async ({ page }) => {
   await page.reload();
   // The old hidden corner entrance is gone.
   const vp = page.viewportSize()!;
   await page.mouse.click(vp.width - 10, 10);
-  await expect(page.getByRole('dialog', { name: 'Probar el prototipo' })).toHaveCount(0);
+  await expect(page.getByTestId('tester-form')).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Avísame' }).click();
   await page.getByTestId('tester-login').click();
-  const dialog = page.getByRole('dialog', { name: 'Probar el prototipo' });
-  await expect(dialog).toBeVisible();
-  await dialog.getByLabel('Contraseña').fill('no-es-esta');
-  await dialog.getByRole('button', { name: 'Entrar' }).click();
-  await expect(dialog.getByText('Contraseña incorrecta.')).toBeVisible();
+  // Same dock card, no dialog: the form swaps in place and the lime button becomes "Entrar".
+  const form = page.getByTestId('tester-form');
+  await expect(form.getByRole('heading', { name: 'Probar el prototipo' })).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await form.getByLabel('Contraseña').fill('no-es-esta');
+  await page.getByRole('button', { name: 'Entrar' }).click();
+  await expect(form.getByText('Contraseña incorrecta.')).toBeVisible();
+
+  await page.getByTestId('tester-back').click();
+  await expect(page.getByTestId('waitlist-form')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Confirmar' })).toBeVisible();
 });
 
-test('secret link opens the login directly', async ({ page }) => {
+test('direct link opens tester access in the dock', async ({ page }) => {
   await page.goto('./#/entrar');
   await page.reload();
-  await expect(page.getByRole('dialog', { name: 'Probar el prototipo' })).toBeVisible();
+  await expect(page.getByTestId('tester-form')).toBeVisible();
 });
 
 test('a remembered device goes straight into the prototype', async ({ page }) => {

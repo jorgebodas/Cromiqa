@@ -1,9 +1,9 @@
-import { FlaskConical } from 'lucide-react';
+import { ArrowLeft, FlaskConical } from 'lucide-react';
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 import { LOCATIONS } from '@/domain/catalog';
-import { FieldError, Input, Select, cx } from '@/components/ui';
+import { Checkbox, FieldError, Input, Select, cx } from '@/components/ui';
 import { DuplicateLeadError, isEmail, submitLead, type LeadKind } from './leads';
-import { openTesterLogin } from '@/access/testerLogin';
+import { openTesterLogin, unlockWithPassword } from '@/access/testerLogin';
 
 export interface LeadFormState {
   sending: boolean;
@@ -50,6 +50,9 @@ function Honeypot({ value, onChange }: { value: string; onChange: (v: string) =>
     </div>
   );
 }
+
+const roundButtonClass =
+  'flex size-11 shrink-0 items-center justify-center rounded-full border border-line bg-paper text-ink shadow-[var(--shadow-surface)] transition-transform hover:scale-105 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink';
 
 /** Staggered entrance for each form row. */
 const rise = (i: number): CSSProperties => ({ animationDelay: `${60 + i * 55}ms` });
@@ -120,13 +123,13 @@ export function WaitlistForm({ autoFocus = false, formId, onState }: LeadFormPro
     <form id={formId} onSubmit={submit} noValidate className="relative" data-testid="waitlist-form">
       <div className="cq-rise flex items-center justify-between gap-3" style={rise(0)}>
         <h2 className="font-display text-xl font-extrabold leading-tight tracking-tight">Lista de espera</h2>
-        {/* Testers: opens the prototype's access dialog. */}
+        {/* Testers: swaps this card to the prototype's password form. */}
         <button
           type="button"
           onClick={openTesterLogin}
           aria-label="Probar el prototipo"
           title="Probar el prototipo"
-          className="flex size-11 shrink-0 items-center justify-center rounded-full border border-line bg-paper text-ink shadow-[var(--shadow-surface)] transition-transform hover:scale-105 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+          className={roundButtonClass}
           data-testid="tester-login"
         >
           <FlaskConical className="size-5" aria-hidden />
@@ -251,6 +254,78 @@ export function MechanicLeadForm({ autoFocus = false, formId, onState }: LeadFor
         </div>
       )}
       <Privacy i={6} />
+    </form>
+  );
+}
+
+/**
+ * Tester access, inside the same dock card as the waitlist: back to the waitlist, the password,
+ * and "remember this device". The dock's lime button submits it ("Entrar").
+ */
+export function TesterLoginForm({ autoFocus = false, formId, onState, onBack }: LeadFormProps & { onBack: () => void }) {
+  const [password, setPassword] = useState('');
+  const [remember, setRemember] = useState(true);
+  const [error, setError] = useState<string>();
+  const [checking, setChecking] = useState(false);
+  const inputRef = useAutoFocus<HTMLInputElement>(autoFocus);
+  useEffect(() => onState?.({ sending: checking, done: false }), [checking]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!password.trim()) return setError('Escribe la contraseña.');
+    setChecking(true);
+    try {
+      if (!(await unlockWithPassword(password, remember))) {
+        setError('Contraseña incorrecta.');
+        setPassword('');
+      }
+    } catch {
+      setError('No se pudo comprobar la contraseña. Recarga la página e inténtalo de nuevo.');
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  return (
+    <form id={formId} onSubmit={submit} noValidate className="relative" data-testid="tester-form">
+      <div className="cq-rise flex items-center gap-3" style={rise(0)}>
+        <button type="button" onClick={onBack} aria-label="Volver a la lista de espera" className={roundButtonClass} data-testid="tester-back">
+          <ArrowLeft className="size-5" aria-hidden />
+        </button>
+        <h2 className="font-display text-xl font-extrabold leading-tight tracking-tight">Probar el prototipo</h2>
+      </div>
+      <p className="cq-rise mt-4 text-[15px] text-muted" style={rise(1)}>
+        Introduce la contraseña que te hemos dado.
+      </p>
+      <div className="cq-rise mt-4 space-y-4" style={rise(2)}>
+        <label htmlFor="tester-password" className="sr-only">
+          Contraseña
+        </label>
+        <Input
+          ref={inputRef}
+          id="tester-password"
+          type="password"
+          name="password"
+          autoComplete="current-password"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          placeholder="Contraseña"
+          value={password}
+          onChange={(e) => {
+            setPassword(e.target.value);
+            setError(undefined);
+          }}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? 'tester-error' : undefined}
+        />
+        <Checkbox checked={remember} onChange={setRemember} label="Recordar este dispositivo" />
+      </div>
+      {error && (
+        <div className="mt-3">
+          <FieldError id="tester-error">{error}</FieldError>
+        </div>
+      )}
     </form>
   );
 }

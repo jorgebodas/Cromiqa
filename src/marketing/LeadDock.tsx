@@ -1,10 +1,13 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import { Loader2, X } from 'lucide-react';
 import { cx } from '@/components/ui';
-import { MechanicLeadForm, WaitlistForm, type LeadFormState } from './LeadForms';
+import { MechanicLeadForm, TesterLoginForm, WaitlistForm, type LeadFormState } from './LeadForms';
+import { onOpenTesterLogin } from '@/access/testerLogin';
 import type { LeadKind } from './leads';
 
-const FORM_ID: Record<LeadKind, string> = { waitlist: 'lead-waitlist', mechanic: 'lead-mechanic' };
+/** The dock's panels: the two lead forms, and tester access (reached from the waitlist card). */
+type Panel = LeadKind | 'tester';
+const FORM_ID: Record<Panel, string> = { waitlist: 'lead-waitlist', mechanic: 'lead-mechanic', tester: 'tester-login' };
 const CLOSE = 56; // px, the round close button
 const GAP = 12; // px
 const SPRING = 'cubic-bezier(.2,1.2,.3,1)';
@@ -40,9 +43,9 @@ function useKeyboard(active: boolean) {
  * whichever was chosen, while the form card rises above. Closing plays it in reverse.
  */
 export function LeadDock() {
-  const [open, setOpen] = useState<LeadKind | null>(null);
+  const [open, setOpen] = useState<Panel | null>(null);
   // Keep the last form mounted while the card animates out.
-  const [shown, setShown] = useState<LeadKind>('waitlist');
+  const [shown, setShown] = useState<Panel>('waitlist');
   const [openSeq, setOpenSeq] = useState(0);
   const [form, setForm] = useState<LeadFormState>({ sending: false, done: false });
   const kb = useKeyboard(open !== null);
@@ -54,7 +57,10 @@ export function LeadDock() {
     return () => document.removeEventListener('keydown', onKey);
   }, [open]);
 
-  const choose = (kind: LeadKind) => {
+  // The round button in the waitlist card, or the #/entrar link, open tester access here.
+  useEffect(() => onOpenTesterLogin(() => choose('tester')), []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const choose = (kind: Panel) => {
     setShown(kind);
     setForm({ sending: false, done: false });
     setOpen(kind);
@@ -101,7 +107,7 @@ export function LeadDock() {
           <div
             id="lead-panel"
             role="region"
-            aria-label={shown === 'waitlist' ? 'Lista de espera' : 'Registro para mecánicos'}
+            aria-label={shown === 'waitlist' ? 'Lista de espera' : shown === 'tester' ? 'Probar el prototipo' : 'Registro para mecánicos'}
             className={cx('relative grid', open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0')}
             style={{ transition: `grid-template-rows 520ms ${SPRING}, opacity 240ms ease` }}
             {...(!open ? { inert: '' } : {})}
@@ -115,6 +121,8 @@ export function LeadDock() {
                 <div key={`${shown}-${openSeq}`}>
                   {shown === 'waitlist' ? (
                     <WaitlistForm formId={FORM_ID.waitlist} autoFocus={open === 'waitlist'} onState={setForm} />
+                  ) : shown === 'tester' ? (
+                    <TesterLoginForm formId={FORM_ID.tester} autoFocus={open === 'tester'} onState={setForm} onBack={() => choose('waitlist')} />
                   ) : (
                     <MechanicLeadForm formId={FORM_ID.mechanic} autoFocus={open === 'mechanic'} onState={setForm} />
                   )}
@@ -151,7 +159,7 @@ export function LeadDock() {
                 </span>
                 <span className={label(!!open)} aria-hidden={!open || undefined}>
                   {form.sending && <Loader2 className="size-4 animate-spin" aria-hidden />}
-                  {form.done ? 'Listo' : 'Confirmar'}
+                  {form.done ? 'Listo' : open === 'tester' ? 'Entrar' : 'Confirmar'}
                 </span>
               </span>
             </button>

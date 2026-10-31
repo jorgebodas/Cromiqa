@@ -7,8 +7,10 @@ import { formatDate } from '@/domain/utils';
 import { useApp } from '@/state/store';
 import { useCurrentUser, useOwnerBikes } from '@/state/selectors';
 import { RoleGate } from '@/components/layout/RoleGate';
-import { Button, EmptyState, PageHeader } from '@/components/ui';
+import { Button, EmptyState } from '@/components/ui';
 import { BikeFormDialog } from './BikeForm';
+import { ScreenHeader, headerButtonClass } from '@/components/layout/ScreenHeader';
+import { OwnerQuickActions } from '@/components/layout/QuickActions';
 
 export function BikePhoto({ bike, className = 'h-40' }: { bike: Bike; className?: string }) {
   return bike.photo ? (
@@ -29,17 +31,19 @@ function Inner() {
   const [adding, setAdding] = useState(false);
 
   return (
-    <div className="container-page py-8 sm:py-10">
-      <PageHeader
-        eyebrow="Mi garaje"
-        title="Tus bicis"
-        description="Guarda tus bicis y su historial de mantenimiento. Las usarás para pedir servicios en un clic."
+    <>
+      <ScreenHeader
+        title="Garaje"
         actions={
-          <Button onClick={() => setAdding(true)} icon={<Plus className="size-4" aria-hidden />}>
-            Añadir bici
-          </Button>
+          <>
+            <button type="button" onClick={() => setAdding(true)} aria-label="Añadir bici" className={headerButtonClass}>
+              <Plus className="size-5" aria-hidden />
+            </button>
+            <OwnerQuickActions />
+          </>
         }
       />
+      <div className="container-page pb-8 sm:pb-10">
       {bikes.length === 0 ? (
         <EmptyState
           icon={<BikeIcon className="size-6" />}
@@ -86,7 +90,8 @@ function Inner() {
           }}
         />
       )}
-    </div>
+      </div>
+    </>
   );
 }
 

@@ -5,12 +5,12 @@ import { bikeTypeLabel } from '@/domain/catalog';
 import { formatDate, formatPrice } from '@/domain/utils';
 import { useApp } from '@/state/store';
 import { useCurrentUser } from '@/state/selectors';
-import { BackLink } from '@/components/layout/BackLink';
 import { RoleGate } from '@/components/layout/RoleGate';
 import { StatusBadge } from '@/components/domain/Status';
 import { Button, Card, Dialog, EmptyState, KeyValue, LinkButton } from '@/components/ui';
 import { BikeFormDialog } from './BikeForm';
 import { BikePhoto } from './GaragePage';
+import { ScreenHeader } from '@/components/layout/ScreenHeader';
 
 function Inner() {
   const { id } = useParams();
@@ -46,19 +46,15 @@ function Inner() {
   };
 
   return (
-    <div className="container-page py-6 sm:py-10">
-      <BackLink fallback="/garaje" className="mb-6">
-        Volver
-      </BackLink>
+    <>
+      <ScreenHeader title={bike.name} back="/garaje" />
+      <div className="container-page pb-8 sm:pb-10">
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[360px_1fr]">
         <div className="space-y-4">
           <BikePhoto bike={bike} className="h-56" />
-          <div>
-            <h1 className="text-3xl font-extrabold">{bike.name}</h1>
-            <p className="text-muted">
-              {bike.brand} {bike.model}
-            </p>
-          </div>
+          <p className="text-muted">
+            {bike.brand} {bike.model}
+          </p>
           <Card className="px-5 py-2">
             <dl className="divide-y divide-line">
               <KeyValue label="Tipo">{bikeTypeLabel(bike.type)}</KeyValue>
@@ -179,7 +175,8 @@ function Inner() {
       >
         <p className="text-sm text-muted">Esta acción no se puede deshacer (salvo restableciendo la demo).</p>
       </Dialog>
-    </div>
+      </div>
+    </>
   );
 }
 

@@ -55,7 +55,7 @@ test('a remembered device goes straight into the prototype', async ({ page }) =>
   await page.evaluate((h) => localStorage.setItem('cromiqa:access', h), HASH);
   await page.goto('./#/mecanicos');
   await page.reload();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Mecánicos para tu bici');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Mecánicos');
 });
 
 test('floating dock shows both calls to action on one line', async ({ page }) => {

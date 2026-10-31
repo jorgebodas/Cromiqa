@@ -246,15 +246,16 @@ address (or FormSubmit's alias if provided) and deploy.
   Mantenimiento, Inspección antes de comprar, No sé qué le pasa. It seeds the existing request draft and opens Mecánicos
   filtered by that service; picking a mechanic continues in `/solicitar` with the category preselected. A draft in
   progress is offered first, so it is never lost.
-- **Header**: avatar → *Tu cuenta* (`/cuenta`), search (mechanics, services, specialities — also via common problem
-  words), bell → *Actividad* (`/actividad`): *Solicitudes* (all requests by status) and *Novedades* (events the
-  mechanics triggered on your requests, from the demo data). The bell counts updates not seen yet (per account,
-  stored locally). `/solicitudes` redirects to `/actividad`.
+- **Screen headers** (every screen, cyclist and mechanic, `ScreenHeader`): the screen name as a large title on the
+  left, round action buttons on the right; detail screens add a round back button. When the title scrolls away a
+  compact pinned bar keeps the name in small type and the same buttons. Main cyclist screens carry Actividad (bell,
+  counts unseen updates) and Tu cuenta (avatar) as buttons; desktop keeps them in the top bar. Names: Inicio,
+  Mecánicos, Garaje, Actividad, Cuenta, Solicitud; mechanic: Panel, Solicitudes, Servicios, Agenda, Perfil.
+  `/solicitudes` redirects to `/actividad`.
 - **Levels**: destinations show bar + header; detail screens use a context-aware “Volver” (history, or a sensible
   parent when opened by URL); the request flow is focused (no bar, no +; back, close and progress), and a mechanic's
   profile hides the bar on phones because its sticky “Solicitar servicio” is the main action.
-- **Phones, on scroll** (Reddit-style): the header is avatar · search bar with the round Q logo · bell. Scrolling
-  down dissolves it into floating circles (avatar, and search + bell) and shrinks the tab bar to one circle showing
-  the current section; scrolling up, reaching the top or tapping that circle restores it. Search opens from the top.
+- **Phones, on scroll**: the tab bar shrinks to one circle showing the current section; scrolling up, reaching the
+  top or tapping that circle restores it.
 - **Mechanics** keep their own five-section navigation (`/pro…`).
 

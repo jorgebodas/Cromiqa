@@ -10,6 +10,8 @@ import { StatusBadge } from '@/components/domain/Status';
 import { useSwitchAccount } from '@/components/layout/AccountSwitcher';
 import { Avatar, Button, ChoiceCard, Field, FieldError, Rating, Select, Textarea, cx } from '@/components/ui';
 import { buildSearchParams } from './searchParams';
+import { ScreenHeader } from '@/components/layout/ScreenHeader';
+import { OwnerQuickActions } from '@/components/layout/QuickActions';
 
 export const CATEGORY_ICONS: Record<ServiceCategory, typeof Wrench> = {
   repair: Wrench,
@@ -103,14 +105,15 @@ export function HomePage() {
 
   return (
     <>
+      <ScreenHeader title="Inicio" actions={<OwnerQuickActions />} />
       {user?.role === 'owner' && <ActiveRequestsSummary ownerId={user.id} />}
       <section className="relative overflow-hidden border-b border-line bg-sand">
         <div className="container-page grid grid-cols-1 gap-10 py-10 sm:py-14 lg:grid-cols-[1fr_minmax(0,520px)] lg:items-start lg:gap-14 lg:py-20">
           <div className="max-w-xl lg:pt-8">
             <p className="eyebrow mb-4">Mecánicos de bici en el sureste de Madrid</p>
-            <h1 className="text-[2.75rem] font-extrabold leading-[1.02] sm:text-6xl lg:text-7xl">
+            <h2 className="text-[2.75rem] font-extrabold leading-[1.02] sm:text-6xl lg:text-7xl">
               Tu bici, en buenas manos.
-            </h1>
+            </h2>
             <p className="mt-5 max-w-md text-lg leading-relaxed text-muted">
               Encuentra mecánicos de confianza cerca de ti. Reparaciones, mantenimiento e inspecciones, sin complicaciones.
             </p>

@@ -4,9 +4,10 @@ import { CATEGORIES } from '@/domain/catalog';
 import { uid } from '@/domain/utils';
 import { useCurrentMechanic } from '@/state/selectors';
 import { RoleGate } from '@/components/layout/RoleGate';
-import { Button, Field, FieldError, IconButton, Input, PageHeader, Select, Textarea } from '@/components/ui';
+import { Field, FieldError, IconButton, Input, Select, Textarea } from '@/components/ui';
 import { useProfileEditor } from './useProfileEditor';
 import { SaveBar } from './SaveBar';
+import { ScreenHeader, headerButtonClass } from '@/components/layout/ScreenHeader';
 
 function Inner() {
   const mechanic = useCurrentMechanic()!;
@@ -17,13 +18,17 @@ function Inner() {
   const remove = (id: string) => set({ services: form.services.filter((s) => s.id !== id) });
 
   return (
-    <div className="container-page max-w-3xl py-8 sm:py-10">
-      <PageHeader
-        eyebrow="Servicios"
-        title="Servicios y precios"
+    <>
+      <ScreenHeader
+        title="Servicios"
         description="Los precios son orientativos («desde»). El precio final lo fijas en cada propuesta."
-        actions={<Button variant="secondary" onClick={add} icon={<Plus className="size-4" aria-hidden />}>Añadir servicio</Button>}
+        actions={
+          <button type="button" onClick={add} aria-label="Añadir servicio" className={headerButtonClass}>
+            <Plus className="size-5" aria-hidden />
+          </button>
+        }
       />
+      <div className="container-page max-w-3xl pb-8 sm:pb-10">
       {errors.services && <div className="mb-4"><FieldError>{errors.services}</FieldError></div>}
       <ul className="space-y-3">
         {form.services.map((s, i) => (
@@ -75,7 +80,8 @@ function Inner() {
         ))}
       </ul>
       <SaveBar dirty={dirty} saving={saving} onSave={save} onDiscard={discard} />
-    </div>
+      </div>
+    </>
   );
 }
 

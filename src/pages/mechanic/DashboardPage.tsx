@@ -7,8 +7,9 @@ import { useApp } from '@/state/store';
 import { useCurrentMechanic, useMechanicRating, useRequestsFor } from '@/state/selectors';
 import { RoleGate } from '@/components/layout/RoleGate';
 import { RequestCard } from '@/components/domain/RequestCard';
-import { Avatar, Card, EmptyState, LinkButton, PageHeader, Rating, SectionTitle, cx } from '@/components/ui';
+import { Avatar, Card, EmptyState, LinkButton, Rating, SectionTitle, cx } from '@/components/ui';
 import { DemoVerifiedBadge, ModeIndicators } from '@/components/domain/MechanicCard';
+import { ScreenHeader } from '@/components/layout/ScreenHeader';
 
 function Stat({ label, value, icon: Icon, highlight, to }: { label: string; value: number; icon: typeof Inbox; highlight?: boolean; to: string }) {
   return (
@@ -40,8 +41,9 @@ function Inner() {
   const completed = requests.filter((r) => r.status === 'completed').slice(0, 3);
 
   return (
-    <div className="container-page py-8 sm:py-10">
-      <PageHeader eyebrow="Panel principal" title={`Hola, ${mechanic.name.split(' ')[0]}`} description="Esto es lo que tienes pendiente hoy." />
+    <>
+      <ScreenHeader title="Panel" description={`Hola, ${mechanic.name.split(' ')[0]}. Esto es lo que tienes pendiente hoy.`} />
+      <div className="container-page pb-8 sm:pb-10">
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Nuevas" value={requests.filter((r) => r.status === 'sent').length} icon={Inbox} highlight to="/pro/solicitudes?estado=nuevas" />
@@ -150,7 +152,8 @@ function Inner() {
           </Link>
         </aside>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 

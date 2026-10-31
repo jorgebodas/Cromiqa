@@ -5,15 +5,15 @@ test.describe('Navegación', () => {
   test('owner routes render and deep links survive reloads', async ({ page }) => {
     await freshDemo(page, 'u-ana');
     const routes: [string, RegExp][] = [
-      ['#/', /Tu bici, en buenas manos/],
-      ['#/mecanicos', /Mecánicos para tu bici/],
+      ['#/', /^Inicio$/],
+      ['#/mecanicos', /^Mecánicos$/],
       ['#/mecanicos/m-marta', /Marta Ibáñez/],
-      ['#/actividad', /Actividad/],
-      ['#/solicitudes', /Actividad/], // old link redirects
-      ['#/garaje', /Tus bicis/],
+      ['#/actividad', /^Actividad$/],
+      ['#/solicitudes', /^Actividad$/], // old link redirects
+      ['#/garaje', /^Garaje$/],
       ['#/garaje/b-ana-mtb', /La de monte/],
-      ['#/cuenta', /Tu cuenta/],
-      ['#/demo', /Panel de demostración/],
+      ['#/cuenta', /^Cuenta$/],
+      ['#/demo', /^Demo$/],
       ['#/no-existe', /Esta página no existe/],
     ];
     for (const [hash, heading] of routes) {
@@ -26,11 +26,11 @@ test.describe('Navegación', () => {
   test('mechanic routes render', async ({ page }) => {
     await freshDemo(page, 'u-carlos');
     for (const [hash, heading] of [
-      ['#/pro', /Hola, Carlos/],
-      ['#/pro/solicitudes', /Solicitudes de clientes/],
-      ['#/pro/servicios', /Servicios y precios/],
-      ['#/pro/disponibilidad', /Tu disponibilidad/],
-      ['#/pro/perfil', /Ortega Trail Lab/],
+      ['#/pro', /^Panel$/],
+      ['#/pro/solicitudes', /^Solicitudes$/],
+      ['#/pro/servicios', /^Servicios$/],
+      ['#/pro/disponibilidad', /^Agenda$/],
+      ['#/pro/perfil', /^Perfil$/],
     ] as const) {
       await page.goto('./' + hash);
       await expect(page.getByRole('heading', { level: 1 }).first()).toHaveText(heading);
@@ -43,21 +43,18 @@ test.describe('Navegación', () => {
     const nav = page.getByRole('navigation', { name: mobile ? 'Principal (móvil)' : 'Principal', exact: true });
     await expect(nav.getByRole('link')).toHaveText(['Inicio', 'Mecánicos', 'Garaje']);
     await nav.getByRole('link', { name: 'Garaje' }).click();
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Tus bicis');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Garaje');
     await expect(nav.getByRole('link', { name: 'Garaje' })).toHaveAttribute('aria-current', 'page');
 
     // Avatar → the existing account screen.
     await page.getByTestId('account-link').filter({ visible: true }).click();
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Tu cuenta');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Cuenta');
 
-    // Search → quick results from the demo data.
-    if (mobile) await page.getByTestId('search-bar').click();
-    else await page.getByRole('button', { name: 'Buscar', exact: true }).click();
-    const search = page.getByRole('dialog', { name: 'Buscar' });
-    await search.getByRole('searchbox').fill('frenos');
-    await expect(search.getByRole('button', { name: 'Frenos' })).toBeVisible();
-    await search.getByRole('button', { name: /Nerea Campos/ }).click();
+    // Header pattern: the screen name is the large title, actions are round buttons.
+    await expect(page.getByRole('button', { name: 'Buscar' })).toHaveCount(0);
+    await page.goto('./#/mecanicos/m-nerea');
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Nerea Campos');
+    await page.getByRole('link', { name: 'Volver' }).click();
 
     // Bell → Actividad, with every request listed.
     await page.getByTestId('activity-link').filter({ visible: true }).click();
@@ -73,6 +70,8 @@ test.describe('Navegación', () => {
     await bell.click();
     await page.getByRole('tab', { name: /Novedades/ }).click();
     await expect(page.getByTestId('updates').getByRole('link').first()).toBeVisible();
+    // Back on a main screen (they carry the bell), the count is gone, also after a reload.
+    await page.goto('./#/');
     await expect(bell).toHaveAttribute('aria-label', 'Actividad');
     await page.reload();
     await expect(page.getByTestId('activity-link').filter({ visible: true })).toHaveAttribute('aria-label', 'Actividad');
@@ -123,10 +122,10 @@ test.describe('Navegación', () => {
     await page.goto('./#/garaje/b-ana-mtb');
     await page.reload();
     await page.getByRole('link', { name: 'Volver' }).click();
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Tus bicis');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Garaje');
   });
 
-  test('phones: scrolling condenses the bars into circles that still work', async ({ page }) => {
+  test('phones: scrolling shrinks the title into the pinned bar and the tabs into a circle', async ({ page }) => {
     test.skip(!isMobile(page), 'Phone-only behaviour');
     await freshDemo(page, 'u-ana');
     await page.goto('./#/mecanicos');
@@ -135,10 +134,9 @@ test.describe('Navegación', () => {
     await expect(condensed).toBeVisible();
     await expect(condensed).toHaveAccessibleName(/Mecánicos/);
     await expect.poll(async () => (await condensed.boundingBox())?.width).toBeLessThanOrEqual(68); // one circle
-    // Header circles stay usable: search opens straight away.
-    await page.getByRole('button', { name: 'Buscar', exact: true }).click();
-    await expect(page.getByRole('dialog', { name: 'Buscar' })).toBeVisible();
-    await page.keyboard.press('Escape');
+    // The large title has shrunk into the pinned bar, which keeps its buttons.
+    await expect(page.getByTestId('screen-bar')).toContainText('Mecánicos');
+    await expect(page.getByTestId('activity-link').filter({ visible: true })).toBeVisible();
     // Tapping the circle brings the full bar back.
     await page.mouse.wheel(0, 300);
     await expect.poll(async () => (await condensed.boundingBox())?.width).toBeLessThanOrEqual(68);
@@ -159,7 +157,7 @@ test.describe('Navegación', () => {
     await page.goto('./#/garaje');
     await expect(page.getByText('Entra con una cuenta de demostración')).toBeVisible();
     await page.getByRole('button', { name: /Continuar como Ana/ }).click();
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Tus bicis');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Garaje');
   });
 });
 

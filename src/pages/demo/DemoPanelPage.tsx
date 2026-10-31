@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FlaskConical, Lock, RotateCcw, Trash2, UserRound, Wrench } from 'lucide-react';
+import { Lock, RotateCcw, Trash2, UserRound, Wrench } from 'lucide-react';
 import { gateEnabled, lockDevice } from '@/access/AccessGate';
 import { isEmail, leadsEnabled, requestLeadActivation } from '@/marketing/leads';
 import type { ID } from '@/domain/types';
@@ -9,7 +9,8 @@ import { relativeTime } from '@/domain/utils';
 import { useApp } from '@/state/store';
 import { useSwitchAccount } from '@/components/layout/AccountSwitcher';
 import { StatusBadge } from '@/components/domain/Status';
-import { Avatar, Badge, Button, Card, Dialog, Field, Input, PageHeader, cx } from '@/components/ui';
+import { Avatar, Badge, Button, Card, Dialog, Field, Input, cx } from '@/components/ui';
+import { ScreenHeader } from '@/components/layout/ScreenHeader';
 
 const SCENARIOS: { id: string; title: string; steps: string; start: { label: string; user?: ID | null; to: string } }[] = [
   {
@@ -130,16 +131,13 @@ export function DemoPanelPage() {
   const mechanics = db.users.filter((u) => u.role === 'mechanic');
 
   return (
-    <div className="container-page py-8 sm:py-10">
-      <PageHeader
-        eyebrow={
-          <span className="inline-flex items-center gap-1.5">
-            <FlaskConical className="size-3.5" aria-hidden /> Demo Mode
-          </span>
-        }
-        title="Panel de demostración"
+    <>
+      <ScreenHeader
+        title="Demo"
+        compactTitle="Demo"
         description="Herramienta interna para probar el prototipo: cambia de cuenta, inspecciona solicitudes y restablece los datos. Nada de esto existe en producción."
       />
+      <div className="container-page pb-8 sm:pb-10">
 
       <section aria-labelledby="accounts" className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {[
@@ -315,6 +313,7 @@ export function DemoPanelPage() {
       >
         <p className="text-sm">Esta acción solo afecta a este navegador.</p>
       </Dialog>
-    </div>
+      </div>
+    </>
   );
 }

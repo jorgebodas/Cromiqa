@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, Outlet, matchPath, useLocation, useNavigationType } from 'react-router-dom';
-import { Bell, Bike, CalendarClock, FlaskConical, House, Inbox, LayoutDashboard, Menu, Plus, RefreshCw, Search, UserRound, Wrench } from 'lucide-react';
-import { QMark, Wordmark } from '@/brand/Wordmark';
+import { Bell, Bike, CalendarClock, FlaskConical, House, Inbox, LayoutDashboard, Menu, Plus, RefreshCw, UserRound, Wrench } from 'lucide-react';
+import { Wordmark } from '@/brand/Wordmark';
 import { useCurrentUser } from '@/state/selectors';
 import { useApp } from '@/state/store';
 import { useOwnerActivity } from '@/state/activity';
@@ -9,7 +9,6 @@ import { useNavUi } from '@/state/ui';
 import { Avatar, Toaster, cx } from '@/components/ui';
 import { AccountSwitcherDialog } from './AccountSwitcher';
 import { NewRequestSheet } from './NewRequestSheet';
-import { GlobalSearch } from './GlobalSearch';
 
 interface NavItem {
   to: string;
@@ -105,9 +104,8 @@ function AccountLink({ className }: { className?: string }) {
 }
 
 /**
- * Phones only: scrolling down condenses the chrome (Reddit-style). The top bar dissolves into
- * floating circles and the tab bar shrinks to one circle showing where you are; scrolling up,
- * reaching the top, or tapping a circle brings everything back.
+ * Phones only: scrolling down shrinks the tab bar to one circle showing where you are;
+ * scrolling up, reaching the top, or tapping the circle brings it back.
  */
 function useCondensedChrome() {
   const [condensed, setCondensed] = useState(false);
@@ -136,74 +134,14 @@ function useCondensedChrome() {
   return [condensed, () => setCondensed(false)] as const;
 }
 
-/** Cromiqa's Q mark in a round badge, used as the logo inside the search bar. */
-function RoundLogo() {
-  return (
-    <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-ink" aria-hidden>
-      <QMark color="#FFFFFF" tailColor="#C7FF2F" knockout="#171717" className="ml-0.5 w-[19px]" />
-    </span>
-  );
-}
-
-const FLOAT = 'bg-paper/95 shadow-card ring-1 ring-line backdrop-blur';
-
-function OwnerHeader({
-  tabHref,
-  onSearch,
-  onNewRequest,
-  condensed,
-}: {
-  tabHref: (t: OwnerTab) => string;
-  onSearch: () => void;
-  onNewRequest: () => void;
-  condensed: boolean;
-}) {
+/** Desktop only: logo · destinations · new request, activity, account. Phones use each screen's header. */
+function OwnerHeader({ tabHref, onNewRequest }: { tabHref: (t: OwnerTab) => string; onNewRequest: () => void }) {
   const user = useCurrentUser();
   const { unread } = useOwnerActivity(user?.role === 'owner' ? user.id : undefined);
   const { pathname } = useLocation();
-  const searchButton = (
-    <button type="button" onClick={onSearch} aria-label="Buscar" className="flex size-12 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-sand md:size-10">
-      <Search className="size-6 md:size-5" aria-hidden />
-    </button>
-  );
   return (
-    <header
-      className={cx(
-        'sticky top-0 z-40 border-b transition-[background-color,border-color,backdrop-filter] duration-300',
-        condensed
-          ? 'pointer-events-none border-transparent bg-transparent md:pointer-events-auto md:border-line md:bg-paper/90 md:backdrop-blur'
-          : 'border-line bg-paper/90 backdrop-blur',
-      )}
-    >
-      {/* Phones: avatar · search bar with the round logo · activity. Condensed: floating circles. */}
-      <div className="container-page flex h-16 items-center gap-2 md:hidden">
-        <AccountLink className={cx('pointer-events-auto -ml-1 transition-shadow duration-300', condensed && FLOAT)} />
-        <button
-          type="button"
-          onClick={onSearch}
-          tabIndex={condensed ? -1 : 0}
-          aria-hidden={condensed || undefined}
-          className={cx(
-            'flex h-12 min-w-0 flex-1 items-center gap-3 rounded-full border border-line bg-paper pl-1.5 pr-4 text-left text-base text-muted transition-[opacity,transform] duration-300',
-            condensed ? 'pointer-events-none scale-95 opacity-0' : 'pointer-events-auto opacity-100',
-          )}
-          data-testid="search-bar"
-        >
-          <RoundLogo />
-          <span className="truncate">Buscar en Cromiqa</span>
-        </button>
-        <div className={cx('pointer-events-auto -mr-1 flex items-center rounded-full transition-shadow duration-300', condensed && FLOAT)}>
-          {/* The search icon only joins the bell when the bar has turned into circles. */}
-          <span className={cx('grid transition-[grid-template-columns] duration-300', condensed ? 'grid-cols-[1fr]' : 'grid-cols-[0fr]')}>
-            <span className="overflow-hidden" {...(!condensed ? { inert: '' } : {})}>
-              {searchButton}
-            </span>
-          </span>
-          <BellLink unread={unread} />
-        </div>
-      </div>
-      {/* Desktop: logo · destinations · new request, search, activity, account */}
-      <div className="container-page hidden h-16 items-center justify-between gap-6 md:flex">
+    <header className="sticky top-0 z-40 hidden border-b border-line bg-paper/90 backdrop-blur md:block">
+      <div className="container-page flex h-16 items-center justify-between gap-6">
         <Link to="/" className="rounded-md" aria-label="Cromiqa, inicio">
           <Wordmark className="text-[22px]" />
         </Link>
@@ -234,7 +172,6 @@ function OwnerHeader({
           >
             <Plus className="size-4" aria-hidden /> Nueva solicitud
           </button>
-          {searchButton}
           <BellLink unread={unread} />
           <AccountLink />
         </div>
@@ -353,10 +290,11 @@ function DemoBanner({ onSwitch }: { onSwitch: () => void }) {
   );
 }
 
+/** Desktop only; on phones each screen has its own header and the tabs sit at the bottom. */
 function MechanicHeader({ items, onSwitch }: { items: NavItem[]; onSwitch: () => void }) {
   const user = useCurrentUser();
   return (
-    <header className="sticky top-0 z-40 border-b border-line bg-paper/90 backdrop-blur">
+    <header className="sticky top-0 z-40 hidden border-b border-line bg-paper/90 backdrop-blur md:block">
       <div className="container-page flex h-16 items-center justify-between gap-6">
         <Link to="/pro" className="flex items-center gap-2 rounded-md" aria-label="Cromiqa, inicio">
           <Wordmark className="text-[22px]" />
@@ -475,7 +413,7 @@ function useScrollMemory() {
 
 export function AppShell({ children }: { children?: ReactNode }) {
   const [switcherOpen, setSwitcherOpen] = useState(false);
-  const { newRequestOpen, searchOpen, openNewRequest, closeNewRequest, openSearch, closeSearch } = useNavUi();
+  const { newRequestOpen, openNewRequest, closeNewRequest } = useNavUi();
   const user = useCurrentUser();
   const isPro = user?.role === 'mechanic';
   const mechanicItems = useMechanicNavItems();
@@ -497,7 +435,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
       {isPro ? (
         <MechanicHeader items={mechanicItems} onSwitch={() => setSwitcherOpen(true)} />
       ) : (
-        <OwnerHeader tabHref={tabHref} onSearch={openSearch} onNewRequest={openNewRequest} condensed={condensed} />
+        <OwnerHeader tabHref={tabHref} onNewRequest={openNewRequest} />
       )}
       <main id="main" className={cx('flex-1 md:pb-0', isPro ? 'pb-28' : showOwnerBar ? 'pb-32' : 'pb-10')}>
         {children ?? <Outlet />}
@@ -507,10 +445,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
       <Toaster />
       <AccountSwitcherDialog open={switcherOpen} onClose={() => setSwitcherOpen(false)} />
       {!isPro && (
-        <>
-          <NewRequestSheet open={newRequestOpen} onClose={closeNewRequest} />
-          <GlobalSearch open={searchOpen} onClose={closeSearch} />
-        </>
+        <NewRequestSheet open={newRequestOpen} onClose={closeNewRequest} />
       )}
     </div>
   );

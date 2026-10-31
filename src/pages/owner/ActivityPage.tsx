@@ -8,9 +8,9 @@ import { useCurrentUser } from '@/state/selectors';
 import { useActivitySeen, useOwnerActivity } from '@/state/activity';
 import { useNavUi } from '@/state/ui';
 import { RoleGate } from '@/components/layout/RoleGate';
-import { BackLink } from '@/components/layout/BackLink';
-import { EmptyState, PageHeader, cx } from '@/components/ui';
+import { EmptyState, cx } from '@/components/ui';
 import { OwnerRequestsList } from './OwnerRequestsList';
+import { ScreenHeader } from '@/components/layout/ScreenHeader';
 
 type Section = 'solicitudes' | 'novedades';
 
@@ -75,11 +75,9 @@ function Inner() {
   ];
 
   return (
-    <div className="container-page max-w-4xl py-6 sm:py-10">
-      <BackLink fallback="/" className="mb-5">
-        Volver
-      </BackLink>
-      <PageHeader eyebrow="Actividad" title="Actividad" description="Tus solicitudes, su estado y las respuestas de los mecánicos." />
+    <>
+      <ScreenHeader title="Actividad" back="/" />
+      <div className="container-page pb-8 sm:pb-10">
       <div role="tablist" aria-label="Actividad" className="mb-6 flex gap-6 border-b border-line">
         {tabs.map((t) => (
           <button
@@ -103,7 +101,8 @@ function Inner() {
       <div role="tabpanel" id={`panel-${section}`} aria-labelledby={`tab-${section}`}>
         {section === 'solicitudes' ? <OwnerRequestsList onNewRequest={openNewRequest} /> : <Updates />}
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 

@@ -6,12 +6,12 @@ import { canPerform, currentProposal, DomainError, type RequestAction } from '@/
 import { formatLongDate } from '@/domain/utils';
 import { useApp } from '@/state/store';
 import { useCurrentUser, useMechanic, useRequest } from '@/state/selectors';
-import { BackLink } from '@/components/layout/BackLink';
 import { RoleGate } from '@/components/layout/RoleGate';
 import { useSwitchAccount } from '@/components/layout/AccountSwitcher';
 import { StatusBadge, StatusProgress } from '@/components/domain/Status';
 import { ProposalCard, RequestSummary, RequestTimeline } from '@/components/domain/RequestParts';
 import { Avatar, Button, Card, Dialog, EmptyState, Field, LinkButton, Textarea, cx } from '@/components/ui';
+import { ScreenHeader } from '@/components/layout/ScreenHeader';
 
 function ReviewForm({ requestId, mechanicName }: { requestId: string; mechanicName: string }) {
   const addReview = useApp((s) => s.addReview);
@@ -113,19 +113,17 @@ function Inner() {
   const first = mechanic.name.split(' ')[0];
 
   return (
-    <div className="container-page py-6 sm:py-10">
-      <BackLink fallback="/actividad" className="mb-6">
-        Volver
-      </BackLink>
-
+    <>
+      <ScreenHeader title="Solicitud" back="/actividad" />
+      <div className="container-page pb-8 sm:pb-10">
       <header className="mb-8">
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm text-muted">{request.code}</p>
           <StatusBadge status={request.status} />
         </div>
-        <h1 className="mt-2 text-3xl font-extrabold sm:text-4xl" data-testid="request-status-title">
+        <h2 className="mt-2 text-2xl font-extrabold sm:text-3xl" data-testid="request-status-title">
           {STATUSES[request.status].label}
-        </h1>
+        </h2>
         <p className="mt-2 text-muted">{STATUSES[request.status].ownerHint}</p>
         <div className="mt-6 max-w-2xl">
           <StatusProgress status={request.status} />
@@ -255,7 +253,8 @@ function Inner() {
           <Textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder={dialog === 'reject' ? 'Ej.: el precio es más alto de lo esperado, ¿hay otra fecha?' : ''} />
         </Field>
       </Dialog>
-    </div>
+      </div>
+    </>
   );
 }
 

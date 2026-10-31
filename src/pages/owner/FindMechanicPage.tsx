@@ -7,8 +7,10 @@ import { BIKE_TYPES, CATEGORIES, LOCATIONS, SPECIALIZATIONS, categoryLabel } fro
 import { useApp } from '@/state/store';
 import { useNavUi } from '@/state/ui';
 import { MechanicCard } from '@/components/domain/MechanicCard';
-import { Button, Dialog, EmptyState, Field, Input, PageHeader, Select, cx } from '@/components/ui';
+import { Button, Dialog, EmptyState, Field, Input, Select, cx } from '@/components/ui';
 import { buildSearchParams, parseSearchParams } from './searchParams';
+import { ScreenHeader } from '@/components/layout/ScreenHeader';
+import { OwnerQuickActions } from '@/components/layout/QuickActions';
 
 function FilterControls({ filters, set }: { filters: MechanicFilters; set: (patch: Partial<MechanicFilters>) => void }) {
   return (
@@ -142,12 +144,9 @@ export function FindMechanicPage() {
   const label = (list: { id: string; label: string }[], id?: string) => list.find((x) => x.id === id)?.label;
 
   return (
-    <div className="container-page py-8 sm:py-10">
-      <PageHeader
-        eyebrow="Mecánicos"
-        title="Mecánicos para tu bici"
-        description="Filtra por zona, tipo de bici y modalidad. Los precios son orientativos y la cita se acuerda después."
-      />
+    <>
+      <ScreenHeader title="Mecánicos" actions={<OwnerQuickActions />} />
+      <div className="container-page pb-8 sm:pb-10">
 
       {showProblem && (
         <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-line bg-sand p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -264,6 +263,7 @@ export function FindMechanicPage() {
       >
         <FilterControls filters={filters} set={update} />
       </Dialog>
-    </div>
+      </div>
+    </>
   );
 }

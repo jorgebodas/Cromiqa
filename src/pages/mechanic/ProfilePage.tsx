@@ -2,9 +2,11 @@ import { Eye } from 'lucide-react';
 import { BIKE_TYPES, LOCATIONS, SPECIALIZATIONS } from '@/domain/catalog';
 import { useCurrentMechanic } from '@/state/selectors';
 import { RoleGate } from '@/components/layout/RoleGate';
-import { Card, Field, FieldError, Input, LinkButton, PageHeader, Switch, Textarea, ToggleChip } from '@/components/ui';
+import { Card, Field, FieldError, Input, Switch, Textarea, ToggleChip } from '@/components/ui';
 import { useProfileEditor } from './useProfileEditor';
 import { SaveBar } from './SaveBar';
+import { ScreenHeader, headerButtonClass } from '@/components/layout/ScreenHeader';
+import { Link } from 'react-router-dom';
 
 function toggle<T>(list: T[], item: T) {
   return list.includes(item) ? list.filter((x) => x !== item) : [...list, item];
@@ -26,13 +28,17 @@ function Inner() {
   ]);
 
   return (
-    <div className="container-page max-w-3xl py-8 sm:py-10">
-      <PageHeader
-        eyebrow="Mi perfil"
-        title={mechanic.businessName}
-        description="Lo que edites aquí se refleja al instante en tu perfil público y en los resultados de búsqueda."
-        actions={<LinkButton to={`/mecanicos/${mechanic.id}`} variant="secondary" icon={<Eye className="size-4" aria-hidden />}>Ver perfil público</LinkButton>}
+    <>
+      <ScreenHeader
+        title="Perfil"
+        description={`${mechanic.businessName}. Lo que edites aquí se refleja al instante en tu perfil público y en los resultados de búsqueda.`}
+        actions={
+          <Link to={`/mecanicos/${mechanic.id}`} aria-label="Ver perfil público" className={headerButtonClass}>
+            <Eye className="size-5" aria-hidden />
+          </Link>
+        }
       />
+      <div className="container-page max-w-3xl pb-8 sm:pb-10">
 
       <Card className="space-y-4 p-5">
         <h2 className="font-bold">Presentación</h2>
@@ -106,7 +112,8 @@ function Inner() {
       </Card>
 
       <SaveBar dirty={dirty} saving={saving} onSave={save} onDiscard={discard} />
-    </div>
+      </div>
+    </>
   );
 }
 

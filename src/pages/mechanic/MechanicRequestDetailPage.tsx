@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, CheckCheck, FlaskConical, Hammer, Repeat, Send, ThumbsUp, X } from 'lucide-react';
+import { useParams } from 'react-router-dom';
+import { CheckCheck, FlaskConical, Hammer, Repeat, Send, ThumbsUp, X } from 'lucide-react';
 import type { ProposalInput, ServiceRequest, Mechanic, TimeSlot } from '@/domain/types';
 import { STATUSES, locationLabel } from '@/domain/catalog';
 import { DomainError, canPerform, currentProposal, validateProposal, type RequestAction } from '@/domain/logic/requests';
@@ -12,6 +12,7 @@ import { useSwitchAccount } from '@/components/layout/AccountSwitcher';
 import { StatusBadge, StatusProgress } from '@/components/domain/Status';
 import { ProposalCard, RequestSummary, RequestTimeline } from '@/components/domain/RequestParts';
 import { Avatar, Button, Card, Dialog, EmptyState, Field, Input, LinkButton, Textarea } from '@/components/ui';
+import { ScreenHeader } from '@/components/layout/ScreenHeader';
 
 const SLOT_TIME: Record<TimeSlot, string> = { morning: '10:00', afternoon: '17:00', evening: '19:30' };
 
@@ -144,18 +145,17 @@ function Inner() {
   const showForm = request.status === 'awaiting_proposal' || reproposing;
 
   return (
-    <div className="container-page py-6 sm:py-10">
-      <Link to="/pro/solicitudes" className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-muted hover:text-ink">
-        <ArrowLeft className="size-4" aria-hidden /> Solicitudes
-      </Link>
+    <>
+      <ScreenHeader title="Solicitud" back="/pro/solicitudes" />
+      <div className="container-page pb-8 sm:pb-10">
       <header className="mb-8">
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm text-muted">{request.code}</p>
           <StatusBadge status={request.status} />
         </div>
-        <h1 className="mt-2 text-3xl font-extrabold sm:text-4xl" data-testid="request-status-title">
+        <h2 className="mt-2 text-2xl font-extrabold sm:text-3xl" data-testid="request-status-title">
           {request.status === 'sent' ? `Nueva solicitud de ${ownerFirst}` : request.status === 'proposal_received' ? 'Propuesta enviada' : STATUSES[request.status].label}
-        </h1>
+        </h2>
         <p className="mt-2 text-muted">{STATUSES[request.status].mechanicHint}</p>
         <div className="mt-6 max-w-2xl">
           <StatusProgress status={request.status} />
@@ -315,7 +315,8 @@ function Inner() {
           />
         </Field>
       </Dialog>
-    </div>
+      </div>
+    </>
   );
 }
 

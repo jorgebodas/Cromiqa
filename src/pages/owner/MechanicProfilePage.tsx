@@ -7,7 +7,7 @@ import { useCurrentUser, useMechanic, useMechanicRating } from '@/state/selector
 import { DemoVerifiedBadge, ModeIndicators } from '@/components/domain/MechanicCard';
 import { Avatar, Badge, Card, DemoTag, EmptyState, LinkButton, Rating, SectionTitle, Stars, cx } from '@/components/ui';
 import { CATEGORY_ICONS } from './HomePage';
-import { BackLink } from '@/components/layout/BackLink';
+import { ScreenHeader } from '@/components/layout/ScreenHeader';
 
 export function MechanicProfilePage() {
   const { id } = useParams();
@@ -38,11 +38,9 @@ export function MechanicProfilePage() {
 
   return (
     <div className="pb-28 lg:pb-0">
+      <ScreenHeader title={m.name} back="/mecanicos" />
       <div className="border-b border-line bg-sand">
         <div className="container-page py-6 sm:py-10">
-          <BackLink fallback="/mecanicos" className="mb-6">
-            Volver
-          </BackLink>
           {isSelf && (
             <p className="mb-5 rounded-2xl border border-ink bg-paper px-4 py-3 text-sm">
               Así ven los clientes tu perfil público. <Link to="/pro/perfil" className="font-semibold underline">Editar perfil</Link>
@@ -52,8 +50,7 @@ export function MechanicProfilePage() {
             <Avatar name={m.name} tone={m.avatarTone} size="xl" />
             <div className="min-w-0 flex-1">
               <p className="text-sm text-muted">{m.businessName}</p>
-              <h1 className="text-3xl font-extrabold sm:text-4xl">{m.name}</h1>
-              <p className="mt-1 text-lg">{m.headline}</p>
+              <p className="mt-1 text-lg font-semibold">{m.headline}</p>
               <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
                 <Rating rating={rating} count={reviewCount} />
                 <DemoVerifiedBadge verified={m.demoVerified} />

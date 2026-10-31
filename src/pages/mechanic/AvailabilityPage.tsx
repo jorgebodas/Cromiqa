@@ -4,9 +4,10 @@ import { TIME_SLOTS, WEEKDAYS } from '@/domain/catalog';
 import { toISODate } from '@/domain/utils';
 import { useCurrentMechanic } from '@/state/selectors';
 import { RoleGate } from '@/components/layout/RoleGate';
-import { Card, Field, Input, PageHeader, Textarea, cx } from '@/components/ui';
+import { Card, Field, Input, Textarea, cx } from '@/components/ui';
 import { useProfileEditor } from './useProfileEditor';
 import { SaveBar } from './SaveBar';
+import { ScreenHeader } from '@/components/layout/ScreenHeader';
 
 function Inner() {
   const mechanic = useCurrentMechanic()!;
@@ -22,8 +23,9 @@ function Inner() {
   };
 
   return (
-    <div className="container-page max-w-3xl py-8 sm:py-10">
-      <PageHeader eyebrow="Disponibilidad" title="Tu disponibilidad" description="Orienta a los clientes. La cita concreta siempre la propones tú en cada solicitud." />
+    <>
+      <ScreenHeader title="Agenda" description="Orienta a los clientes. La cita concreta siempre la propones tú en cada solicitud." />
+      <div className="container-page max-w-3xl pb-8 sm:pb-10">
 
       <Card className="p-5">
         <h2 className="font-bold">Franjas habituales</h2>
@@ -82,7 +84,8 @@ function Inner() {
         </Field>
       </Card>
       <SaveBar dirty={dirty} saving={saving} onSave={save} onDiscard={discard} />
-    </div>
+      </div>
+    </>
   );
 }
 

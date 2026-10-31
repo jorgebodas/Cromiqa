@@ -6,7 +6,8 @@ import { useApp } from '@/state/store';
 import { useCurrentMechanic, useRequestsFor } from '@/state/selectors';
 import { RoleGate } from '@/components/layout/RoleGate';
 import { RequestCard } from '@/components/domain/RequestCard';
-import { EmptyState, PageHeader, TabBar } from '@/components/ui';
+import { EmptyState, TabBar } from '@/components/ui';
+import { ScreenHeader } from '@/components/layout/ScreenHeader';
 
 type Tab = 'nuevas' | 'valorando' | 'propuestas' | 'agenda' | 'completadas' | 'canceladas' | 'todas';
 const TABS: { id: Tab; label: string; statuses?: RequestStatus[] }[] = [
@@ -34,8 +35,9 @@ function Inner() {
   const visible = statuses ? requests.filter((r) => statuses.includes(r.status)) : requests;
 
   return (
-    <div className="container-page py-8 sm:py-10">
-      <PageHeader eyebrow="Solicitudes" title="Solicitudes de clientes" description="Revisa cada caso, propón precio y cita, y lleva el trabajo hasta completarlo." />
+    <>
+      <ScreenHeader title="Solicitudes" />
+      <div className="container-page pb-8 sm:pb-10">
       <TabBar tabs={TABS} value={tab} onChange={(t) => setParams(t === 'todas' ? {} : { estado: t }, { replace: true })} counts={counts} />
       {visible.length === 0 ? (
         <EmptyState icon={<Inbox className="size-6" />} title="No hay solicitudes aquí" description="Cuando un cliente te envíe una solicitud aparecerá en “Nuevas”." />
@@ -53,7 +55,8 @@ function Inner() {
           ))}
         </ul>
       )}
-    </div>
+      </div>
+    </>
   );
 }
 

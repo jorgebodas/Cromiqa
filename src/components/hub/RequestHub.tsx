@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, ArrowUpRight, CalendarCheck, ChevronRight, ClipboardList, Loader2, Plus, Send, X } from 'lucide-react';
 import { HubActionContext, type HubActionApi, type HubPrimaryMeta } from './hubAction';
-import { headerButtonClass } from '@/components/layout/ScreenHeader';
 import type { ID, ServiceRequest } from '@/domain/types';
 import { bikeLabel, categoryLabel } from '@/domain/catalog';
 import { DomainError, currentProposal } from '@/domain/logic/requests';
@@ -214,8 +213,9 @@ function Detail({ item, onGo }: { item: HubItem; onGo: (to: string) => void }) {
   );
 }
 
-/** Width of the floating tabs pill the close button grows out of (3 tabs × 60 px + padding). */
-const PILL_FROM = 188;
+/** Round buttons inside the box, same as the entrance card's back button. */
+const roundButtonClass =
+  'flex size-11 shrink-0 items-center justify-center rounded-full border border-line bg-paper text-ink shadow-[var(--shadow-surface)] transition-transform hover:scale-105 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink';
 
 const TITLES: Record<HubView['kind'], string> = { overview: 'Tus solicitudes', detail: 'Solicitud', new: 'Nueva solicitud' };
 const SCREEN_TITLES: Record<QuickScreen, string> = {
@@ -341,7 +341,7 @@ export function RequestHubOverlay() {
   const backRef = useRef<() => void>(() => {});
   const [formMeta, setFormMeta] = useState<HubPrimaryMeta | null>(null);
   const api = useMemo<HubActionApi>(() => ({ runRef, backRef, setMeta: setFormMeta }), []);
-  // The bar's pill shrinks into the close button right after opening (the morph).
+  // The primary action's label fades in right after opening.
   const [entered, setEntered] = useState(false);
   useEffect(() => {
     if (!open) return setEntered(false);
@@ -435,7 +435,7 @@ export function RequestHubOverlay() {
 
   return createPortal(
     <div className="fixed inset-0 z-50" data-testid="request-hub">
-      <div className="cq-fade-in absolute inset-0 bg-ink/40 backdrop-blur-[2px]" onClick={requestClose} aria-hidden />
+      <div className="cq-fade-in absolute inset-0 bg-[linear-gradient(to_top,rgb(23_23_23/0.32),rgb(23_23_23/0.12)_45%,rgb(23_23_23/0.02))] backdrop-blur-[2px]" onClick={requestClose} aria-hidden />
       {/*
         One container: on phones the floating bar itself grows into the panel. Its bottom row is
         the bar transformed: the tabs pill shrinks into the close button and the + stretches into
@@ -446,47 +446,38 @@ export function RequestHubOverlay() {
         role="dialog"
         aria-modal="true"
         aria-labelledby="hub-title"
-        className="cq-sheet-up absolute inset-x-2 bottom-[max(4px,env(safe-area-inset-bottom))] flex h-[min(88dvh,820px)] origin-bottom-right flex-col rounded-[30px] bg-paper shadow-pop md:inset-x-auto md:inset-y-0 md:bottom-0 md:right-0 md:h-full md:w-[480px] md:rounded-none md:rounded-l-[28px]"
+        className="glass-card cq-sheet-up absolute inset-x-2 bottom-[max(10px,env(safe-area-inset-bottom))] mx-auto flex h-[min(86dvh,800px)] max-w-md origin-bottom flex-col rounded-[30px]"
       >
-        <header className="flex items-center gap-2 px-4 pb-2 pt-4 sm:px-5 md:pt-6">
+        <header className="flex items-center gap-3 px-6 pb-3 pt-8">
           {meta?.canBack && (
-            <button type="button" onClick={onBack} aria-label={shown.kind === 'new' ? 'Atrás' : 'Volver a tus solicitudes'} className={headerButtonClass}>
+            <button type="button" onClick={onBack} aria-label={shown.kind === 'new' ? 'Atrás' : 'Volver a tus solicitudes'} className={roundButtonClass}>
               <ArrowLeft className="size-5" aria-hidden />
             </button>
           )}
-          <h2 id="hub-title" tabIndex={-1} data-autofocus className="min-w-0 flex-1 truncate font-display text-[26px] font-bold tracking-tight outline-none">
+          <h2 id="hub-title" tabIndex={-1} data-autofocus className="min-w-0 flex-1 truncate font-display text-xl font-extrabold leading-tight tracking-tight outline-none">
             {screen ? SCREEN_TITLES[screen] : shown.kind === 'detail' && detailItem ? categoryLabel(detailItem.lead.category) : TITLES[shown.kind]}
           </h2>
           {shown.kind === 'detail' && (
-            <button type="button" onClick={toNew} aria-label="Nueva solicitud" className={headerButtonClass}>
+            <button type="button" onClick={toNew} aria-label="Nueva solicitud" className={roundButtonClass}>
               <Plus className="size-5" aria-hidden />
             </button>
           )}
         </header>
         <HubActionContext.Provider value={api}>
-          <div data-hub-scroll className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 sm:px-5">
+          <div data-hub-scroll className="min-h-0 flex-1 overflow-y-auto px-6 pb-4">
             {body}
           </div>
         </HubActionContext.Provider>
 
-        {/* The bar, transformed. */}
-        <div className="flex items-center gap-3 px-2 pb-2 pt-1 md:px-5 md:pb-5">
-          <button
-            type="button"
-            onClick={requestClose}
-            aria-label="Cerrar"
-            className="float-pill flex h-16 shrink-0 items-center justify-center rounded-full text-ink transition-[width] duration-500 ease-[cubic-bezier(.2,1.2,.3,1)] active:scale-95"
-            style={{ width: entered ? 64 : PILL_FROM }}
-          >
-            <X className="size-6" aria-hidden />
-          </button>
+        {/* Same row as the entrance card: the primary action, then close. */}
+        <div className="flex items-center gap-3 px-6 pb-6 pt-2">
           {meta && (
             <button
               type="button"
               onClick={onPrimary}
               disabled={meta.loading}
-              className="flex h-16 min-w-0 flex-1 items-center justify-center gap-2 rounded-full text-[17px] font-semibold text-ink shadow-[0_8px_20px_-10px_rgb(110_170_0/0.55)] transition-transform active:scale-[0.98] disabled:opacity-70"
-              style={{ backgroundColor: 'var(--color-lime)' }}
+              className="dock-btn-lime flex h-14 min-w-0 flex-1 items-center justify-center gap-2 rounded-[28px] text-[15px] font-semibold text-ink transition-transform active:scale-[0.97] disabled:opacity-70"
+              
               data-testid="hub-primary"
             >
               {meta.loading ? <Loader2 className="size-5 animate-spin" aria-hidden /> : meta.icon === 'plus' && <PrimaryIcon className="size-5" aria-hidden />}
@@ -494,6 +485,14 @@ export function RequestHubOverlay() {
               {!meta.loading && meta.icon !== 'plus' && <PrimaryIcon className="size-5" aria-hidden />}
             </button>
           )}
+          <button
+            type="button"
+            onClick={requestClose}
+            aria-label="Cerrar"
+            className="dock-btn flex h-14 shrink-0 items-center justify-center rounded-[28px] text-ink w-14 active:scale-[0.97]"
+          >
+            <X className="size-6" aria-hidden />
+          </button>
         </div>
       </div>
 

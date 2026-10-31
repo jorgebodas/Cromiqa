@@ -214,10 +214,13 @@ test.describe('Navegación', () => {
     await expect(hub.getByText('Paso 1 de 7')).toBeVisible();
     await expect(page).toHaveURL(/#\/$/); // same page underneath
     if (!mobile) {
-      // Desktop: a side panel on the right.
+      // Desktop: the same box as the entrance card, centred at the bottom.
       const panel = hub.getByRole('dialog');
-      await expect.poll(async () => Math.round((await panel.boundingBox())!.x + (await panel.boundingBox())!.width)).toBe(page.viewportSize()!.width);
-      await expect.poll(async () => (await panel.boundingBox())!.width).toBeLessThanOrEqual(480);
+      await expect.poll(async () => (await panel.boundingBox())!.width).toBeLessThanOrEqual(448);
+      await expect.poll(async () => {
+        const b = (await panel.boundingBox())!;
+        return Math.abs(b.x + b.width / 2 - page.viewportSize()!.width / 2);
+      }).toBeLessThan(4);
     }
 
     // Closing with changes asks first; the draft can be kept or discarded.

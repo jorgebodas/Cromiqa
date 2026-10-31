@@ -201,7 +201,7 @@ test.describe('Navegación', () => {
       // Desktop: a side panel on the right.
       const panel = hub.getByRole('dialog');
       await expect.poll(async () => Math.round((await panel.boundingBox())!.x + (await panel.boundingBox())!.width)).toBe(page.viewportSize()!.width);
-      expect((await panel.boundingBox())!.width).toBeLessThanOrEqual(480);
+      await expect.poll(async () => (await panel.boundingBox())!.width).toBeLessThanOrEqual(480);
     }
 
     // Closing with changes asks first; the draft can be kept or discarded.
@@ -231,9 +231,10 @@ test.describe('Navegación', () => {
     // Pending actions first: the inspection with two quotes.
     await expect(hub.getByTestId('hub-item').first()).toContainText('2 presupuestos');
     await expect(hub.getByTestId('hub-item').first()).toContainText('Compara y elige uno');
+    // Opening an item goes straight to its next action: the quote comparison.
     await hub.getByTestId('hub-item').first().click();
-    await expect(hub.getByTestId('hub-detail')).toContainText('Carlos Ortega');
-    await expect(hub.getByTestId('hub-detail')).toContainText('Nerea Campos');
+    await expect(hub.getByTestId('quick-compare')).toContainText('Carlos Ortega');
+    await expect(hub.getByTestId('quick-compare')).toContainText('Nerea Campos');
     await hub.getByRole('button', { name: 'Volver a tus solicitudes' }).click();
     await hub.getByRole('button', { name: 'Nueva solicitud' }).click();
     await expect(hub.getByText('Paso 1 de 7')).toBeVisible();
@@ -241,9 +242,65 @@ test.describe('Navegación', () => {
     await hub.getByRole('button', { name: 'Atrás' }).click();
     await expect(hub.getByTestId('hub-overview')).toBeVisible();
     await hub.getByTestId('hub-item').first().click();
-    await hub.getByRole('button', { name: 'Ver y responder' }).click();
+    await hub.getByRole('button', { name: 'Ver solicitud completa' }).click();
     await expect(hub).toHaveCount(0);
     await expect(page.getByTestId('case-status')).toHaveText('Propuestas recibidas');
+  });
+
+  test('request hub quick actions: one request opens its next action in one tap, without executing it', async ({ page }) => {
+    const mobile = isMobile(page);
+    const chip = () => (mobile ? page.getByTestId('request-hub-chip') : page.getByTestId('header-hub-chip'));
+    const hub = page.getByTestId('request-hub');
+    // Leave each account with a single active request by withdrawing the others in the stored demo data.
+    const keepOnly = async (owner: string, keep: string) =>
+      page.evaluate(([o, k]) => {
+        const db = JSON.parse(localStorage.getItem('cromiqa:demo:db')!);
+        for (const r of db.requests)
+          if (r.ownerId === o && r.caseId !== k && ['sent', 'awaiting_proposal', 'proposal_received', 'confirmed', 'in_progress', 'awaiting_completion'].includes(r.status)) {
+            r.status = 'cancelled';
+            r.events.push({ id: 'x' + r.id, type: 'cancelled_by_owner', by: 'owner', at: new Date().toISOString() });
+          }
+        localStorage.setItem('cromiqa:demo:db', JSON.stringify(db));
+      }, [owner, keep]);
+
+    // Two quotes → the comparison, nothing accepted.
+    await freshDemo(page, 'u-pablo');
+    await keepOnly('u-pablo', 'r-03');
+    await page.reload();
+    await expect(chip()).toContainText('2 presupuestos');
+    await chip().click();
+    await expect(hub.getByRole('heading', { name: 'Comparar presupuestos' })).toBeVisible();
+    await expect(hub.getByTestId('quick-quote')).toHaveCount(2);
+    await expect(chip()).toContainText('2 presupuestos'); // still pending: nothing was accepted
+    // Back to the overview, and a new request is one tap away.
+    await hub.getByRole('button', { name: 'Volver a tus solicitudes' }).click();
+    await expect(hub.getByTestId('hub-overview')).toBeVisible();
+    await expect(hub.getByRole('button', { name: 'Nueva solicitud' })).toBeVisible();
+    // Accepting is an explicit tap; the hub then moves on to the appointment.
+    await hub.getByTestId('hub-item').first().click();
+    await hub.getByTestId('quick-quote').first().getByRole('button', { name: 'Aceptar presupuesto' }).click();
+    await expect(hub.getByTestId('quick-appointment')).toBeVisible();
+    await expect(chip()).toContainText('Confirmar cita');
+
+    // A date proposed by the mechanic → appointment confirmation, still pending.
+    await freshDemo(page, 'u-diego');
+    await keepOnly('u-diego', 'r-04');
+    await page.reload();
+    await expect(chip()).toContainText('Confirmar cita');
+    await chip().click();
+    await expect(hub.getByTestId('quick-appointment')).toBeVisible();
+    await expect(hub.getByTestId('appointment-pending')).toContainText('Javier propone');
+    await expect(hub.getByRole('button', { name: 'Confirmar cita' })).toBeVisible();
+
+    // Work in progress → tracking.
+    await freshDemo(page, 'u-irene');
+    await keepOnly('u-irene', 'r-09');
+    await page.reload();
+    await expect(chip()).toContainText('En curso');
+    await chip().click();
+    await expect(hub.getByRole('heading', { name: 'Seguimiento' })).toBeVisible();
+    await expect(hub.getByTestId('appointment-confirmed')).toBeVisible();
+    await expect(page).not.toHaveURL(/solicitudes/); // never left the page
   });
 
   test('request hub: one active request shows its status; photos can be attached, previewed and removed', async ({ page }) => {

@@ -338,6 +338,18 @@ The floating **+** became a context-aware control, bottom-right of the phone nav
 - **Several:** *3 solicitudes · 2 pendientes*; it opens the list.
 - **Priority:** incident → new quotes or a question → appointment to confirm → work to confirm → in
   progress → waiting for answers. Completed and cancelled requests are never shown as active.
+- **Quick actions:** `getRequestQuickAction(threads)` (in `hub.ts`) is the single resolver of each
+  request's label, destination, priority and whether the cyclist must act. With one active request
+  the chip opens that destination directly in the panel:
+  - 2 presupuestos → comparison;
+  - Confirmar / Proponer cita → appointment;
+  - Confirmar servicio → completion;
+  - Incidencia abierta → incident;
+  - En curso / Cita (date) → tracking;
+  - Esperando respuesta → status.
+
+  The overview uses the same resolver. Every screen has a way back to the overview and a
+  *+ Nueva solicitud*. Nothing is accepted, confirmed or closed without an explicit tap.
 - **Panel:** a large bottom sheet on phones, a right side panel on desktop (where a chip sits next
   to *Nueva solicitud*). It shows the overview, a request's summary (mechanics and their answers,
   appointment, photos) or the new-request form, without leaving the page.

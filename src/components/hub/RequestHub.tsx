@@ -4,16 +4,17 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, CalendarCheck, ChevronRight, ClipboardList, Plus, X } from 'lucide-react';
 import type { ID, ServiceRequest } from '@/domain/types';
 import { bikeLabel, categoryLabel } from '@/domain/catalog';
-import { currentProposal } from '@/domain/logic/requests';
+import { DomainError, currentProposal } from '@/domain/logic/requests';
 import { caseHref, threadHref } from '@/domain/logic/cases';
-import { hubItems, hubState, type HubItem } from '@/domain/logic/hub';
+import { hubItems, hubState, type HubItem, type QuickScreen } from '@/domain/logic/hub';
 import { formatDate, formatPrice } from '@/domain/utils';
 import { useApp } from '@/state/store';
 import { useCurrentUser, useRequestsFor } from '@/state/selectors';
 import { useMode } from '@/state/mode';
 import { useNavUi, type HubView } from '@/state/ui';
 import { RequestForm } from '@/pages/owner/request/RequestFlowPage';
-import { PhotoStrip } from '@/components/domain/RequestParts';
+import { PhotoStrip, RequestTimeline } from '@/components/domain/RequestParts';
+import { AppointmentCard, CompletionCard } from '@/components/domain/ServiceParts';
 import { Avatar, Button, Dialog, cx } from '@/components/ui';
 
 /** The signed-in cyclist's active requests, as hub items (empty for guests and mechanic mode). */
@@ -56,7 +57,7 @@ export function FloatingRequestHub({ className }: { className?: string }) {
   return (
     <button
       type="button"
-      onClick={() => openHub(single ? { kind: 'detail', caseId: state.item.caseId } : { kind: 'overview' })}
+      onClick={() => openHub(single ? { kind: 'detail', caseId: state.item.caseId, screen: state.item.quick.screen } : { kind: 'overview' })}
       aria-label={single ? `Tu solicitud: ${line1}. ${line2}. Abrir` : `${line1}, ${line2}. Abrir tus solicitudes`}
       className={cx(
         'pointer-events-auto flex h-16 min-w-0 max-w-[168px] shrink items-center gap-2.5 rounded-full bg-ink pl-4 pr-5 text-left text-paper shadow-[0_8px_24px_rgb(0_0_0/0.22)] transition-transform active:scale-[0.97]',
@@ -85,7 +86,7 @@ export function HeaderRequestChip() {
   return (
     <button
       type="button"
-      onClick={() => openHub(single ? { kind: 'detail', caseId: state.item.caseId } : { kind: 'overview' })}
+      onClick={() => openHub(single ? { kind: 'detail', caseId: state.item.caseId, screen: state.item.quick.screen } : { kind: 'overview' })}
       className="inline-flex h-10 items-center gap-2 rounded-full bg-ink px-4 text-sm font-semibold text-paper transition-opacity hover:opacity-90"
       data-testid="header-hub-chip"
     >
@@ -112,7 +113,7 @@ function answer(r: ServiceRequest): string {
   return 'Pendiente';
 }
 
-function Overview({ items, onOpen }: { items: HubItem[]; onOpen: (caseId: ID) => void }) {
+function Overview({ items, onOpen }: { items: HubItem[]; onOpen: (item: HubItem) => void }) {
   const mechanics = useApp((s) => s.db.mechanics);
   const name = (id: ID) => mechanics.find((m) => m.id === id)?.name ?? 'Mecánico';
   if (!items.length) {
@@ -136,7 +137,7 @@ function Overview({ items, onOpen }: { items: HubItem[]; onOpen: (caseId: ID) =>
               : `${item.threads.length} mecánicos invitados`;
         return (
           <li key={item.caseId}>
-            <button type="button" onClick={() => onOpen(item.caseId)} className="surface flex w-full items-center gap-3 p-4 text-left" data-testid="hub-item">
+            <button type="button" onClick={() => onOpen(item)} className="surface flex w-full items-center gap-3 p-4 text-left" data-testid="hub-item">
               <span className="min-w-0 flex-1">
                 <span className="flex items-center justify-between gap-2">
                   <span className="truncate font-semibold">{categoryLabel(item.lead.category)}</span>
@@ -201,6 +202,108 @@ function Detail({ item, onGo }: { item: HubItem; onGo: (to: string) => void }) {
 }
 
 const TITLES: Record<HubView['kind'], string> = { overview: 'Tus solicitudes', detail: 'Solicitud', new: 'Nueva solicitud' };
+const SCREEN_TITLES: Record<QuickScreen, string> = {
+  compare: 'Comparar presupuestos',
+  appointment: 'Cita',
+  completion: 'Confirmar servicio',
+  incident: 'Incidencia',
+  tracking: 'Seguimiento',
+  status: 'Solicitud',
+};
+
+/** Accepting one quote from the comparison: an explicit tap, never automatic. */
+function CompareQuotes({ item, onGo, onAccepted }: { item: HubItem; onGo: (to: string) => void; onAccepted: () => void }) {
+  const mechanics = useApp((s) => s.db.mechanics);
+  const actOnRequest = useApp((s) => s.actOnRequest);
+  const toast = useApp((s) => s.toast);
+  const [busy, setBusy] = useState<ID | null>(null);
+  const quotes = item.threads
+    .filter((r) => r.status === 'proposal_received' && currentProposal(r)?.status === 'pending')
+    .sort((a, b) => (currentProposal(a)?.price ?? 0) - (currentProposal(b)?.price ?? 0));
+  const name = (id: ID) => mechanics.find((m) => m.id === id)?.name ?? 'Mecánico';
+  const accept = async (r: ServiceRequest) => {
+    setBusy(r.id);
+    try {
+      await actOnRequest(r.id, { type: 'accept_proposal' });
+      toast(`Has contratado a ${name(r.mechanicId)}. Ahora acordad la cita.`);
+      onAccepted();
+    } catch (e) {
+      toast(e instanceof DomainError ? e.message : 'No se pudo aceptar.', 'error');
+    } finally {
+      setBusy(null);
+    }
+  };
+  return (
+    <div className="space-y-3" data-testid="compare-quotes">
+      {quotes.length > 1 && <p className="text-sm text-muted">Ordenados por precio. Al aceptar uno, los demás se cierran. Aceptar no es un pago.</p>}
+      {quotes.map((r) => {
+        const p = currentProposal(r)!;
+        return (
+          <article key={r.id} className="surface p-4" data-testid="quick-quote">
+            <div className="flex items-center gap-3">
+              <Avatar name={name(r.mechanicId)} size="sm" className="size-9" />
+              <span className="min-w-0 flex-1 truncate font-semibold">{name(r.mechanicId)}</span>
+              <span className="font-display text-2xl font-bold">{formatPrice(p.price)}</span>
+            </div>
+            <p className="mt-2 text-sm text-muted">
+              Propone {formatDate(p.date, { weekday: 'short', day: 'numeric', month: 'short' })}, {p.time}
+              {r.proposals.length > 1 ? ` · versión ${r.proposals.length}` : ''}
+            </p>
+            <p className="mt-2 line-clamp-2 text-[15px]">{p.message}</p>
+            <div className="mt-3 flex gap-2">
+              <Button size="sm" onClick={() => accept(r)} loading={busy === r.id} disabled={busy !== null}>
+                Aceptar presupuesto
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => onGo(threadHref(r))}>
+                Ver conversación
+              </Button>
+            </div>
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
+/** A request's next meaningful action, opened straight from the chip. Reuses the request screens' parts. */
+function QuickScreenView({
+  item,
+  screen,
+  onGo,
+  onSummary,
+  onScreen,
+}: {
+  item: HubItem;
+  screen: Exclude<QuickScreen, 'status'>;
+  onGo: (to: string) => void;
+  onSummary: () => void;
+  onScreen: (screen: QuickScreen) => void;
+}) {
+  const user = useCurrentUser();
+  const mechanics = useApp((s) => s.db.mechanics);
+  const thread = item.threads.find((r) => r.id === item.quick.threadId) ?? item.lead;
+  const mechanicName = mechanics.find((m) => m.id === thread.mechanicId)?.name ?? 'Mecánico';
+  return (
+    <div className="space-y-4" data-testid={`quick-${screen}`}>
+      <div className="flex items-center justify-between gap-2">
+        <p className="min-w-0 truncate text-sm text-muted">
+          {categoryLabel(item.lead.category)} · {bikeLabel(item.lead.bike)}
+          {screen !== 'compare' ? ` · ${mechanicName}` : ''}
+        </p>
+        <StatusChip item={item} />
+      </div>
+      {screen === 'compare' && <CompareQuotes item={item} onGo={onGo} onAccepted={() => onScreen('appointment')} />}
+      {(screen === 'appointment' || screen === 'tracking') && ['confirmed', 'in_progress', 'awaiting_completion'].includes(thread.status) && (
+        <AppointmentCard request={thread} viewer="owner" otherName={mechanicName} />
+      )}
+      {(screen === 'completion' || screen === 'incident') && <CompletionCard request={thread} viewer="owner" otherName={mechanicName} />}
+      {(screen === 'tracking' || screen === 'incident') && <RequestTimeline request={thread} mechanicName={mechanicName} ownerName={user?.name ?? 'Tú'} viewer="owner" />}
+      <button type="button" onClick={onSummary} className="text-sm font-semibold underline-offset-2 hover:underline">
+        Ver resumen de la solicitud
+      </button>
+    </div>
+  );
+}
 
 /**
  * The Request Hub panel: a large bottom sheet on phones, a side panel on desktop. Shows the
@@ -269,16 +372,35 @@ export function RequestHubOverlay() {
   const detailItem = view.kind === 'detail' ? items.find((i) => i.caseId === view.caseId) : undefined;
   // A request that stopped being active (e.g. completed) falls back to the overview.
   const shown: HubView = view.kind === 'detail' && !detailItem ? { kind: 'overview' } : view;
-  const back = shown.kind === 'detail' && items.length > 1 ? () => openHub({ kind: 'overview' }) : undefined;
+  // From a request (any screen) there's always a way back to the overview.
+  const back = shown.kind === 'detail' ? () => openHub({ kind: 'overview' }) : undefined;
+  const screen = shown.kind === 'detail' && shown.screen && shown.screen !== 'status' ? shown.screen : undefined;
 
   let body: ReactNode;
   let footer: ReactNode = null;
   if (shown.kind === 'overview') {
-    body = <Overview items={items} onOpen={(caseId) => openHub({ kind: 'detail', caseId })} />;
+    body = <Overview items={items} onOpen={(item) => openHub({ kind: 'detail', caseId: item.caseId, screen: item.quick.screen })} />;
     footer = (
       <Button size="lg" block className="h-14 text-[17px]" icon={<Plus className="size-5" aria-hidden />} onClick={() => openHub({ kind: 'new', from: 'overview' })}>
         Nueva solicitud
       </Button>
+    );
+  } else if (shown.kind === 'detail' && detailItem && screen) {
+    body = <QuickScreenView item={detailItem} screen={screen} onGo={go} onSummary={() => openHub({ kind: 'detail', caseId: detailItem.caseId })} onScreen={(next) => openHub({ kind: 'detail', caseId: detailItem.caseId, screen: next })} />;
+    footer = (
+      <div className="flex w-full gap-3">
+        <button
+          type="button"
+          onClick={() => openHub({ kind: 'new', from: 'overview' })}
+          aria-label="Nueva solicitud"
+          className="float-pill flex size-14 shrink-0 items-center justify-center rounded-full text-ink active:scale-95"
+        >
+          <Plus className="size-6" aria-hidden />
+        </button>
+        <Button size="lg" variant="secondary" className="h-14 flex-1 text-[16px]" onClick={() => go(caseHref(detailItem.lead))}>
+          Ver solicitud completa
+        </Button>
+      </div>
     );
   } else if (shown.kind === 'detail' && detailItem) {
     body = <Detail item={detailItem} onGo={go} />;
@@ -327,7 +449,7 @@ export function RequestHubOverlay() {
             </button>
           )}
           <h2 id="hub-title" tabIndex={-1} data-autofocus className="min-w-0 flex-1 truncate text-xl font-bold outline-none">
-            {shown.kind === 'detail' && detailItem ? categoryLabel(detailItem.lead.category) : TITLES[shown.kind]}
+            {screen ? SCREEN_TITLES[screen] : shown.kind === 'detail' && detailItem ? categoryLabel(detailItem.lead.category) : TITLES[shown.kind]}
           </h2>
           <button type="button" onClick={requestClose} aria-label="Cerrar" className="-mr-2 flex size-10 items-center justify-center rounded-full hover:bg-canvas">
             <X className="size-5" aria-hidden />

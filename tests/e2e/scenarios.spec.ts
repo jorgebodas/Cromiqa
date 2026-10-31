@@ -8,7 +8,8 @@ test.describe('Escenarios A, B y C: reparación de principio a fin', () => {
     await freshDemo(page);
 
     // A — start from the need: the request comes first, mechanics are chosen later.
-    await page.getByTestId('widget-need').getByRole('button', { name: 'Reparación' }).click();
+    await page.getByTestId('widget-need').getByRole('button', { name: 'Nueva solicitud' }).click();
+    await page.getByRole('dialog', { name: '¿Qué necesita tu bici?' }).getByRole('button', { name: 'Reparación' }).click();
     await expect(page).toHaveURL(/#\/solicitar/);
     await expect(page.getByText('Paso 1 de 5')).toBeVisible();
     await expect(page.getByRole('radio', { name: /Reparación/ })).toBeChecked();

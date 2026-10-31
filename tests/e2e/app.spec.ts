@@ -46,7 +46,7 @@ test.describe('Navegación', () => {
     const mobile = isMobile(page);
     const nav = page.getByRole('navigation', { name: mobile ? 'Principal (móvil)' : 'Principal', exact: true });
     await expect(nav.getByRole('link')).toHaveText(['Inicio', 'Mecánicos', 'Solicitudes']);
-    await expect(mobile ? page.getByTestId('new-request-fab') : page.getByRole('button', { name: 'Nueva solicitud' })).toBeVisible();
+    await expect(mobile ? page.getByTestId('new-request-fab') : page.getByRole('button', { name: 'Nueva solicitud' }).first()).toBeVisible();
 
     await nav.getByRole('link', { name: 'Solicitudes' }).click();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Solicitudes');
@@ -91,7 +91,7 @@ test.describe('Navegación', () => {
     const nav = page.getByRole('navigation', { name: isMobile(page) ? 'Principal (móvil)' : 'Principal', exact: true });
     await expect(nav.getByRole('link')).toHaveText([/^Inicio/, /^Solicitudes/, /^Servicios/]);
     await expect(page.getByTestId('new-request-fab')).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Nueva solicitud' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Nueva solicitud' }).first()).toHaveCount(0);
   });
 
   test('role switch from the profile, each mode returning to where it was', async ({ page }) => {
@@ -103,7 +103,7 @@ test.describe('Navegación', () => {
     await page.getByRole('radio', { name: 'Ciclista' }).click();
     // Cyclist mode, new to it: the Home invites to a first request, with no fake activity.
     await expect(page).toHaveURL(/#\/$/);
-    await expect(page.getByText('Te ayudamos a encontrar al mecánico adecuado.')).toBeVisible();
+    await expect(page.getByText('Encuentra al mecánico adecuado.')).toBeVisible();
     await expect(page.getByTestId('attention')).toHaveCount(0);
     await expect(page.getByTestId('discover')).not.toContainText('Carlos Ortega'); // never his own workshop
     await page.goto('./#/mecanicos');
@@ -133,7 +133,7 @@ test.describe('Navegación', () => {
     await freshDemo(page, 'u-ana');
     const mobile = isMobile(page);
     if (mobile) await page.getByTestId('new-request-fab').click();
-    else await page.getByRole('button', { name: 'Nueva solicitud' }).click();
+    else await page.getByRole('button', { name: 'Nueva solicitud' }).first().click();
     const sheet = page.getByRole('dialog', { name: '¿Qué necesita tu bici?' });
     await expect(sheet.getByRole('list', { name: 'Tipo de servicio' }).getByRole('button')).toHaveText([
       'Reparación',
@@ -153,7 +153,7 @@ test.describe('Navegación', () => {
     await page.getByRole('textbox').first().fill('Revisión completa antes del verano.');
     await page.getByRole('button', { name: 'Salir de la solicitud' }).click();
     if (mobile) await page.getByTestId('new-request-fab').click();
-    else await page.getByRole('button', { name: 'Nueva solicitud' }).click();
+    else await page.getByRole('button', { name: 'Nueva solicitud' }).first().click();
     await page.getByRole('button', { name: /Continuar la solicitud en curso/ }).click();
     await expect(page.getByRole('textbox').first()).toHaveValue('Revisión completa antes del verano.');
   });

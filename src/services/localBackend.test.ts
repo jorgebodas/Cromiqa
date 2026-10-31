@@ -44,6 +44,6 @@ describe('LocalBackend persistence', () => {
   it('recovers from corrupt storage', async () => {
     localStorage.setItem(DB_KEY, '{not json');
     const db = await new LocalBackend(now).loadAll();
-    expect(db.mechanics.length).toBe(6);
+    expect(db.mechanics.length).toBe(9);
   });
 });

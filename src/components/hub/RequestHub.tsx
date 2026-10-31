@@ -449,7 +449,7 @@ export function RequestHubOverlay() {
         role="dialog"
         aria-modal="true"
         aria-labelledby="hub-title"
-        className="glass-card cq-sheet-up absolute inset-x-2 bottom-[max(10px,env(safe-area-inset-bottom))] mx-auto flex h-[min(86dvh,800px)] max-w-md origin-bottom flex-col rounded-[30px]"
+        className="glass-card cq-sheet-up absolute inset-x-2 bottom-[max(10px,env(safe-area-inset-bottom))] top-[max(12px,env(safe-area-inset-top))] mx-auto flex max-w-md origin-bottom flex-col rounded-[30px] md:top-auto md:h-[min(88dvh,820px)]"
       >
         {/* Back and close up top, quiet; the bottom is only for the main action. */}
         <header className="flex items-center gap-2 px-6 pb-3 pt-7">
@@ -476,14 +476,23 @@ export function RequestHubOverlay() {
           </div>
         </HubActionContext.Provider>
 
-        {/* The main action, full width. */}
+        {/* The main action, full width. Looks disabled until the required fields are filled; tapping it then says what's missing. */}
+        {meta?.missing && (
+          <p role="status" className="px-6 pb-2 text-center text-sm font-medium text-danger" data-testid="hub-missing">
+            {meta.missing}
+          </p>
+        )}
         <div className="flex items-center px-6 pb-6 pt-2">
           {meta && (
             <button
               type="button"
               onClick={onPrimary}
               disabled={meta.loading}
-              className="dock-btn-lime flex h-14 min-w-0 flex-1 items-center justify-center gap-2 rounded-[28px] text-[15px] font-semibold text-ink transition-transform active:scale-[0.97] disabled:opacity-70"
+              aria-disabled={meta.disabled || undefined}
+              className={cx(
+                'flex h-14 min-w-0 flex-1 items-center justify-center gap-2 rounded-[28px] text-[15px] font-semibold transition-[transform,background-color,color] active:scale-[0.97] disabled:opacity-70',
+                meta.disabled ? 'bg-line text-muted' : 'dock-btn-lime text-ink',
+              )}
               data-testid="hub-primary"
             >
               {meta.loading ? <Loader2 className="size-5 animate-spin" aria-hidden /> : meta.icon === 'plus' && <PrimaryIcon className="size-5" aria-hidden />}

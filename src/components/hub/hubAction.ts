@@ -7,6 +7,10 @@ export interface HubPrimaryMeta {
   loading?: boolean;
   /** Whether the header shows a back button that calls `backRef`. */
   canBack: boolean;
+  /** Required fields still empty: the button looks disabled (but still says what's missing). */
+  disabled?: boolean;
+  /** Shown above the button after a try with something missing. */
+  missing?: string;
 }
 
 /**

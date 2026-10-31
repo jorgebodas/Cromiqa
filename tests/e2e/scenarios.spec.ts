@@ -37,7 +37,10 @@ test.describe('Escenarios A, B y C: reparación de principio a fin', () => {
     // Choose recipients: nothing preselected, Carlos plus one more.
     await expect(hub.getByText('Paso 6 de 7')).toBeVisible();
     await expect(hub.getByTestId('selected-count')).toHaveText('0 de 5 seleccionados');
-    await hub.getByRole('button', { name: 'Continuar' }).click();
+    // Continuar looks disabled until someone is picked; pressing it anyway says what's missing.
+    await expect(hub.getByTestId('hub-primary')).toHaveAttribute('aria-disabled', 'true');
+    await hub.getByRole('button', { name: 'Continuar' }).click({ force: true });
+    await expect(hub.getByTestId('hub-missing')).toHaveText('Falta elegir al menos un mecánico.');
     await expect(hub.getByText('Elige al menos un mecánico')).toBeVisible();
     const options = hub.getByTestId('provider-option');
     await options.filter({ hasText: 'Carlos Ortega' }).click();
@@ -52,8 +55,10 @@ test.describe('Escenarios A, B y C: reparación de principio a fin', () => {
     await expect(hub.getByTestId('review-recipients')).toContainText('Carlos Ortega');
     await expect(hub.getByTestId('review-recipients')).toContainText(otherName);
     // Guest chooses a demo owner account instead of signing up
-    await hub.getByRole('button', { name: 'Enviar solicitud' }).click();
+    await expect(hub.getByTestId('hub-primary')).toHaveAttribute('aria-disabled', 'true');
+    await hub.getByRole('button', { name: 'Enviar solicitud' }).click({ force: true });
     await expect(hub.getByText('Elige con qué cuenta de demostración')).toBeVisible();
+    await expect(hub.getByTestId('hub-missing')).toHaveText('Falta elegir la cuenta.');
     await hub.locator('label', { hasText: 'Ana López' }).click();
     await hub.getByRole('button', { name: 'Enviar solicitud' }).click();
 

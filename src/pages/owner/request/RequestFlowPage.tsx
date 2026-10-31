@@ -17,6 +17,27 @@ import { StepBike, StepProblem, StepReview, StepWhen, StepWhere } from './Steps'
 import { StepPhotos } from './StepPhotos';
 import { useHubAction } from '@/components/hub/hubAction';
 
+const MISSING_LABELS: Partial<Record<keyof DraftErrors, string>> = {
+  category: 'el tipo de servicio',
+  description: 'describir el problema (10 caracteres o más)',
+  bikeId: 'elegir la bici',
+  type: 'el tipo de bici',
+  askingPrice: 'revisar el precio',
+  photos: 'quitar alguna foto',
+  location: 'la zona',
+  mode: 'domicilio o taller',
+  preferredDate: 'una fecha válida',
+  mechanicIds: 'elegir al menos un mecánico',
+  owner: 'elegir la cuenta',
+};
+
+/** "Falta: el tipo de servicio y describir el problema". */
+function missingText(keys: (keyof DraftErrors)[]) {
+  const parts = [...new Set(keys.map((k) => MISSING_LABELS[k] ?? 'completar un campo'))];
+  const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} y ${parts.at(-1)}` : parts[0];
+  return `Falta ${list}.`;
+}
+
 export interface RequestFormProps {
   /** `page`: the /solicitar screen. `overlay`: inside the Request Hub panel. */
   variant: 'page' | 'overlay';
@@ -61,6 +82,8 @@ export function RequestForm({ variant, originMechanicId, params = new URLSearchP
   const bikes = useOwnerBikes(owner ? owner.id : undefined);
 
   const [errors, setErrors] = useState<DraftErrors>({});
+  // Whether the cyclist already tried to go on with something missing (then we say what).
+  const [tried, setTried] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [pickedOwner, setPickedOwner] = useState<ID | null>(owner ? owner.id : null);
@@ -129,15 +152,22 @@ export function RequestForm({ variant, originMechanicId, params = new URLSearchP
     requestAnimationFrame(() => headingRef.current?.focus({ preventScroll: true }));
   };
 
+  /** Shows what's missing: errors under the fields, scrolls to the first one, and a hint by the button. */
+  const showMissing = (e: DraftErrors) => {
+    setErrors(e);
+    setTried(true);
+    const firstKey = Object.keys(e)[0];
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`field-${firstKey}`) ?? document.querySelector<HTMLElement>(`[name="${firstKey}"]`) ?? document.querySelector<HTMLElement>('[aria-invalid="true"]');
+      el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      el?.focus({ preventScroll: true });
+    });
+  };
+
   const next = () => {
     const e = validateStep(step, draft, mechanic, bikes);
-    setErrors(e);
-    const firstKey = Object.keys(e)[0];
-    if (firstKey) {
-      const el = document.getElementById(`field-${firstKey}`) ?? document.querySelector<HTMLElement>(`[name="${firstKey}"]`) ?? document.querySelector<HTMLElement>('[aria-invalid="true"]');
-      el?.focus();
-      return;
-    }
+    if (Object.keys(e).length) return showMissing(e);
+    setErrors({});
     goTo(step + 1);
   };
 
@@ -150,11 +180,7 @@ export function RequestForm({ variant, originMechanicId, params = new URLSearchP
       return;
     }
     const ownerId = owner ? owner.id : pickedOwner;
-    if (!ownerId) {
-      setErrors({ owner: 'Elige con qué cuenta de demostración envías la solicitud.' });
-      document.getElementById('field-owner')?.focus();
-      return;
-    }
+    if (!ownerId) return showMissing({ owner: 'Elige con qué cuenta de demostración envías la solicitud.' });
     if (submitting) return; // no duplicate submissions
     setSubmitting(true);
     try {
@@ -219,9 +245,15 @@ export function RequestForm({ variant, originMechanicId, params = new URLSearchP
     hubAction.backRef.current = () => (step > 0 ? goTo(step - 1) : onBackFromStart?.());
   }
   const canBack = step > 0 || Boolean(onBackFromStart);
+  // The primary action looks disabled until the step's required fields are filled.
+  const pending = step < LAST_STEP ? validateStep(step, draft, mechanic, bikes) : (firstInvalidStep(draft, mechanic, bikes) === null && (owner || pickedOwner)) ? {} : { owner: 'x' };
+  const missingKeys = Object.keys(pending) as (keyof DraftErrors)[];
+  const ready = missingKeys.length === 0;
+  const missing = tried && !ready ? missingText(missingKeys) : undefined;
+  useEffect(() => setTried(false), [step]);
   useEffect(() => {
-    hubAction?.setMeta({ label: step < LAST_STEP ? 'Continuar' : 'Enviar solicitud', icon: step < LAST_STEP ? 'arrow' : 'send', loading: submitting, canBack });
-  }, [hubAction, step, submitting, canBack]);
+    hubAction?.setMeta({ label: step < LAST_STEP ? 'Continuar' : 'Enviar solicitud', icon: step < LAST_STEP ? 'arrow' : 'send', loading: submitting, canBack, disabled: !ready, missing });
+  }, [hubAction, step, submitting, canBack, ready, missing]);
   useEffect(() => () => hubAction?.setMeta(null), [hubAction]);
 
   const body = (
@@ -238,7 +270,7 @@ export function RequestForm({ variant, originMechanicId, params = new URLSearchP
                     aria-label={`Paso ${i + 1}: ${title}`}
                     className="group w-full text-left disabled:cursor-default"
                   >
-                    <span className={cx('block h-1.5 rounded-full transition-colors', i < step ? 'bg-ink' : i === step ? 'bg-lime' : 'bg-line')} />
+                    <span className={cx('block h-1.5 rounded-full transition-colors', i <= step ? 'bg-[#3b3b3b]' : 'bg-line')} />
                     <span className={cx('mt-2 hidden text-xs', !overlay && 'lg:block', i <= step ? 'font-medium text-ink' : 'text-muted', i < step && 'group-hover:underline')}>
                       {title}
                     </span>
@@ -248,8 +280,8 @@ export function RequestForm({ variant, originMechanicId, params = new URLSearchP
             </ol>
           </nav>
 
-          <p className={cx('eyebrow', overlay ? 'mt-6' : 'mt-8')}>Paso {step + 1} de {STEP_TITLES.length}</p>
-          <h1 ref={headingRef} tabIndex={-1} className={cx('mt-1 scroll-mt-4 font-extrabold outline-none', overlay ? 'text-2xl' : 'text-3xl sm:text-4xl')}>
+          <p className={overlay ? 'sr-only' : 'eyebrow mt-8'}>Paso {step + 1} de {STEP_TITLES.length}</p>
+          <h1 ref={headingRef} tabIndex={-1} className={cx('scroll-mt-4 font-extrabold outline-none', overlay ? 'mt-6 text-2xl' : 'mt-1 text-3xl sm:text-4xl')}>
             {step === STEP.bike && draft.category === 'inspection' ? 'La bici que quieres comprar' : STEP_TITLES[step]}
           </h1>
 

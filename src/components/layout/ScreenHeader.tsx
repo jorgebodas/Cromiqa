@@ -83,10 +83,10 @@ export function ScreenHeader({ title, compactTitle, back, leading, actions, desc
 
   const name = compactTitle ?? (typeof title === 'string' ? title : '');
   const compact = progress >= 0.98;
-  // The large title fades out over the first part of the push; only then does the small one
-  // rise into the top row, so the two never show on top of each other.
-  const leave = Math.min(progress / 0.55, 1);
-  const arrive = Math.min(Math.max((progress - 0.6) / 0.4, 0), 1);
+  // iOS-style: the large title keeps its size and simply scrolls up under the bar, fading as
+  // it goes; the small title appears in the bar (a short fade, not tied to the scroll) only
+  // once the large one is gone. Never two sizes of the title on screen at once.
+  const leave = Math.min(progress / 0.85, 1);
 
   return (
     <>
@@ -102,8 +102,10 @@ export function ScreenHeader({ title, compactTitle, back, leading, actions, desc
           {back ? <BackButton fallback={back} /> : leading}
           <p
             aria-hidden
-            className="pointer-events-none min-w-0 flex-1 truncate font-display text-[22px] font-bold tracking-tight"
-            style={{ opacity: arrive, transform: `translateY(${(1 - arrive) * 14}px)` }}
+            className={cx(
+              'pointer-events-none min-w-0 flex-1 truncate font-display text-[20px] font-bold tracking-tight transition-[opacity,transform] duration-200 ease-out',
+              compact ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0',
+            )}
           >
             {name}
           </p>
@@ -113,8 +115,8 @@ export function ScreenHeader({ title, compactTitle, back, leading, actions, desc
       <div className="container-page pb-5">
         <h1
           ref={heading}
-          className="origin-left font-display text-[34px] font-bold leading-tight tracking-[-0.02em] sm:text-[40px]"
-          style={{ opacity: 1 - leave, transform: `translateY(${-progress * 6}px) scale(${1 - progress * 0.12})` }}
+          className="font-display text-[34px] font-bold leading-tight tracking-[-0.02em] sm:text-[40px]"
+          style={{ opacity: 1 - leave }}
         >
           {title}
         </h1>

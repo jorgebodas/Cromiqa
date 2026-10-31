@@ -13,8 +13,7 @@ import type {
   ServiceMode,
   ServiceRequest,
   TimeSlot,
-  User,
-} from '@/domain/types';
+  User, RequestUrgency } from '@/domain/types';
 import { canPerform, type RequestAction } from '@/domain/logic/requests';
 import { backend } from '@/services';
 import { storage } from '@/services/storage';
@@ -37,7 +36,9 @@ export interface RequestDraft {
   inspection: InspectionDetails;
   location?: LocationId;
   mode?: ServiceMode;
-  availability: { preferredDate?: string; timeSlots: TimeSlot[]; flexible: boolean; notes: string };
+  availability: { preferredDate?: string; timeSlots: TimeSlot[]; flexible: boolean; notes: string; urgency?: RequestUrgency };
+  /** Compressed photos of the problem (optional, up to 3). */
+  photos: string[];
   step: number;
 }
 
@@ -49,6 +50,7 @@ export const emptyDraft = (): RequestDraft => ({
   saveBike: true,
   inspection: {},
   availability: { timeSlots: [], flexible: false, notes: '' },
+  photos: [],
   step: 0,
 });
 
@@ -114,6 +116,7 @@ export const useApp = create<AppState>((set, get) => {
       const sessionUserId = saved?.userId && db.users.some((u) => u.id === saved.userId) ? saved.userId : null;
       const draft = { ...emptyDraft(), ...(storage.getJSON<RequestDraft>(DRAFT_KEY) ?? {}) };
       if (!Array.isArray(draft.mechanicIds)) draft.mechanicIds = [];
+      if (!Array.isArray(draft.photos)) draft.photos = [];
       set({ db, sessionUserId, draft, ready: true });
       // Keep time-based transitions (the 72 h closure) current while the app stays open.
       if (typeof window !== 'undefined') window.setInterval(() => void refresh(), 60_000);

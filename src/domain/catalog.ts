@@ -8,6 +8,7 @@ import type {
   Specialization,
   TimeSlot,
   Weekday,
+  RequestUrgency,
 } from './types';
 
 export const CATEGORIES: { id: ServiceCategory; label: string; short: string; description: string }[] = [
@@ -49,6 +50,10 @@ export const BIKE_TYPES: { id: BikeType; label: string }[] = [
 ];
 
 export const bikeTypeLabel = (t: BikeType) => BIKE_TYPES.find((x) => x.id === t)?.label ?? t;
+
+/** "Orbea Occam", or the bike type when brand and model weren't given (both are optional). */
+export const bikeLabel = (b: { type: BikeType; brand?: string; model?: string }) =>
+  [b.brand?.trim(), b.model?.trim()].filter(Boolean).join(' ') || bikeTypeLabel(b.type);
 
 export const SPECIALIZATIONS: { id: Specialization; label: string; keywords: string[] }[] = [
   {
@@ -160,6 +165,13 @@ export const TIME_SLOTS: { id: TimeSlot; label: string; hours: string }[] = [
   { id: 'afternoon', label: 'Tarde', hours: '16:00–19:00' },
   { id: 'evening', label: 'Última hora', hours: '19:00–21:00' },
 ];
+
+export const URGENCIES: { id: RequestUrgency; label: string; hint: string }[] = [
+  { id: 'none', label: 'Sin prisa', hint: 'Cuando le venga bien al mecánico' },
+  { id: 'week', label: 'Esta semana', hint: 'Mejor en los próximos días' },
+  { id: 'urgent', label: 'Urgente', hint: 'Lo antes posible' },
+];
+export const urgencyLabel = (u: RequestUrgency) => URGENCIES.find((x) => x.id === u)?.label ?? u;
 
 export const slotLabel = (s: TimeSlot) => TIME_SLOTS.find((x) => x.id === s)?.label ?? s;
 

@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, ChevronRight, Hammer, MapPin, Pencil, ShieldCheck } from 'lucide-react';
 import type { ServiceRequest } from '@/domain/types';
-import { categoryLabel, locationShort } from '@/domain/catalog';
+import { categoryLabel, locationShort, bikeLabel } from '@/domain/catalog';
 import { mechanicAttention, mechanicCounts, profileGaps, profileStatus, upcomingAppointments, type MechanicAttention, type ProfileGap } from '@/domain/logic/home';
 import { formatDate, toISODate } from '@/domain/utils';
 import { useApp } from '@/state/store';
@@ -111,7 +111,7 @@ function Inner() {
                           {ACTION[kind].verb} {client(r).split(' ')[0]}
                         </span>
                         <span className="block truncate text-sm text-muted">
-                          {categoryLabel(r.category)} · {r.bike.brand} {r.bike.model}
+                          {categoryLabel(r.category)} · {bikeLabel(r.bike)}
                         </span>
                       </span>
                       <span className="hidden shrink-0 text-sm font-semibold sm:inline">{ACTION[kind].cta}</span>

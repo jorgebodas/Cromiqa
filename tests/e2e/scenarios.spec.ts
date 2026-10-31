@@ -7,53 +7,60 @@ test.describe('Escenarios A, B y C: reparación de principio a fin', () => {
   test('guest sends a repair to two mechanics, one quotes, owner hires, the other is closed, job completes', async ({ page }) => {
     await freshDemo(page);
 
-    // A — start from the need: the request comes first, mechanics are chosen later.
+    // A — the request comes first, in the Request Hub panel; mechanics are chosen later.
     await page.getByTestId('widget-need').getByRole('button', { name: 'Nueva solicitud' }).click();
-    await page.getByRole('dialog', { name: '¿Qué necesita tu bici?' }).getByRole('button', { name: 'Reparación' }).click();
-    await expect(page).toHaveURL(/#\/solicitar/);
-    await expect(page.getByText('Paso 1 de 5')).toBeVisible();
-    await expect(page.getByRole('radio', { name: /Reparación/ })).toBeChecked();
-    await page.getByLabel('Describe el problema').fill('Los cambios saltan al subir y la cadena hace ruido en los piñones grandes.');
-    await page.getByRole('button', { name: 'Continuar' }).click();
+    const hub = page.getByTestId('request-hub');
+    await expect(hub.getByText('Paso 1 de 7')).toBeVisible();
+    await hub.getByText('Reparación', { exact: true }).click();
+    await hub.getByLabel('Describe el problema').fill('Los cambios saltan al subir y la cadena hace ruido en los piñones grandes.');
+    await hub.getByRole('button', { name: 'Continuar' }).click();
 
-    await expect(page.getByText('Paso 2 de 5')).toBeVisible();
-    await page.locator('label', { hasText: 'Montaña (MTB)' }).click();
-    await page.getByLabel('Marca').fill('Orbea');
-    await page.getByLabel('Modelo').fill('Alma H50');
-    await page.getByRole('button', { name: 'Continuar' }).click();
+    await expect(hub.getByText('Paso 2 de 7')).toBeVisible();
+    await hub.locator('label', { hasText: 'Montaña (MTB)' }).click();
+    await hub.getByLabel('Marca').fill('Orbea');
+    await hub.getByLabel('Modelo').fill('Alma H50');
+    await hub.getByRole('button', { name: 'Continuar' }).click();
 
-    await expect(page.getByText('Paso 3 de 5')).toBeVisible();
-    await page.getByLabel('Zona', { exact: true }).selectOption('rivas');
-    await page.locator('label', { hasText: 'A domicilio' }).click();
-    await page.getByRole('button', { name: /^Tarde/ }).click();
-    await page.getByRole('button', { name: 'Continuar' }).click();
+    // Photos are optional.
+    await expect(hub.getByText('Paso 3 de 7')).toBeVisible();
+    await hub.getByRole('button', { name: 'Continuar' }).click();
+
+    await expect(hub.getByText('Paso 4 de 7')).toBeVisible();
+    await hub.getByLabel('Zona', { exact: true }).selectOption('rivas');
+    await hub.locator('label', { hasText: 'A domicilio' }).click();
+    await hub.getByRole('button', { name: 'Continuar' }).click();
+
+    await expect(hub.getByText('Paso 5 de 7')).toBeVisible();
+    await hub.getByRole('button', { name: /^Tarde/ }).click();
+    await hub.getByRole('button', { name: 'Continuar' }).click();
 
     // Choose recipients: nothing preselected, Carlos plus one more.
-    await expect(page.getByText('Paso 4 de 5')).toBeVisible();
-    await expect(page.getByTestId('selected-count')).toHaveText('0 de 5 seleccionados');
-    await page.getByRole('button', { name: 'Continuar' }).click();
-    await expect(page.getByText('Elige al menos un mecánico')).toBeVisible();
-    const options = page.getByTestId('provider-option');
+    await expect(hub.getByText('Paso 6 de 7')).toBeVisible();
+    await expect(hub.getByTestId('selected-count')).toHaveText('0 de 5 seleccionados');
+    await hub.getByRole('button', { name: 'Continuar' }).click();
+    await expect(hub.getByText('Elige al menos un mecánico')).toBeVisible();
+    const options = hub.getByTestId('provider-option');
     await options.filter({ hasText: 'Carlos Ortega' }).click();
     const other = options.filter({ hasNotText: 'Carlos Ortega' }).first();
     const otherName = (await other.locator('.font-semibold').first().innerText()).trim();
     await other.click();
-    await expect(page.getByTestId('selected-count')).toHaveText('2 de 5 seleccionados');
-    await page.getByRole('button', { name: 'Continuar' }).click();
+    await expect(hub.getByTestId('selected-count')).toHaveText('2 de 5 seleccionados');
+    await hub.getByRole('button', { name: 'Continuar' }).click();
 
-    await expect(page.getByText('Paso 5 de 5')).toBeVisible();
-    await expect(page.getByText('Orbea Alma H50')).toBeVisible();
-    await expect(page.getByTestId('review-recipients')).toContainText('Carlos Ortega');
-    await expect(page.getByTestId('review-recipients')).toContainText(otherName);
+    await expect(hub.getByText('Paso 7 de 7')).toBeVisible();
+    await expect(hub.getByText('Orbea Alma H50')).toBeVisible();
+    await expect(hub.getByTestId('review-recipients')).toContainText('Carlos Ortega');
+    await expect(hub.getByTestId('review-recipients')).toContainText(otherName);
     // Guest chooses a demo owner account instead of signing up
-    await page.getByRole('button', { name: 'Enviar solicitud' }).click();
-    await expect(page.getByText('Elige con qué cuenta de demostración')).toBeVisible();
-    await page.locator('label', { hasText: 'Ana López' }).click();
-    await page.getByRole('button', { name: 'Enviar solicitud' }).click();
+    await hub.getByRole('button', { name: 'Enviar solicitud' }).click();
+    await expect(hub.getByText('Elige con qué cuenta de demostración')).toBeVisible();
+    await hub.locator('label', { hasText: 'Ana López' }).click();
+    await hub.getByRole('button', { name: 'Enviar solicitud' }).click();
 
-    await expect(page.getByTestId('sent-title')).toHaveText('Solicitud enviada a 2 mecánicos');
-    await expect(page.getByTestId('sent-recipients')).toContainText('Carlos Ortega');
-    await page.getByRole('link', { name: 'Ver mi solicitud' }).click();
+    // Sent: the panel closes and the request shows up in Solicitudes.
+    await expect(hub).toHaveCount(0);
+    await page.goto('./#/solicitudes');
+    await page.getByTestId('case-card').filter({ hasText: 'Orbea Alma H50' }).click();
     await expect(caseStatus(page)).toHaveText('Esperando respuestas');
     await expect(page.getByTestId('response-row')).toHaveCount(2);
     const caseUrl = page.url();
@@ -325,7 +332,7 @@ test('Escenario D: especialistas en suspensión a domicilio', async ({ page }) =
   await expect(page.getByText('Servicio completo de horquilla', { exact: true })).toBeVisible();
   await expect(page.getByText('Ficticio').filter({ visible: true }).first()).toBeVisible();
   await page.getByRole('link', { name: /^Solicitar servicio/ }).filter({ visible: true }).first().click();
-  await expect(page.getByText('Paso 1 de 5')).toBeVisible();
+  await expect(page.getByText('Paso 1 de 7')).toBeVisible();
   await expect(page.getByRole('radio', { name: /Inspección antes de comprar/ })).toBeEnabled();
 });
 
@@ -344,9 +351,11 @@ test('Escenario E: inspección antes de comprar, empezando desde el perfil de Ne
   await page.getByLabel(/Precio que piden/).fill('1200');
   await page.getByLabel(/¿Dónde está la bici?/).fill('Rivas Urbanizaciones');
   await page.getByRole('button', { name: 'Continuar' }).click();
+  await page.getByRole('button', { name: 'Continuar' }).click(); // no photos
 
   await page.getByLabel('Zona', { exact: true }).selectOption('rivas');
   await page.locator('label', { hasText: 'A domicilio' }).click();
+  await page.getByRole('button', { name: 'Continuar' }).click();
   await page.getByText('Tengo flexibilidad').click();
   await page.getByRole('button', { name: 'Continuar' }).click();
 
@@ -359,9 +368,7 @@ test('Escenario E: inspección antes de comprar, empezando desde el perfil de Ne
   // Edit a previous answer from the review step
   await page.getByRole('button', { name: 'Editar: La bici que quieres comprar' }).click();
   await page.getByLabel('Modelo').fill('Stumpjumper Evo');
-  await page.getByRole('button', { name: 'Continuar' }).click();
-  await page.getByRole('button', { name: 'Continuar' }).click();
-  await page.getByRole('button', { name: 'Continuar' }).click();
+  for (let i = 0; i < 5; i++) await page.getByRole('button', { name: 'Continuar' }).click();
   await expect(page.getByText('Specialized Stumpjumper Evo')).toBeVisible();
   await page.getByRole('button', { name: 'Enviar solicitud' }).click();
 

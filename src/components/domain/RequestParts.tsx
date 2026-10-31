@@ -1,11 +1,24 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { CalendarDays, Clock, MessageSquare, Send } from 'lucide-react';
 import type { Proposal, RequestEvent, Role, ServiceRequest } from '@/domain/types';
-import { bikeTypeLabel, categoryLabel, locationLabel, modeLabel, slotLabel } from '@/domain/catalog';
+import { bikeTypeLabel, categoryLabel, locationLabel, modeLabel, slotLabel, bikeLabel, urgencyLabel } from '@/domain/catalog';
 import { AUTO_CLOSE_HOURS, canPerform } from '@/domain/logic/requests';
 import { formatDate, formatDateTime, formatLongDate, formatPrice } from '@/domain/utils';
 import { useApp } from '@/state/store';
 import { Button, Card, KeyValue, Textarea, cx } from '@/components/ui';
+
+/** Thumbnails of the photos attached to a request; each opens full size in a new tab. */
+export function PhotoStrip({ photos }: { photos: string[] }) {
+  return (
+    <span className="mt-1 flex flex-wrap gap-2" data-testid="request-photos">
+      {photos.map((src, i) => (
+        <a key={i} href={src} target="_blank" rel="noreferrer" className="block size-20 overflow-hidden rounded-xl bg-canvas">
+          <img src={src} alt={`Foto ${i + 1} del problema`} className="size-full object-cover" />
+        </a>
+      ))}
+    </span>
+  );
+}
 
 export function RequestSummary({ request }: { request: ServiceRequest }) {
   const r = request;
@@ -20,7 +33,7 @@ export function RequestSummary({ request }: { request: ServiceRequest }) {
         <KeyValue label={r.category === 'inspection' ? 'Bici a inspeccionar' : 'Bici'}>
           <span className="font-medium">
             {r.bike.name ? `${r.bike.name} · ` : ''}
-            {r.bike.brand} {r.bike.model}
+            {bikeLabel(r.bike)}
           </span>
           <span className="text-muted">
             {' '}
@@ -39,7 +52,13 @@ export function RequestSummary({ request }: { request: ServiceRequest }) {
         <KeyValue label="Dónde">
           {modeLabel(r.mode)} · {locationLabel(r.location)}
         </KeyValue>
+        {r.photos && r.photos.length > 0 && (
+          <KeyValue label="Fotos">
+            <PhotoStrip photos={r.photos} />
+          </KeyValue>
+        )}
         <KeyValue label="Disponibilidad">
+          {r.availability.urgency && r.availability.urgency !== 'none' && <span className="block font-medium">{urgencyLabel(r.availability.urgency)}</span>}
           {r.availability.preferredDate && <span className="block">Prefiere el {formatLongDate(r.availability.preferredDate)}</span>}
           <span className="block">
             {r.availability.timeSlots.map(slotLabel).join(', ') || 'Sin franja concreta'}

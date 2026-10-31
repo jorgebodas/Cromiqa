@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Bike, ChevronRight } from 'lucide-react';
 import type { ServiceRequest } from '@/domain/types';
-import { STATUSES, bikeTypeLabel, categoryLabel, locationShort, modeLabel } from '@/domain/catalog';
+import { STATUSES, bikeTypeLabel, categoryLabel, locationShort, modeLabel, bikeLabel } from '@/domain/catalog';
 import { currentProposal } from '@/domain/logic/requests';
 import { formatDate, formatPrice, relativeTime } from '@/domain/utils';
 import { StatusBadge } from './Status';
@@ -45,7 +45,7 @@ export function RequestCard({
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
         <span className="inline-flex items-center gap-1.5">
           <Bike className="size-4 text-muted" aria-hidden />
-          {request.bike.brand} {request.bike.model}
+          {bikeLabel(request.bike)}
           <span className="text-muted">· {bikeTypeLabel(request.bike.type)}</span>
         </span>
         <span>{perspective === 'owner' ? `Con ${counterpart}` : counterpart}</span>

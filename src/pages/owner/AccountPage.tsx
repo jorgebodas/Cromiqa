@@ -12,8 +12,9 @@ import { AccountSwitcherDialog, useSwitchAccount, useSwitchMode } from '@/compon
 import { Avatar, Button, Card, Field, Input, LinkButton, Select, cx } from '@/components/ui';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { hasProfessionalDraft } from '@/pages/mechanic/OnboardingPage';
+import { useOwnerActivity } from '@/state/activity';
 
-function LinkRow({ to, icon: Icon, label, detail }: { to: string; icon: typeof Bike; label: string; detail?: string }) {
+function LinkRow({ to, icon: Icon, label, detail, badge }: { to: string; icon: typeof Bike; label: string; detail?: string; badge?: number }) {
   return (
     <li>
       <Link to={to} className="flex items-center gap-3 px-4 py-3.5 hover:bg-canvas/60">
@@ -22,6 +23,11 @@ function LinkRow({ to, icon: Icon, label, detail }: { to: string; icon: typeof B
           <span className="block font-semibold">{label}</span>
           {detail && <span className="block truncate text-sm text-muted">{detail}</span>}
         </span>
+        {!!badge && (
+          <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-ink px-1.5 text-xs font-bold text-paper" aria-label={`${badge} sin leer`}>
+            {badge > 9 ? '9+' : badge}
+          </span>
+        )}
         <ChevronRight className="size-4 shrink-0 text-muted" aria-hidden />
       </Link>
     </li>
@@ -58,6 +64,7 @@ function ModeSwitch({ mode }: { mode: AppMode }) {
 
 function Inner() {
   const user = useCurrentUser()!;
+  const { unread } = useOwnerActivity(user.id);
   const updateUser = useApp((s) => s.updateUser);
   const toast = useApp((s) => s.toast);
   const bikes = useOwnerBikes(user.id);
@@ -124,8 +131,8 @@ function Inner() {
 
       {mode === 'cyclist' ? (
         <ul className="surface mt-4 divide-y divide-line overflow-hidden" aria-label="Tu actividad">
+          <LinkRow to="/actividad" icon={Bell} label="Notificaciones" detail={unread ? 'Novedades de tus solicitudes' : 'Estás al día'} badge={unread} />
           <LinkRow to="/garaje" icon={Bike} label="Garaje" detail={`${bikes.length} ${bikes.length === 1 ? 'bici' : 'bicis'} y su historial`} />
-          <LinkRow to="/actividad" icon={Bell} label="Notificaciones" />
         </ul>
       ) : (
         mechanic && (

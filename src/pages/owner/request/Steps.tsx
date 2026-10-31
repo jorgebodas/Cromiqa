@@ -6,16 +6,20 @@ import {
   CATEGORIES,
   LOCATIONS,
   TIME_SLOTS,
+  URGENCIES,
+  bikeLabel,
   bikeTypeLabel,
   categoryLabel,
   locationLabel,
   modeLabel,
   slotLabel,
+  urgencyLabel,
 } from '@/domain/catalog';
 import { formatLongDate, formatPrice, toISODate } from '@/domain/utils';
 import type { RequestDraft } from '@/state/store';
 import { Avatar, Checkbox, ChoiceCard, Field, FieldError, Input, Select, Textarea, ToggleChip, cx } from '@/components/ui';
 import { CATEGORY_ICONS } from '../startRequest';
+import { PhotoStrip } from '@/components/domain/RequestParts';
 import type { DraftErrors } from './draftValidation';
 
 interface StepProps {
@@ -162,10 +166,10 @@ export function StepBike({
         <div className="surface space-y-5 p-4 sm:p-5">
           <BikeTypePicker value={draft.bike.type} onChange={(type) => setBike({ type })} mechanic={mechanic} error={errors.type} />
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Marca" error={errors.brand}>
+            <Field label="Marca" optional error={errors.brand}>
               <Input name="brand" value={draft.bike.brand} onChange={(e) => setBike({ brand: e.target.value })} placeholder="Ej.: Orbea" autoComplete="off" />
             </Field>
-            <Field label="Modelo" error={errors.model}>
+            <Field label="Modelo" optional error={errors.model}>
               <Input name="model" value={draft.bike.model} onChange={(e) => setBike({ model: e.target.value })} placeholder="Ej.: Occam H30" autoComplete="off" />
             </Field>
             <Field label="Año" optional>
@@ -229,14 +233,7 @@ export function StepBike({
   );
 }
 
-export function StepWhereWhen({ draft, set, mechanic, errors }: StepProps) {
-  const today = toISODate(new Date());
-  const toggleSlot = (slot: (typeof TIME_SLOTS)[number]['id']) => {
-    const slots = draft.availability.timeSlots.includes(slot)
-      ? draft.availability.timeSlots.filter((s) => s !== slot)
-      : [...draft.availability.timeSlots, slot];
-    set({ availability: { ...draft.availability, timeSlots: slots } });
-  };
+export function StepWhere({ draft, set, mechanic, errors }: StepProps) {
   const homeCovers = !mechanic || !draft.location || mechanic.serviceAreas.includes(draft.location);
   return (
     <div className="space-y-6">
@@ -288,6 +285,45 @@ export function StepWhereWhen({ draft, set, mechanic, errors }: StepProps) {
         {errors.mode && <div className="mt-2"><FieldError>{errors.mode}</FieldError></div>}
       </fieldset>
 
+      {mechanic && (
+        <p className="flex items-start gap-2 rounded-2xl bg-sand p-4 text-sm">
+          <CalendarDays className="mt-0.5 size-4 shrink-0" aria-hidden />
+          <span>
+            <strong className="font-semibold">Agenda de {mechanic.name.split(' ')[0]}:</strong> {mechanic.availabilityNote}
+          </span>
+        </p>
+      )}
+
+    </div>
+  );
+}
+
+/** Timing is optional: a preference for the mechanic, never a promised slot. */
+export function StepWhen({ draft, set, errors }: StepProps) {
+  const today = toISODate(new Date());
+  const toggleSlot = (slot: (typeof TIME_SLOTS)[number]['id']) => {
+    const slots = draft.availability.timeSlots.includes(slot)
+      ? draft.availability.timeSlots.filter((s) => s !== slot)
+      : [...draft.availability.timeSlots, slot];
+    set({ availability: { ...draft.availability, timeSlots: slots } });
+  };
+  return (
+    <div className="space-y-6">
+      <p className="text-[15px] text-muted">Todo opcional. El mecánico te propondrá una fecha concreta; nada se reserva hasta que la confirméis.</p>
+      <fieldset>
+        <legend className="mb-2 text-sm font-medium">¿Cuánta prisa tienes?</legend>
+        <div className="flex flex-wrap gap-2">
+          {URGENCIES.map((u) => (
+            <ToggleChip
+              key={u.id}
+              pressed={draft.availability.urgency === u.id}
+              onToggle={() => set({ availability: { ...draft.availability, urgency: draft.availability.urgency === u.id ? undefined : u.id } })}
+            >
+              {u.label}
+            </ToggleChip>
+          ))}
+        </div>
+      </fieldset>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Fecha preferida" optional error={errors.preferredDate} hint="El mecánico te propondrá una fecha concreta.">
           <Input
@@ -319,15 +355,6 @@ export function StepWhereWhen({ draft, set, mechanic, errors }: StepProps) {
         </div>
         {errors.timeSlots && <div className="mt-2"><FieldError>{errors.timeSlots}</FieldError></div>}
       </fieldset>
-
-      {mechanic && (
-        <p className="flex items-start gap-2 rounded-2xl bg-sand p-4 text-sm">
-          <CalendarDays className="mt-0.5 size-4 shrink-0" aria-hidden />
-          <span>
-            <strong className="font-semibold">Agenda de {mechanic.name.split(' ')[0]}:</strong> {mechanic.availabilityNote}
-          </span>
-        </p>
-      )}
 
       <Field label="Notas para la cita" optional>
         <Textarea
@@ -373,7 +400,7 @@ export function StepReview({
   const bike = garageBike ?? draft.bike;
   return (
     <div className="space-y-3">
-      <ReviewBlock title={recipients.length === 1 ? 'Se enviará a' : `Se enviará a ${recipients.length} mecánicos`} onEdit={() => goTo(3)}>
+      <ReviewBlock title={recipients.length === 1 ? 'Se enviará a' : `Se enviará a ${recipients.length} mecánicos`} onEdit={() => goTo(5)}>
         <ul className="space-y-2" data-testid="review-recipients">
           {recipients.map((m) => (
             <li key={m.id} className="flex items-center gap-3">
@@ -394,7 +421,7 @@ export function StepReview({
       <ReviewBlock title={draft.category === 'inspection' ? 'La bici que quieres comprar' : 'Tu bici'} onEdit={() => goTo(1)}>
         <p className="font-semibold">
           {'name' in bike && bike.name ? `${bike.name} · ` : ''}
-          {bike.brand} {bike.model}
+          {bike.type ? bikeLabel({ ...bike, type: bike.type }) : `${bike.brand} ${bike.model}`}
         </p>
         <p className="text-sm text-muted">
           {bike.type && bikeTypeLabel(bike.type)}
@@ -410,11 +437,17 @@ export function StepReview({
         )}
         {draft.bike.notes && <p className="mt-1 text-sm text-muted">{draft.bike.notes}</p>}
       </ReviewBlock>
-      <ReviewBlock title="Dónde y cuándo" onEdit={() => goTo(2)}>
+      <ReviewBlock title="Fotos" onEdit={() => goTo(2)}>
+        {draft.photos.length ? <PhotoStrip photos={draft.photos} /> : <p className="text-sm text-muted">Sin fotos</p>}
+      </ReviewBlock>
+      <ReviewBlock title="Dónde" onEdit={() => goTo(3)}>
         <p className="font-semibold">
           {draft.mode && modeLabel(draft.mode)} · {draft.location && locationLabel(draft.location)}
         </p>
-        <p className="text-sm text-muted">
+      </ReviewBlock>
+      <ReviewBlock title="Cuándo" onEdit={() => goTo(4)}>
+        <p className="text-[15px]">
+          {draft.availability.urgency ? `${urgencyLabel(draft.availability.urgency)} · ` : ''}
           {draft.availability.preferredDate ? `Preferencia: ${formatLongDate(draft.availability.preferredDate)} · ` : ''}
           {draft.availability.timeSlots.map(slotLabel).join(', ') || 'Sin franja concreta'}
           {draft.availability.flexible ? ' · flexible' : ''}

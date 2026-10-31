@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, Outlet, matchPath, useLocation, useNavigationType } from 'react-router-dom';
-import { Bell, ClipboardList, FlaskConical, Hammer, House, Inbox, Menu, Plus, RefreshCw, UserRound, Wrench } from 'lucide-react';
+import { ClipboardList, FlaskConical, Hammer, House, Inbox, Menu, Plus, RefreshCw, UserRound, Wrench } from 'lucide-react';
 import { Wordmark } from '@/brand/Wordmark';
 import { useCurrentUser } from '@/state/selectors';
 import { useApp } from '@/state/store';
@@ -8,7 +8,7 @@ import { useOwnerActivity } from '@/state/activity';
 import { useNavUi } from '@/state/ui';
 import { Avatar, Toaster, cx } from '@/components/ui';
 import { AccountSwitcherDialog } from './AccountSwitcher';
-import { NewRequestSheet } from './NewRequestSheet';
+import { FloatingRequestHub, HeaderRequestChip, RequestHubOverlay } from '@/components/hub/RequestHub';
 import { useMode, useModeStore } from '@/state/mode';
 import { modeOfPath, type AppMode } from '@/domain/logic/modes';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -73,30 +73,21 @@ function useTabMemory() {
   return (t: OwnerTab) => (t.id === tab?.id ? t.root : (memory.current[t.id] ?? t.root));
 }
 
-function BellLink({ unread, className }: { unread: number; className?: string }) {
+/** The account (desktop header). Notifications live inside it: the badge counts unread updates. */
+function AccountLink({ className, unread = 0 }: { className?: string; unread?: number }) {
+  const user = useCurrentUser();
   return (
-    <NavLink
-      to="/actividad"
-      aria-label={unread ? `Notificaciones, ${unread} sin leer` : 'Notificaciones'}
-      className={({ isActive }) =>
-        cx('relative flex size-12 items-center justify-center rounded-full transition-colors hover:bg-sand md:size-10', isActive && 'bg-sand', className)
-      }
-      data-testid="activity-link"
+    <Link
+      to="/cuenta"
+      aria-label={unread ? `Tu perfil y notificaciones, ${unread} sin leer` : 'Tu perfil'}
+      className={cx('relative flex size-12 items-center justify-center rounded-full md:size-10', className)}
+      data-testid="account-link"
     >
-      <Bell className="size-6 md:size-5" aria-hidden />
       {unread > 0 && (
-        <span className="absolute right-1.5 top-1.5 md:right-1 md:top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-ink px-1 text-[10px] font-bold text-paper" aria-hidden>
+        <span className="absolute -right-0.5 -top-0.5 z-10 flex h-4 min-w-4 items-center justify-center rounded-full bg-ink px-1 text-[10px] font-bold text-paper ring-2 ring-paper" aria-hidden>
           {unread > 9 ? '9+' : unread}
         </span>
       )}
-    </NavLink>
-  );
-}
-
-function AccountLink({ className }: { className?: string }) {
-  const user = useCurrentUser();
-  return (
-    <Link to="/cuenta" aria-label="Tu perfil" className={cx('flex size-12 items-center justify-center rounded-full md:size-10', className)} data-testid="account-link">
       {user ? (
         <Avatar name={user.name} size="sm" className="size-10 text-sm md:size-8 md:text-xs" />
       ) : (
@@ -170,15 +161,15 @@ function OwnerHeader({ tabHref, onNewRequest }: { tabHref: (t: OwnerTab) => stri
           </ul>
         </nav>
         <div className="flex items-center gap-1">
+          <HeaderRequestChip />
           <button
             type="button"
             onClick={onNewRequest}
-            className="mr-2 flex h-10 items-center gap-1.5 rounded-full bg-lime px-4 text-sm font-semibold text-ink transition-colors hover:bg-lime-deep"
+            className="ml-2 mr-2 flex h-10 items-center gap-1.5 rounded-full bg-lime px-4 text-sm font-semibold text-ink transition-colors hover:bg-lime-deep"
           >
             <Plus className="size-4" aria-hidden /> Nueva solicitud
           </button>
-          <BellLink unread={unread} />
-          <AccountLink />
+          <AccountLink unread={unread} />
         </div>
       </div>
     </header>
@@ -187,7 +178,6 @@ function OwnerHeader({ tabHref, onNewRequest }: { tabHref: (t: OwnerTab) => stri
 
 const TAB_W = 60; // px per tab: the pill hugs its icons
 const PILL_PAD = 4; // px around the tabs: the highlight sits close to the pill's edge
-const ROUND = 'float-pill pointer-events-auto flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-full';
 
 /**
  * The floating pill of the phone navigation: icons only, a white pill with a soft halo, and a
@@ -232,17 +222,7 @@ function FloatingTabs({ tabs, className, hidden }: { hidden?: boolean; tabs: { k
   );
 }
 
-function OwnerBottomNav({
-  tabHref,
-  onNewRequest,
-  condensed,
-  expand,
-}: {
-  tabHref: (t: OwnerTab) => string;
-  onNewRequest: () => void;
-  condensed: boolean;
-  expand: () => void;
-}) {
+function OwnerBottomNav({ tabHref, condensed, expand }: { tabHref: (t: OwnerTab) => string; condensed: boolean; expand: () => void }) {
   const { pathname } = useLocation();
   const current = OWNER_TABS.find((t) => t.owns(pathname));
   const CurrentIcon = current?.icon ?? Menu;
@@ -274,16 +254,8 @@ function OwnerBottomNav({
             <CurrentIcon className="size-[26px] text-[#3b3b3b]" strokeWidth={2} aria-hidden />
           </button>
         </div>
-        <button
-          type="button"
-          onClick={onNewRequest}
-          aria-label="Nueva solicitud"
-          className={cx(ROUND, 'text-ink transition-transform active:scale-95')}
-          style={{ backgroundColor: 'var(--color-lime)' }}
-          data-testid="new-request-fab"
-        >
-          <Plus className="size-7" strokeWidth={2.25} aria-hidden />
-        </button>
+        {/* The Request Hub: a +, or the status of your active requests. */}
+        <FloatingRequestHub />
       </div>
     </div>
   );
@@ -427,7 +399,7 @@ function useRememberPlace(userId: string | undefined, mode: AppMode) {
 
 export function AppShell({ children }: { children?: ReactNode }) {
   const [switcherOpen, setSwitcherOpen] = useState(false);
-  const { newRequestOpen, openNewRequest, closeNewRequest } = useNavUi();
+  const openNewRequest = useNavUi((s) => s.openNewRequest);
   const user = useCurrentUser();
   const mode = useMode();
   const isPro = mode === 'mechanic';
@@ -457,12 +429,12 @@ export function AppShell({ children }: { children?: ReactNode }) {
         <ErrorBoundary>{children ?? <Outlet />}</ErrorBoundary>
       </main>
       <Footer />
-      {isPro ? <MechanicBottomTabs items={mechanicItems} /> : showOwnerBar && <OwnerBottomNav tabHref={tabHref} onNewRequest={openNewRequest} condensed={condensed} expand={expand} />}
+      {isPro ? <MechanicBottomTabs items={mechanicItems} /> : showOwnerBar && <OwnerBottomNav tabHref={tabHref} condensed={condensed} expand={expand} />}
       <Toaster />
       <AccountSwitcherDialog open={switcherOpen} onClose={() => setSwitcherOpen(false)} />
       {!isPro && (
         <>
-          <NewRequestSheet open={newRequestOpen} onClose={closeNewRequest} />
+          <RequestHubOverlay />
         </>
       )}
     </div>

@@ -1,6 +1,6 @@
 import { useParams } from 'react-router-dom';
 import { ArrowRight, Check, FlaskConical, Repeat } from 'lucide-react';
-import { bikeTypeLabel, categoryLabel, locationShort, modeLabel } from '@/domain/catalog';
+import { bikeTypeLabel, categoryLabel, locationShort, modeLabel, bikeLabel } from '@/domain/catalog';
 import { caseHref } from '@/domain/logic/cases';
 import { useApp } from '@/state/store';
 import { useCurrentUser } from '@/state/selectors';
@@ -67,7 +67,7 @@ export function RequestSentPage() {
         <dl className="mt-1 divide-y divide-line">
           <KeyValue label="Servicio">{categoryLabel(request.category)}</KeyValue>
           <KeyValue label="Bici">
-            {request.bike.brand} {request.bike.model} · {bikeTypeLabel(request.bike.type)}
+            {bikeLabel(request.bike)} · {bikeTypeLabel(request.bike.type)}
           </KeyValue>
           <KeyValue label="Dónde">
             {modeLabel(request.mode)} · {locationShort(request.location)}

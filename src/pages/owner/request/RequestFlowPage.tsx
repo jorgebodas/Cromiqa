@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Info, Send, X } from 'lucide-react';
-import type { ID } from '@/domain/types';
+import type { ID, ServiceRequest } from '@/domain/types';
 import { DomainError, MAX_RECIPIENTS_PER_SEND } from '@/domain/logic/requests';
 import { matchProviders } from '@/domain/logic/matching';
 import { useApp, type RequestDraft } from '@/state/store';
@@ -11,13 +11,30 @@ import { useSwitchAccount } from '@/components/layout/AccountSwitcher';
 import { Avatar, Button, ChoiceCard, FieldError, IconButton, cx } from '@/components/ui';
 import { BackLink } from '@/components/layout/BackLink';
 import { parseSearchParams } from '../searchParams';
-import { LAST_STEP, STEP_TITLES, draftBikeType, draftToInput, firstInvalidStep, validateStep, type DraftErrors } from './draftValidation';
+import { LAST_STEP, STEP, STEP_TITLES, draftBikeType, draftToInput, firstInvalidStep, validateStep, type DraftErrors } from './draftValidation';
 import { StepProviders } from './StepProviders';
-import { StepBike, StepProblem, StepReview, StepWhereWhen } from './Steps';
+import { StepBike, StepProblem, StepReview, StepWhen, StepWhere } from './Steps';
+import { StepPhotos } from './StepPhotos';
 
-export function RequestFlowPage() {
-  const [params] = useSearchParams();
-  const navigate = useNavigate();
+export interface RequestFormProps {
+  /** `page`: the /solicitar screen. `overlay`: inside the Request Hub panel. */
+  variant: 'page' | 'overlay';
+  /** Mechanic-first: the provider the request started from (preselected, narrows choices). */
+  originMechanicId?: ID;
+  /** Search filters to prefill from (page entry from a provider profile). */
+  params?: URLSearchParams;
+  /** Called once the invitations are created. */
+  onSent: (sent: ServiceRequest[]) => void;
+  /** Overlay only: leave the form from its first step (back to the hub overview). */
+  onBackFromStart?: () => void;
+}
+
+/**
+ * The request flow: need → bike → photos → where → when → mechanics → review. Shared by the
+ * /solicitar page and the Request Hub overlay; the draft lives in the store either way.
+ */
+export function RequestForm({ variant, originMechanicId, params = new URLSearchParams(), onSent, onBackFromStart }: RequestFormProps) {
+  const overlay = variant === 'overlay';
   const draft = useApp((s) => s.draft);
   const setDraft = useApp((s) => s.setDraft);
   const resetDraft = useApp((s) => s.resetDraft);
@@ -30,8 +47,7 @@ export function RequestFlowPage() {
 
   // Mechanic-first: the request starts from a provider's profile (?mecanico=). That provider
   // is preselected and narrows the choices; request-first starts with nobody chosen.
-  const paramMechanic = params.get('mecanico') ?? undefined;
-  const originId = paramMechanic ?? draft.originMechanicId;
+  const originId = originMechanicId ?? draft.originMechanicId;
   const mechanic = useMechanic(originId);
   const mechanics = useApp((s) => s.db.mechanics);
   const reviews = useApp((s) => s.db.reviews);
@@ -97,10 +113,11 @@ export function RequestFlowPage() {
   const goTo = (s: number) => {
     setErrors({});
     // Entering provider selection: drop any choice the request no longer fits.
-    if (s === 3) setDraft({ step: s, mechanicIds: draft.mechanicIds.filter((id) => matches.some((m) => m.mechanic.id === id)) });
+    if (s === STEP.providers) setDraft({ step: s, mechanicIds: draft.mechanicIds.filter((id) => matches.some((m) => m.mechanic.id === id)) });
     else setDraft({ step: s });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    requestAnimationFrame(() => headingRef.current?.focus());
+    if (overlay) headingRef.current?.scrollIntoView({ block: 'start' });
+    else window.scrollTo({ top: 0, behavior: 'smooth' });
+    requestAnimationFrame(() => headingRef.current?.focus({ preventScroll: true }));
   };
 
   const next = () => {
@@ -129,6 +146,7 @@ export function RequestFlowPage() {
       document.getElementById('field-owner')?.focus();
       return;
     }
+    if (submitting) return; // no duplicate submissions
     setSubmitting(true);
     try {
       // Guests pick a demo owner here: in production this would be a light sign-up.
@@ -138,7 +156,7 @@ export function RequestFlowPage() {
       const sent = await createRequest(input);
       resetDraft();
       toast(sent.length === 1 ? `Solicitud enviada a ${recipients[0]?.name}` : `Solicitud enviada a ${sent.length} mecánicos`);
-      navigate(`/solicitudes/${sent[0]!.caseId}/enviada`, { replace: true });
+      onSent(sent);
     } catch (err) {
       setSubmitError(err instanceof DomainError ? err.message : 'No se pudo enviar la solicitud. Inténtalo de nuevo.');
       setSubmitting(false);
@@ -187,27 +205,10 @@ export function RequestFlowPage() {
 
   const stepProps = { draft, set: setDraft, mechanic, errors };
 
-  return (
-    <div className="container-page py-6 sm:py-10">
-      <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1fr_320px]">
-        <div className="min-w-0 max-w-2xl">
-          {/* Focused flow: no tab bar here, just back, close and progress. The draft is kept either way. */}
-          <div className="mb-6 flex items-center justify-between gap-3">
-            <BackLink fallback={mechanic ? `/mecanicos/${mechanic.id}` : '/'}>{mechanic ? `Perfil de ${mechanic.name.split(' ')[0]}` : 'Volver'}</BackLink>
-            <IconButton
-              label="Salir de la solicitud"
-              onClick={() => {
-                toast('Guardamos tu solicitud. Puedes seguir con ella desde «Nueva solicitud».', 'info');
-                navigate('/');
-              }}
-              className="-mr-2"
-            >
-              <X className="size-5" />
-            </IconButton>
-          </div>
-
+  const body = (
+    <>
           <nav aria-label="Pasos de la solicitud">
-            <ol className="grid grid-cols-5 gap-1.5">
+            <ol className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${STEP_TITLES.length}, minmax(0, 1fr))` }}>
               {STEP_TITLES.map((title, i) => (
                 <li key={title}>
                   <button
@@ -219,7 +220,7 @@ export function RequestFlowPage() {
                     className="group w-full text-left disabled:cursor-default"
                   >
                     <span className={cx('block h-1.5 rounded-full transition-colors', i < step ? 'bg-ink' : i === step ? 'bg-lime' : 'bg-line')} />
-                    <span className={cx('mt-2 hidden text-xs sm:block', i <= step ? 'font-medium text-ink' : 'text-muted', i < step && 'group-hover:underline')}>
+                    <span className={cx('mt-2 hidden text-xs', !overlay && 'lg:block', i <= step ? 'font-medium text-ink' : 'text-muted', i < step && 'group-hover:underline')}>
                       {title}
                     </span>
                   </button>
@@ -228,17 +229,19 @@ export function RequestFlowPage() {
             </ol>
           </nav>
 
-          <p className="eyebrow mt-8">Paso {step + 1} de {STEP_TITLES.length}</p>
-          <h1 ref={headingRef} tabIndex={-1} className="mt-1 text-3xl font-extrabold outline-none sm:text-4xl">
-            {step === 1 && draft.category === 'inspection' ? 'La bici que quieres comprar' : STEP_TITLES[step]}
+          <p className={cx('eyebrow', overlay ? 'mt-6' : 'mt-8')}>Paso {step + 1} de {STEP_TITLES.length}</p>
+          <h1 ref={headingRef} tabIndex={-1} className={cx('mt-1 scroll-mt-4 font-extrabold outline-none', overlay ? 'text-2xl' : 'text-3xl sm:text-4xl')}>
+            {step === STEP.bike && draft.category === 'inspection' ? 'La bici que quieres comprar' : STEP_TITLES[step]}
           </h1>
 
           <div className="mt-8" key={step}>
             <div className="animate-fade-in">
-              {step === 0 && <StepProblem {...stepProps} />}
-              {step === 1 && <StepBike {...stepProps} bikes={bikes} user={owner} guestHint={guestHint} />}
-              {step === 2 && <StepWhereWhen {...stepProps} />}
-              {step === 3 && (
+              {step === STEP.need && <StepProblem {...stepProps} />}
+              {step === STEP.bike && <StepBike {...stepProps} bikes={bikes} user={owner} guestHint={guestHint} />}
+              {step === STEP.photos && <StepPhotos draft={draft} set={setDraft} error={errors.photos} />}
+              {step === STEP.where && <StepWhere {...stepProps} />}
+              {step === STEP.when && <StepWhen {...stepProps} />}
+              {step === STEP.providers && (
                 <StepProviders
                   matches={matches}
                   selected={draft.mechanicIds}
@@ -250,7 +253,7 @@ export function RequestFlowPage() {
                   error={errors.mechanicIds}
                 />
               )}
-              {step === 4 && <StepReview draft={draft} recipients={recipients} bikes={bikes} goTo={goTo} ownerPicker={ownerPicker} />}
+              {step === STEP.review && <StepReview draft={draft} recipients={recipients} bikes={bikes} goTo={goTo} ownerPicker={ownerPicker} />}
             </div>
           </div>
 
@@ -262,26 +265,49 @@ export function RequestFlowPage() {
           )}
           {submitError && <div className="mt-4"><FieldError>{submitError}</FieldError></div>}
 
-          <div className="mt-8 flex items-center justify-between gap-3 border-t border-line pt-6">
-            {step > 0 ? (
-              <Button variant="ghost" onClick={() => goTo(step - 1)} icon={<ArrowLeft className="size-4" aria-hidden />}>
-                Atrás
-              </Button>
+          {/* Primary action. In the hub panel it's a sticky lime pill that becomes "Enviar solicitud" on the last step. */}
+          <div
+            className={cx(
+              'flex items-center justify-between gap-3',
+              overlay ? 'sticky bottom-0 z-10 -mx-5 mt-auto bg-gradient-to-t from-paper from-70% to-transparent px-5 pb-1 pt-6 sm:-mx-6 sm:px-6' : 'mt-8 border-t border-line pt-6',
+            )}
+          >
+            {step > 0 || (overlay && onBackFromStart) ? (
+              overlay ? (
+                <button
+                  type="button"
+                  onClick={() => (step > 0 ? goTo(step - 1) : onBackFromStart?.())}
+                  aria-label="Atrás"
+                  className="float-pill flex size-14 shrink-0 items-center justify-center rounded-full text-ink active:scale-95"
+                >
+                  <ArrowLeft className="size-5" aria-hidden />
+                </button>
+              ) : (
+                <Button variant="ghost" onClick={() => goTo(step - 1)} icon={<ArrowLeft className="size-4" aria-hidden />}>
+                  Atrás
+                </Button>
+              )
             ) : (
               <span />
             )}
             {step < LAST_STEP ? (
-              <Button onClick={next} size="lg" icon={<ArrowRight className="order-last size-5" aria-hidden />}>
+              <Button onClick={next} size="lg" className={cx(overlay && 'h-14 flex-1 text-[17px]')} icon={<ArrowRight className="order-last size-5" aria-hidden />}>
                 Continuar
               </Button>
             ) : (
-              <Button onClick={submit} size="lg" loading={submitting} icon={<Send className="size-4" aria-hidden />}>
+              <Button onClick={submit} size="lg" loading={submitting} disabled={submitting} className={cx(overlay && 'h-14 flex-1 text-[17px]')} icon={<Send className="size-4" aria-hidden />}>
                 Enviar solicitud
               </Button>
             )}
           </div>
-        </div>
+    </>
+  );
 
+  // In the panel the primary action stays pinned to the bottom, even on short steps.
+  if (overlay) return <div className="flex min-h-full flex-col pb-2">{body}</div>;
+  return (
+    <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1fr_320px]">
+      <div className="min-w-0 max-w-2xl">{body}</div>
         <aside className="hidden lg:block">
           <div className="surface sticky top-24 p-5">
             <p className="font-bold">{recipients.length ? (recipients.length === 1 ? 'Se enviará a' : `Se enviará a ${recipients.length} mecánicos`) : 'Cómo funciona'}</p>
@@ -305,7 +331,39 @@ export function RequestFlowPage() {
             </ul>
           </div>
         </aside>
+    </div>
+  );
+}
+
+/** /solicitar: the request form as its own focused screen (mechanic-first entry and deep links). */
+export function RequestFlowPage() {
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
+  const toast = useApp((s) => s.toast);
+  const draft = useApp((s) => s.draft);
+  const mechanic = useMechanic(params.get('mecanico') ?? draft.originMechanicId);
+  return (
+    <div className="container-page py-6 sm:py-10">
+      {/* Focused flow: no tab bar here, just back, close and progress. The draft is kept either way. */}
+      <div className="mb-6 flex max-w-2xl items-center justify-between gap-3">
+        <BackLink fallback={mechanic ? `/mecanicos/${mechanic.id}` : '/'}>{mechanic ? `Perfil de ${mechanic.name.split(' ')[0]}` : 'Volver'}</BackLink>
+        <IconButton
+          label="Salir de la solicitud"
+          onClick={() => {
+            toast('Guardamos tu solicitud. Puedes seguir con ella desde «Nueva solicitud».', 'info');
+            navigate('/');
+          }}
+          className="-mr-2"
+        >
+          <X className="size-5" />
+        </IconButton>
       </div>
+      <RequestForm
+        variant="page"
+        originMechanicId={params.get('mecanico') ?? undefined}
+        params={params}
+        onSent={(sent) => navigate(`/solicitudes/${sent[0]!.caseId}/enviada`, { replace: true })}
+      />
     </div>
   );
 }

@@ -30,3 +30,14 @@ for (const path of MECHANIC) {
     await expectNoViolations(page);
   });
 }
+
+test('a11y request hub panel (overview and new request)', async ({ page }) => {
+  await freshDemo(page, 'u-pablo');
+  const chip = page.getByTestId(page.viewportSize()!.width < 768 ? 'request-hub-chip' : 'header-hub-chip');
+  await chip.click();
+  await expect(page.getByTestId('hub-overview')).toBeVisible();
+  await expectNoViolations(page);
+  await page.getByTestId('request-hub').getByRole('button', { name: 'Nueva solicitud' }).click();
+  await expect(page.getByTestId('request-hub').getByText('Paso 1 de 7')).toBeVisible();
+  await expectNoViolations(page);
+});

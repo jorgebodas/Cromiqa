@@ -327,6 +327,30 @@ address (or FormSubmit's alias if provided) and deploy.
   - Fixes: secondary text contrast (`muted` #737373 → #6b6b6b), struck-through labels, step-progress buttons with names.
   - Not a substitute for testing with a screen reader.
 
+## Request Hub (cyclist mode)
+
+The floating **+** became a context-aware control, bottom-right of the phone navigation
+(`src/components/hub/RequestHub.tsx`, state derived in `src/domain/logic/hub.ts`):
+
+- **Nothing active:** the lime **+**; it opens the new-request form in the panel.
+- **One active request:** a dark pill with its status (*2 presupuestos*, *Cita pendiente*,
+  *Confirmar trabajo*, *En curso*, *Esperando respuesta*…) and the service; it opens that request.
+- **Several:** *3 solicitudes · 2 pendientes*; it opens the list.
+- **Priority:** incident → new quotes or a question → appointment to confirm → work to confirm → in
+  progress → waiting for answers. Completed and cancelled requests are never shown as active.
+- **Panel:** a large bottom sheet on phones, a right side panel on desktop (where a chip sits next
+  to *Nueva solicitud*). It shows the overview, a request's summary (mechanics and their answers,
+  appointment, photos) or the new-request form, without leaving the page.
+  - *Nueva solicitud* is always in it.
+  - Closing a started request asks to save the draft or discard it.
+  - Escape, backdrop, focus trap and safe areas are handled.
+- **Request form** (`RequestForm`, shared with `/solicitar`): need → bike (brand/model optional,
+  garage optional) → **photos** (optional, up to 3; compressed in the browser for the demo, a real
+  backend would upload originals) → where → when (optional, with urgency) → mechanics (up to 5) →
+  review → send.
+- **Notifications** moved inside the avatar: no bell; the avatar shows the unread count and
+  *Perfil → Notificaciones* lists them.
+
 ## Navigation (cyclist, earlier notes)
 
 

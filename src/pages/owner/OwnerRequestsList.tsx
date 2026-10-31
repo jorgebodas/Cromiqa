@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Bike, ChevronRight, ClipboardList } from 'lucide-react';
 import type { ServiceRequest } from '@/domain/types';
-import { categoryLabel } from '@/domain/catalog';
+import { categoryLabel, bikeLabel } from '@/domain/catalog';
 import { currentProposal } from '@/domain/logic/requests';
 import { CASE_STATUS_LABEL, caseHref, caseStatus, groupCases, leadThread, type CaseStatus } from '@/domain/logic/cases';
 import { formatDate, formatPrice, relativeTime } from '@/domain/utils';
@@ -43,7 +43,7 @@ function CaseCard({ threads, mechanicName }: { threads: ServiceRequest[]; mechan
       </div>
       <p className="mt-2 inline-flex items-center gap-1.5 text-sm text-muted">
         <Bike className="size-4" aria-hidden />
-        {lead.bike.brand} {lead.bike.model}
+        {bikeLabel(lead.bike)}
       </p>
       <div className="mt-3 flex items-center justify-between gap-3 border-t border-line pt-3 text-sm">
         <span className={needsMe ? 'font-semibold' : 'text-muted'}>{summary}</span>

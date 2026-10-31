@@ -64,7 +64,7 @@ function Updates() {
 function Inner() {
   return (
     <>
-      <ScreenHeader title="Notificaciones" back="/" />
+      <ScreenHeader title="Notificaciones" back="/cuenta" />
       <div className="container-page max-w-3xl pb-8 sm:pb-10">
         <Updates />
       </div>

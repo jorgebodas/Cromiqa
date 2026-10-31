@@ -179,11 +179,15 @@ export interface InspectionDetails {
   listingReference?: string;
 }
 
+export type RequestUrgency = 'none' | 'week' | 'urgent';
+
 export interface RequestAvailability {
   preferredDate?: ISODate;
   timeSlots: TimeSlot[];
   flexible: boolean;
   notes?: string;
+  /** How soon the cyclist needs it. A preference, never a promised slot. */
+  urgency?: RequestUrgency;
 }
 
 /** `withdrawn` also marks a version replaced by a revision; `not_selected` another quote won. */
@@ -283,6 +287,8 @@ export interface ServiceRequest {
   location: LocationId;
   mode: ServiceMode;
   availability: RequestAvailability;
+  /** Photos the cyclist attached (shared by every invitation of the request). */
+  photos?: string[];
   status: RequestStatus;
   /** Closed quotes, oldest first: each revision adds a version and withdraws the previous one. */
   proposals: Proposal[];
@@ -322,6 +328,8 @@ export interface NewRequestInput {
   location: LocationId;
   mode: ServiceMode;
   availability: RequestAvailability;
+  /** Optional photos of the problem (compressed JPEG data URLs in the demo). */
+  photos?: string[];
 }
 
 export interface ProposalInput {

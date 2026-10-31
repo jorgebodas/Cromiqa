@@ -1,7 +1,7 @@
-import { useNavigate } from 'react-router-dom';
 import { CircleHelp, ScanSearch, Settings2, Wrench } from 'lucide-react';
 import type { ServiceCategory } from '@/domain/types';
 import { useApp } from '@/state/store';
+import { useNavUi } from '@/state/ui';
 
 export const CATEGORY_ICONS: Record<ServiceCategory, typeof Wrench> = {
   repair: Wrench,
@@ -19,14 +19,14 @@ export const NEED_OPTIONS: { id: ServiceCategory; label: string }[] = [
 ];
 
 /**
- * Request-first: starts a new request for a need. The flow asks what's wrong, which bike and
- * where, then shows matching providers to choose from.
+ * Request-first: starts a new request for a need, in the Request Hub. The flow asks what's
+ * wrong, which bike and where, then shows matching providers to choose from.
  */
 export function useStartRequest() {
-  const navigate = useNavigate();
   const resetDraft = useApp((s) => s.resetDraft);
+  const openNewRequest = useNavUi((s) => s.openNewRequest);
   return (category: ServiceCategory) => {
     resetDraft({ category });
-    navigate('/solicitar');
+    openNewRequest();
   };
 }

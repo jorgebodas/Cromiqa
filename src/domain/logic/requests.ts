@@ -215,6 +215,7 @@ export function caseThreads(db: Pick<DemoDatabase, 'requests'>, caseId: ID): Ser
 }
 
 export const MAX_RECIPIENTS_PER_SEND = 5;
+export const MAX_PHOTOS = 3;
 
 /** The request's own fields, independent of who receives it. */
 export function validateRequestInput(input: NewRequestInput, db: DemoDatabase): Record<string, string> {
@@ -231,10 +232,8 @@ export function validateRequestInput(input: NewRequestInput, db: DemoDatabase): 
   }
   if (!db.users.some((u) => u.id === input.ownerId)) errors.ownerId = 'Elige una cuenta.';
   if (input.description.trim().length < 10) errors.description = 'Describe el problema con al menos 10 caracteres.';
-  if (!input.bike.brand.trim()) errors.brand = 'Indica la marca.';
-  if (!input.bike.model.trim()) errors.model = 'Indica el modelo.';
-  if (input.availability.timeSlots.length === 0 && !input.availability.flexible)
-    errors.timeSlots = 'Elige al menos una franja o marca que tienes flexibilidad.';
+  // Brand and model are optional (the bike type is enough); timing preferences too.
+  if ((input.photos?.length ?? 0) > MAX_PHOTOS) errors.photos = `Puedes adjuntar ${MAX_PHOTOS} fotos como máximo.`;
   return errors;
 }
 
@@ -320,6 +319,7 @@ export function createRequest(
     location: input.location,
     mode: input.mode,
     availability: input.availability,
+    photos: input.photos?.length ? input.photos : undefined,
   };
   const requests = invitationsFor(db, base, [...new Set(input.mechanicIds)], now);
   return { db: { ...db, bikes, requests: [...requests, ...db.requests] }, requests };

@@ -49,7 +49,8 @@ test.describe('Navegación', () => {
     const links = nav.getByRole('link');
     await expect(links).toHaveCount(3);
     for (const [i, name] of ['Inicio', 'Mecánicos', 'Solicitudes'].entries()) await expect(links.nth(i)).toHaveAccessibleName(name);
-    await expect(mobile ? page.getByTestId('new-request-fab') : page.getByRole('button', { name: 'Nueva solicitud' }).first()).toBeVisible();
+    // Ana has active requests: the Request Hub shows their status instead of a bare +.
+    await expect(mobile ? page.getByTestId('request-hub-chip') : page.getByRole('button', { name: 'Nueva solicitud' }).first()).toBeVisible();
 
     await nav.getByRole('link', { name: 'Solicitudes' }).click();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Solicitudes');
@@ -71,17 +72,20 @@ test.describe('Navegación', () => {
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Garaje');
   });
 
-  test('notifications badge counts unread updates and clears once seen', async ({ page }) => {
+  test('notifications live inside the avatar: the badge counts unread updates and clears once seen', async ({ page }) => {
     await freshDemo(page, 'u-ana');
-    const bell = page.getByTestId('activity-link').filter({ visible: true });
-    await expect(bell).toHaveAttribute('aria-label', /sin leer/);
-    await bell.click();
+    await expect(page.getByTestId('activity-link')).toHaveCount(0); // no bell any more
+    const avatar = page.getByTestId('account-link').filter({ visible: true });
+    await expect(avatar).toHaveAttribute('aria-label', /sin leer/);
+    await avatar.click();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Perfil');
+    await page.getByRole('link', { name: /^Notificaciones/ }).click();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Notificaciones');
     await expect(page.getByTestId('updates').getByRole('link').first()).toBeVisible();
     await page.goto('./#/');
-    await expect(bell).toHaveAttribute('aria-label', 'Notificaciones');
+    await expect(page.getByTestId('account-link').filter({ visible: true })).toHaveAttribute('aria-label', 'Tu perfil');
     await page.reload();
-    await expect(page.getByTestId('activity-link').filter({ visible: true })).toHaveAttribute('aria-label', 'Notificaciones');
+    await expect(page.getByTestId('account-link').filter({ visible: true })).toHaveAttribute('aria-label', 'Tu perfil');
   });
 
   test('mechanic: Inicio · Solicitudes · Servicios, without +', async ({ page }) => {
@@ -181,33 +185,106 @@ test.describe('Navegación', () => {
     await expect(page.getByTestId('mechanic-card').filter({ hasText: 'Pablo Serrano' })).toHaveCount(1);
   });
 
-  test('new request: + opens the four needs and starts the request flow', async ({ page }) => {
-    await freshDemo(page, 'u-ana');
+  test('request hub: a + with nothing active opens the new request in a panel, without leaving the page', async ({ page }) => {
+    await freshDemo(page, 'u-carlos'); // Carlos in cyclist mode has no requests
+    await page.goto('./#/cuenta');
+    await page.getByRole('radio', { name: 'Ciclista' }).click();
+    await page.goto('./#/');
     const mobile = isMobile(page);
     if (mobile) await page.getByTestId('new-request-fab').click();
     else await page.getByRole('button', { name: 'Nueva solicitud' }).first().click();
-    const sheet = page.getByRole('dialog', { name: '¿Qué necesita tu bici?' });
-    await expect(sheet.getByRole('list', { name: 'Tipo de servicio' }).getByRole('button')).toHaveText([
-      'Reparación',
-      'Mantenimiento',
-      'Inspección antes de comprar',
-      'No sé qué le pasa',
-    ]);
-    // Request first: the need opens the flow; mechanics are chosen in step 4.
-    await sheet.getByRole('button', { name: 'Mantenimiento' }).click();
-    await expect(page).toHaveURL(/#\/solicitar/);
-    await expect(page.getByRole('radio', { name: /Mantenimiento/ })).toBeChecked();
-    // Focused flow: no tab bar and no + while filling it in.
-    await expect(page.getByTestId('new-request-fab')).toHaveCount(0);
-    await expect(page.getByRole('navigation', { name: 'Principal (móvil)' })).toHaveCount(0);
+    const hub = page.getByTestId('request-hub');
+    await expect(hub.getByRole('heading', { name: 'Nueva solicitud' })).toBeVisible();
+    await expect(hub.getByText('Paso 1 de 7')).toBeVisible();
+    await expect(page).toHaveURL(/#\/$/); // same page underneath
+    if (!mobile) {
+      // Desktop: a side panel on the right.
+      const panel = hub.getByRole('dialog');
+      await expect.poll(async () => Math.round((await panel.boundingBox())!.x + (await panel.boundingBox())!.width)).toBe(page.viewportSize()!.width);
+      expect((await panel.boundingBox())!.width).toBeLessThanOrEqual(480);
+    }
 
-    // Leaving keeps the draft, and + offers to continue it.
-    await page.getByRole('textbox').first().fill('Revisión completa antes del verano.');
-    await page.getByRole('button', { name: 'Salir de la solicitud' }).click();
+    // Closing with changes asks first; the draft can be kept or discarded.
+    await hub.getByLabel('Describe el problema').fill('Revisión completa antes del verano.');
+    await page.keyboard.press('Escape');
+    const confirm = page.getByRole('dialog', { name: '¿Salir de la nueva solicitud?' });
+    await confirm.getByRole('button', { name: 'Guardar borrador' }).click();
+    await expect(hub).toHaveCount(0);
     if (mobile) await page.getByTestId('new-request-fab').click();
     else await page.getByRole('button', { name: 'Nueva solicitud' }).first().click();
-    await page.getByRole('button', { name: /Continuar la solicitud en curso/ }).click();
-    await expect(page.getByRole('textbox').first()).toHaveValue('Revisión completa antes del verano.');
+    await expect(hub.getByLabel('Describe el problema')).toHaveValue('Revisión completa antes del verano.');
+    await hub.getByRole('button', { name: 'Cerrar' }).click();
+    await page.getByRole('dialog', { name: '¿Salir de la nueva solicitud?' }).getByRole('button', { name: 'Descartar' }).click();
+    if (mobile) await page.getByTestId('new-request-fab').click();
+    else await page.getByRole('button', { name: 'Nueva solicitud' }).first().click();
+    await expect(hub.getByLabel('Describe el problema')).toHaveValue('');
+  });
+
+  test('request hub: several active requests show a count; the panel lists them, opens one, and creates more', async ({ page }) => {
+    await freshDemo(page, 'u-pablo');
+    const mobile = isMobile(page);
+    const chip = mobile ? page.getByTestId('request-hub-chip') : page.getByTestId('header-hub-chip');
+    await expect(chip).toContainText('2 solicitudes');
+    await expect(chip).toContainText('1 pendiente');
+    await chip.click();
+    const hub = page.getByTestId('request-hub');
+    // Pending actions first: the inspection with two quotes.
+    await expect(hub.getByTestId('hub-item').first()).toContainText('2 presupuestos');
+    await expect(hub.getByTestId('hub-item').first()).toContainText('Compara y elige uno');
+    await hub.getByTestId('hub-item').first().click();
+    await expect(hub.getByTestId('hub-detail')).toContainText('Carlos Ortega');
+    await expect(hub.getByTestId('hub-detail')).toContainText('Nerea Campos');
+    await hub.getByRole('button', { name: 'Volver a tus solicitudes' }).click();
+    await hub.getByRole('button', { name: 'Nueva solicitud' }).click();
+    await expect(hub.getByText('Paso 1 de 7')).toBeVisible();
+    // From the overview, back on the first step returns to the list.
+    await hub.getByRole('button', { name: 'Atrás' }).click();
+    await expect(hub.getByTestId('hub-overview')).toBeVisible();
+    await hub.getByTestId('hub-item').first().click();
+    await hub.getByRole('button', { name: 'Ver y responder' }).click();
+    await expect(hub).toHaveCount(0);
+    await expect(page.getByTestId('case-status')).toHaveText('Propuestas recibidas');
+  });
+
+  test('request hub: one active request shows its status; photos can be attached, previewed and removed', async ({ page }) => {
+    await freshDemo(page, 'u-carlos');
+    await page.goto('./#/cuenta');
+    await page.getByRole('radio', { name: 'Ciclista' }).click();
+    await page.goto('./#/');
+    const mobile = isMobile(page);
+    if (mobile) await page.getByTestId('new-request-fab').click();
+    else await page.getByRole('button', { name: 'Nueva solicitud' }).first().click();
+    const hub = page.getByTestId('request-hub');
+    await hub.getByText('Mantenimiento', { exact: true }).click();
+    await hub.getByLabel('Describe el problema').fill('Puesta a punto y ruido en el pedalier.');
+    await hub.getByRole('button', { name: 'Continuar' }).click();
+    await hub.locator('label', { hasText: 'Carretera' }).first().click();
+    await hub.getByRole('button', { name: 'Continuar' }).click();
+    // A small valid PNG.
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFklEQVR42mNk+M9Qz0AEYBxVSF+FAP5FDvcfRYWgAAAAAElFTkSuQmCC', 'base64');
+    await hub.getByTestId('photo-input').setInputFiles([{ name: 'a.png', mimeType: 'image/png', buffer: png }, { name: 'b.png', mimeType: 'image/png', buffer: png }]);
+    await expect(hub.getByTestId('photo-previews').getByRole('img')).toHaveCount(2);
+    await hub.getByRole('button', { name: 'Quitar foto 2' }).click();
+    await expect(hub.getByTestId('photo-previews').getByRole('img')).toHaveCount(1);
+    await hub.getByTestId('photo-input').setInputFiles({ name: 'doc.txt', mimeType: 'text/plain', buffer: Buffer.from('x') });
+    await expect(hub.getByText('Solo se admiten imágenes')).toBeVisible();
+    await hub.getByRole('button', { name: 'Continuar' }).click();
+    await hub.getByLabel('Zona', { exact: true }).selectOption('madrid-moratalaz');
+    await hub.locator('label', { hasText: 'En taller' }).click();
+    await hub.getByRole('button', { name: 'Continuar' }).click();
+    await hub.getByRole('button', { name: 'Continuar' }).click(); // timing is optional
+    await hub.getByTestId('provider-option').first().click();
+    await hub.getByRole('button', { name: 'Continuar' }).click();
+    await expect(hub.getByTestId('request-photos').getByRole('img')).toHaveCount(1);
+    await hub.getByRole('button', { name: 'Enviar solicitud' }).click();
+    await expect(hub).toHaveCount(0);
+    // The + became the request's status.
+    const chip = mobile ? page.getByTestId('request-hub-chip') : page.getByTestId('header-hub-chip');
+    await expect(chip).toContainText('Esperando respuesta');
+    await expect(chip).toContainText('Mantenimiento');
+    await chip.click();
+    await expect(hub.getByTestId('hub-detail')).toBeVisible();
+    await expect(hub.getByTestId('request-photos').getByRole('img')).toHaveCount(1);
   });
 
   test('tabs remember their state, and back works from a direct link', async ({ page }) => {
@@ -237,7 +314,7 @@ test.describe('Navegación', () => {
     await expect.poll(async () => (await condensed.boundingBox())?.width).toBeLessThanOrEqual(68); // one circle
     // The large title has shrunk into the pinned bar, which keeps its buttons.
     await expect(page.getByTestId('screen-bar')).toContainText('Mecánicos');
-    await expect(page.getByTestId('activity-link').filter({ visible: true })).toBeVisible();
+    await expect(page.getByTestId('account-link').filter({ visible: true })).toBeVisible();
     // Tapping the circle brings the full bar back.
     await page.mouse.wheel(0, 300);
     await expect.poll(async () => (await condensed.boundingBox())?.width).toBeLessThanOrEqual(68);
@@ -284,20 +361,24 @@ test.describe('Validación de formularios', () => {
     await page.getByRole('button', { name: 'Continuar' }).click();
     await expect(page.getByText('Elige el tipo de servicio.')).toBeVisible();
     await expect(page.getByText('Describe el problema con al menos 10 caracteres.')).toBeVisible();
-    // Andrés offers no home service: the option is disabled
     await page.getByText('Reparación', { exact: true }).click();
     await page.getByLabel('Describe el problema').fill('Pinchazo en la rueda trasera.');
     await page.getByRole('button', { name: 'Continuar' }).click();
     await page.locator('label', { hasText: 'Otra bici' }).click();
     await page.getByRole('button', { name: 'Continuar' }).click();
-    await expect(page.getByText('Indica la marca.')).toBeVisible();
+    await expect(page.getByText('Elige el tipo de bici.')).toBeVisible();
+    // Brand and model are optional.
     await page.locator('label').filter({ hasText: /^Urbana$/ }).click();
-    await page.getByLabel('Marca').fill('Gazelle');
-    await page.getByLabel('Modelo').fill('Esprit');
     await page.getByRole('button', { name: 'Continuar' }).click();
+    await expect(page.getByText('Paso 3 de 7')).toBeVisible();
+    await page.getByRole('button', { name: 'Continuar' }).click();
+    // Andrés offers no home service: the option is disabled
     await expect(page.getByRole('radio', { name: /A domicilio/ })).toBeDisabled();
     await page.getByRole('button', { name: 'Continuar' }).click();
-    await expect(page.getByText('Elige al menos una franja')).toBeVisible();
+    // Timing is optional, but a past date isn't accepted.
+    await page.getByLabel(/Fecha preferida/).fill('2020-01-01');
+    await page.getByRole('button', { name: 'Continuar' }).click();
+    await expect(page.getByText('La fecha no puede estar en el pasado.')).toBeVisible();
   });
 
   test('proposal form rejects a zero price', async ({ page }) => {

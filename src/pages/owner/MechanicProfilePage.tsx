@@ -6,7 +6,7 @@ import { useApp } from '@/state/store';
 import { useCurrentUser, useMechanic, useMechanicRating } from '@/state/selectors';
 import { DemoVerifiedBadge, ModeIndicators } from '@/components/domain/MechanicCard';
 import { Avatar, Badge, Card, DemoTag, EmptyState, LinkButton, Rating, SectionTitle, Stars, cx } from '@/components/ui';
-import { CATEGORY_ICONS } from './HomePage';
+import { CATEGORY_ICONS } from './startRequest';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 
 export function MechanicProfilePage() {

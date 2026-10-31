@@ -15,7 +15,7 @@ import {
 import { formatLongDate, formatPrice, toISODate } from '@/domain/utils';
 import type { RequestDraft } from '@/state/store';
 import { Avatar, Checkbox, ChoiceCard, Field, FieldError, Input, Select, Textarea, ToggleChip, cx } from '@/components/ui';
-import { CATEGORY_ICONS } from '../HomePage';
+import { CATEGORY_ICONS } from '../startRequest';
 import type { DraftErrors } from './draftValidation';
 
 interface StepProps {

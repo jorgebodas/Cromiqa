@@ -162,11 +162,15 @@ test.describe('Navegación', () => {
 });
 
 test.describe('Validación de formularios', () => {
-  test('home search requires a service type', async ({ page }) => {
-    await freshDemo(page);
-    await page.getByRole('button', { name: 'Buscar mecánicos' }).click();
-    await expect(page.getByText('Elige qué necesita tu bici para continuar.')).toBeVisible();
-    await expect(page).not.toHaveURL(/mecanicos/);
+  test('home is a control centre of clickable widgets', async ({ page }) => {
+    await freshDemo(page, 'u-pablo');
+    await expect(page.getByTestId('widget-request')).toContainText('Tienes una propuesta');
+    await expect(page.getByTestId('widget-updates')).toContainText('sin leer');
+    await page.getByTestId('widget-garage').click();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Garaje');
+    await page.goto('./#/');
+    await page.getByTestId('widget-request').click();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Solicitud');
   });
 
   test('request flow blocks invalid steps', async ({ page }) => {

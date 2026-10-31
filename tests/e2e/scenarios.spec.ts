@@ -5,24 +5,16 @@ test.describe('Escenarios A, B y C: reparación de principio a fin', () => {
   test('guest requests a home repair, mechanic proposes, owner accepts, job completes', async ({ page }) => {
     await freshDemo(page);
 
-    // A — problem-first request from the home page
-    const form = page.locator('form', { has: page.getByRole('heading', { name: '¿Qué necesita tu bici?' }) });
-    await form.getByText('Reparación', { exact: true }).click();
-    await form.getByLabel('Cuéntanos qué le pasa').fill('Los cambios saltan al subir y la cadena hace ruido en los piñones grandes.');
-    await form.getByLabel('¿Dónde?').selectOption('rivas');
-    await form.getByLabel('Tipo de bici').selectOption('mtb');
-    await form.getByText('A domicilio', { exact: true }).click();
-    await form.getByRole('button', { name: 'Buscar mecánicos' }).click();
+    // A — start from the need, on the home widget
+    await page.getByTestId('widget-need').getByRole('button', { name: 'Reparación' }).click();
 
     await expect(page).toHaveURL(/mecanicos/);
     await expect(page.getByText('Tu necesidad: Reparación')).toBeVisible();
-    const cards = page.getByTestId('mechanic-card');
-    await expect(cards.first()).toContainText('Carlos Ortega'); // transmission specialist ranked first
-    await expect(page.getByTestId('mechanic-card').filter({ hasText: 'Lucía Ferrer' })).toHaveCount(0);
     await page.getByRole('link', { name: 'Solicitar servicio a Carlos Ortega' }).click();
 
     await expect(page.getByText('Paso 1 de 4')).toBeVisible();
-    await expect(page.getByLabel('Describe el problema')).toHaveValue(/cambios saltan/);
+    await expect(page.getByRole('radio', { name: /Reparación/ })).toBeChecked();
+    await page.getByLabel('Describe el problema').fill('Los cambios saltan al subir y la cadena hace ruido en los piñones grandes.');
     await page.getByRole('button', { name: 'Continuar' }).click();
 
     await expect(page.getByText('Paso 2 de 4')).toBeVisible();
@@ -32,7 +24,8 @@ test.describe('Escenarios A, B y C: reparación de principio a fin', () => {
     await page.getByRole('button', { name: 'Continuar' }).click();
 
     await expect(page.getByText('Paso 3 de 4')).toBeVisible();
-    await expect(page.getByLabel('Zona', { exact: true })).toHaveValue('rivas');
+    await page.getByLabel('Zona', { exact: true }).selectOption('rivas');
+    await page.locator('label', { hasText: 'A domicilio' }).click();
     await expect(page.getByRole('radio', { name: /A domicilio/ })).toBeChecked();
     await page.getByRole('button', { name: /^Tarde/ }).click();
     await page.getByRole('button', { name: 'Continuar' }).click();
@@ -149,16 +142,13 @@ test('Escenario D: especialistas en suspensión a domicilio', async ({ page }) =
 
 test('Escenario E: inspección antes de comprar', async ({ page }) => {
   await freshDemo(page, 'u-pablo');
-  const form = page.locator('form', { has: page.getByRole('heading', { name: '¿Qué necesita tu bici?' }) });
-  await form.getByText('Inspección antes de comprar', { exact: true }).click();
-  await form.getByLabel('Cuéntanos qué le pasa').fill('Quiero comprar una doble suspensión usada en Rivas.');
-  await form.getByLabel('¿Dónde?').selectOption('rivas');
-  await form.getByRole('button', { name: 'Buscar mecánicos' }).click();
+  await page.getByTestId('widget-need').getByRole('button', { name: 'Inspección antes de comprar' }).click();
 
   const cards = page.getByTestId('mechanic-card');
   await expect(cards.filter({ hasText: 'Lucía Ferrer' })).toHaveCount(0); // no inspections
   await page.getByRole('link', { name: 'Solicitar servicio a Nerea Campos' }).click();
   await expect(page.getByRole('radio', { name: /Inspección antes de comprar/ })).toBeChecked();
+  await page.getByLabel('Describe el problema').fill('Quiero comprar una doble suspensión usada en Rivas.');
   await page.getByRole('button', { name: 'Continuar' }).click();
 
   await expect(page.getByRole('heading', { name: 'La bici que quieres comprar' })).toBeVisible();
@@ -169,6 +159,7 @@ test('Escenario E: inspección antes de comprar', async ({ page }) => {
   await page.getByLabel(/¿Dónde está la bici?/).fill('Rivas Urbanizaciones');
   await page.getByRole('button', { name: 'Continuar' }).click();
 
+  await page.getByLabel('Zona', { exact: true }).selectOption('rivas');
   await page.locator('label', { hasText: 'A domicilio' }).click();
   await page.getByText('Tengo flexibilidad').click();
   await page.getByRole('button', { name: 'Continuar' }).click();

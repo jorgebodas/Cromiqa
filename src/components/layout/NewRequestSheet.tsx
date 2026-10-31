@@ -4,16 +4,9 @@ import type { ServiceCategory } from '@/domain/types';
 import { categoryLabel } from '@/domain/catalog';
 import { useApp } from '@/state/store';
 import { useMechanic } from '@/state/selectors';
-import { CATEGORY_ICONS } from '@/pages/owner/HomePage';
-import { buildSearchParams } from '@/pages/owner/searchParams';
+import { CATEGORY_ICONS, NEED_OPTIONS, useStartRequest } from '@/pages/owner/startRequest';
 import { Dialog } from '@/components/ui';
 
-const OPTIONS: { id: ServiceCategory; label: string }[] = [
-  { id: 'repair', label: 'Reparación' },
-  { id: 'maintenance', label: 'Mantenimiento' },
-  { id: 'inspection', label: 'Inspección antes de comprar' },
-  { id: 'diagnosis', label: 'No sé qué le pasa' },
-];
 
 /**
  * "Nueva solicitud", the one global action. Picking a need starts the existing request
@@ -23,15 +16,14 @@ const OPTIONS: { id: ServiceCategory; label: string }[] = [
 export function NewRequestSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const navigate = useNavigate();
   const draft = useApp((s) => s.draft);
-  const resetDraft = useApp((s) => s.resetDraft);
+  const startRequest = useStartRequest();
   const draftMechanic = useMechanic(draft.mechanicId);
   // A request already under way is offered first, so tapping + by accident never loses it.
   const inProgress = draftMechanic && (draft.step > 0 || draft.description.trim().length > 0);
 
   const start = (category: ServiceCategory) => {
     onClose();
-    resetDraft({ category });
-    navigate(`/mecanicos?${buildSearchParams({ category, fromHome: true })}`);
+    startRequest(category);
   };
 
   return (
@@ -56,7 +48,7 @@ export function NewRequestSheet({ open, onClose }: { open: boolean; onClose: () 
         </button>
       )}
       <ul className="space-y-2 pb-2" aria-label="Tipo de servicio">
-        {OPTIONS.map((o) => {
+        {NEED_OPTIONS.map((o) => {
           const Icon = CATEGORY_ICONS[o.id];
           return (
             <li key={o.id}>

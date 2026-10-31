@@ -73,6 +73,8 @@ export interface PortfolioItem {
   bikeType: BikeType;
 }
 
+export type ProfileListing = 'pending_verification' | 'active';
+
 export interface Mechanic {
   id: ID;
   userId: ID;
@@ -100,6 +102,12 @@ export interface Mechanic {
   languages: string[];
   /** Fictional demo state. Cromiqa has not verified any real professional. */
   demoVerified: boolean;
+  /**
+   * Publication state of the professional profile: created as a draft in the onboarding,
+   * submitted for verification, then active (listed, searchable and able to receive requests).
+   * Missing = active (profiles created before verification states existed).
+   */
+  listing?: ProfileListing;
   portfolio: PortfolioItem[];
 }
 

@@ -215,6 +215,7 @@ export function RequestFlowPage() {
                     onClick={() => i < step && goTo(i)}
                     disabled={i >= step}
                     aria-current={i === step ? 'step' : undefined}
+                    aria-label={`Paso ${i + 1}: ${title}`}
                     className="group w-full text-left disabled:cursor-default"
                   >
                     <span className={cx('block h-1.5 rounded-full transition-colors', i < step ? 'bg-ink' : i === step ? 'bg-lime' : 'bg-line')} />

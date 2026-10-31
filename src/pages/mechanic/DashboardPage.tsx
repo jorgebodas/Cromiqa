@@ -51,8 +51,12 @@ function Inner() {
   const gaps = profileGaps(mechanic);
   const status = profileStatus(mechanic);
 
+  const approve = useApp((s) => s.approveProfessionalProfile);
+  const toast = useApp((s) => s.toast);
   const hero =
-    requests.length === 0
+    status === 'pending_verification'
+      ? { headline: 'Tu perfil está en revisión.', label: 'Revisar mi perfil', to: '/pro/perfil' }
+      : requests.length === 0
       ? { headline: 'Aún no has recibido solicitudes.', label: gaps.length ? 'Completar perfil' : 'Ver perfil público', to: gaps.length ? GAP_TEXT[gaps[0]!].to : `/mecanicos/${mechanic.id}` }
       : counts.unanswered > 0
         ? {
@@ -167,7 +171,7 @@ function Inner() {
                 status === 'active'
                   ? 'Los ciclistas pueden encontrarte y enviarte solicitudes.'
                   : status === 'pending_verification'
-                    ? 'Tu perfil está completo. Lo revisaremos antes de mostrarlo como verificado.'
+                    ? 'Lo revisaremos antes de publicarlo. Hasta entonces no apareces en las búsquedas ni recibes solicitudes.'
                     : 'Completa estos pasos para que los ciclistas puedan encontrarte.'
               }
             />
@@ -181,6 +185,21 @@ function Inner() {
                   </li>
                 ))}
               </ul>
+            )}
+            {status === 'pending_verification' && (
+              <div className="mt-4 rounded-2xl border border-dashed border-line-strong p-3" data-testid="demo-approve">
+                <p className="text-sm text-muted">Modo demo: en Cromiqa real lo revisaría el equipo. Aquí puedes simularlo.</p>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await approve(mechanic.id);
+                    toast('Perfil aprobado (demo). Ya apareces en las búsquedas.');
+                  }}
+                  className="mt-2 inline-flex h-10 items-center rounded-full bg-ink px-4 text-sm font-semibold text-paper hover:bg-ink-soft"
+                >
+                  Simular aprobación (demo)
+                </button>
+              </div>
             )}
             <div className="mt-4 flex flex-wrap gap-2 border-t border-line pt-4 text-sm font-semibold">
               <Link to={`/mecanicos/${mechanic.id}`} className="hover:underline">

@@ -306,6 +306,27 @@ address (or FormSubmit's alias if provided) and deploy.
 - **Reviews:** 1–5 stars plus text, only on completed services, one per service (unchanged).
 - Configurable: `AUTO_CLOSE_HOURS`, `AUTO_CLOSE_REMINDER_HOURS`.
 
+## Professional onboarding and quality (Phase 4 of the master brief)
+
+- **Hazte mecánico** (`#/pro/alta`, from Perfil or any mechanic screen): 5 steps.
+  1. Identity.
+  2. Specialties and bike types.
+  3. Modality and coverage: workshop area without an exact address, home-service areas and fee, days and slots.
+  4. Services with an optional starting price, plus conditions.
+  5. Review.
+- **States: borrador → pendiente de verificación → activo.**
+  - The draft is kept on the device until it's submitted.
+  - Submitting creates the profile (`listing: 'pending_verification'`) and gives the account mechanic mode.
+  - Only `active` profiles are listed, searched, suggested, matched or can receive requests (`isListed`).
+  - The mechanic Home shows the review state. A clearly labelled **demo-only** button simulates
+    Cromiqa's approval; in production that is a staff action (`approveProfessionalProfile`).
+- **Error state:** a boundary around every screen shows a recoverable message (reload / reset demo)
+  instead of a blank page; navigating elsewhere clears it.
+- **Accessibility:**
+  - `tests/e2e/a11y.spec.ts` runs axe (WCAG 2 A/AA) on 18 main screens of both modes, on desktop and mobile.
+  - Fixes: secondary text contrast (`muted` #737373 → #6b6b6b), struck-through labels, step-progress buttons with names.
+  - Not a substitute for testing with a screen reader.
+
 ## Navigation (cyclist, earlier notes)
 
 

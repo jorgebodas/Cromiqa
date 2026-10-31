@@ -161,6 +161,7 @@ export type ProfileStatus = 'incomplete' | 'pending_verification' | 'active';
  * real professional); a real backend would own this state.
  */
 export function profileStatus(m: Mechanic): ProfileStatus {
+  if (m.listing === 'pending_verification') return 'pending_verification';
   if (profileGaps(m).length) return 'incomplete';
-  return m.demoVerified ? 'active' : 'pending_verification';
+  return 'active';
 }

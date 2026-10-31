@@ -4,7 +4,7 @@ export const tokens = {
     paper: '#FFFFFF',
     sand: '#F6F4EF',
     ink: '#171717',
-    muted: '#737373',
+    muted: '#6b6b6b',
     line: '#E7E5DF',
     lime: '#C7FF2F',
   },

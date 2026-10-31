@@ -250,6 +250,7 @@ export function validateForMechanic(
   // Any account can request a service as a cyclist, just not from its own workshop.
   const owner = db.users.find((u) => u.id === input.ownerId);
   if (mechanic && owner?.mechanicId === mechanic.id) errors.mechanicId = 'No puedes enviarte una solicitud a ti mismo.';
+  if (mechanic && (mechanic.listing ?? 'active') !== 'active') errors.mechanicId = `${mechanic.name} aún no está activo en Cromiqa.`;
   if (mechanic) {
     if (!mechanic.services.some((s) => s.category === input.category)) errors.category = `${mechanic.name} no ofrece este servicio.`;
     if (input.bike.type && !mechanic.bikeTypes.includes(input.bike.type)) errors.type = `${mechanic.name} no trabaja con este tipo de bici.`;

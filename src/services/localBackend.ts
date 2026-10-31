@@ -1,6 +1,7 @@
 import type { DemoDatabase } from '@/domain/types';
 import { addReview, applyRequestAction, createRequest, inviteToCase, runScheduledTransitions } from '@/domain/logic/requests';
 import { addBike, removeBike, updateBike, updateMechanic, updateUser } from '@/domain/logic/garage';
+import { approveProfessionalProfile, submitProfessionalProfile } from '@/domain/logic/onboarding';
 import { SEED_VERSION, createSeed } from '@/data/seed';
 import type { CromiqaBackend } from './backend';
 import { storage } from './storage';
@@ -95,6 +96,18 @@ export class LocalBackend implements CromiqaBackend {
     this.commit((db) => {
       const r = updateUser(db, id, patch);
       return { db: r.db, result: r.user };
+    });
+
+  submitProfessionalProfile: CromiqaBackend['submitProfessionalProfile'] = (userId, draft) =>
+    this.commit((db) => {
+      const r = submitProfessionalProfile(db, userId, draft);
+      return { db: r.db, result: r.mechanic };
+    });
+
+  approveProfessionalProfile: CromiqaBackend['approveProfessionalProfile'] = (mechanicId) =>
+    this.commit((db) => {
+      const r = approveProfessionalProfile(db, mechanicId);
+      return { db: r.db, result: r.mechanic };
     });
 
   reset() {

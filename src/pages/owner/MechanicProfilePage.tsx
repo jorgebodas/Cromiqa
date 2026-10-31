@@ -9,6 +9,7 @@ import { DemoVerifiedBadge, ModeIndicators } from '@/components/domain/MechanicC
 import { Avatar, Badge, Card, DemoTag, EmptyState, LinkButton, Rating, SectionTitle, Stars, cx } from '@/components/ui';
 import { CATEGORY_ICONS } from './startRequest';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
+import { isListed } from '@/domain/logic/onboarding';
 
 export function MechanicProfilePage() {
   const { id } = useParams();
@@ -26,6 +27,21 @@ export function MechanicProfilePage() {
           icon={<UserRoundX className="size-6" />}
           title="No encontramos este perfil"
           description="Puede que el enlace no sea correcto o que los datos de la demo se hayan restablecido."
+          action={<LinkButton to="/mecanicos" variant="dark">Ver mecánicos</LinkButton>}
+        />
+      </div>
+    );
+  }
+
+  // Profiles awaiting verification are only visible to their owner.
+  if (!isListed(mechanic) && user?.mechanicId !== mechanic.id) {
+    return (
+      <div className="container-page py-12">
+        <EmptyState
+          as="h1"
+          icon={<UserRoundX className="size-6" />}
+          title="Este perfil aún no está publicado"
+          description="Los perfiles profesionales se revisan antes de aparecer en Cromiqa."
           action={<LinkButton to="/mecanicos" variant="dark">Ver mecánicos</LinkButton>}
         />
       </div>

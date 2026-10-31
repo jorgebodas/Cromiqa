@@ -2,6 +2,7 @@
 import type { BikeType, LocationId, Mechanic, Review, ServiceCategory, ServiceMode, Specialization } from '../types';
 import { SPECIALIZATIONS, approxDistanceKm } from '../catalog';
 import { normalize, tokenize } from '../utils';
+import { isListed } from './onboarding';
 
 export type SortKey = 'relevance' | 'price' | 'distance' | 'rating';
 
@@ -73,6 +74,8 @@ export function searchMechanics(mechanics: Mechanic[], reviews: Review[], f: Mec
 
   const results: MechanicResult[] = [];
   for (const m of mechanics) {
+    // Only verified, active profiles are listed.
+    if (!isListed(m)) continue;
     if (f.mode === 'home' && !m.homeService) continue;
     if (f.mode === 'workshop' && !m.workshop) continue;
     if (f.bikeType && !m.bikeTypes.includes(f.bikeType)) continue;

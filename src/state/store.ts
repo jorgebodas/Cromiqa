@@ -18,6 +18,7 @@ import type {
 import { canPerform, type RequestAction } from '@/domain/logic/requests';
 import { backend } from '@/services';
 import { storage } from '@/services/storage';
+import type { ProfessionalDraft } from '@/domain/logic/onboarding';
 
 const SESSION_KEY = 'cromiqa:demo:session';
 const DRAFT_KEY = 'cromiqa:demo:draft';
@@ -80,6 +81,8 @@ interface AppState {
   removeBike(bikeId: ID): Promise<void>;
   updateMechanic(patch: MechanicProfilePatch): Promise<void>;
   updateUser(patch: Partial<Pick<User, 'name' | 'location'>>): Promise<void>;
+  submitProfessionalProfile(draft: ProfessionalDraft): Promise<void>;
+  approveProfessionalProfile(mechanicId: ID): Promise<void>;
   resetDemo(opts?: { keepSession?: boolean }): Promise<void>;
 
   toast(message: string, tone?: Toast['tone']): void;
@@ -194,6 +197,14 @@ export const useApp = create<AppState>((set, get) => {
     },
     async updateUser(patch) {
       await backend.updateUser(currentUser().id, patch);
+      await refresh();
+    },
+    async submitProfessionalProfile(draft) {
+      await backend.submitProfessionalProfile(currentUser().id, draft);
+      await refresh();
+    },
+    async approveProfessionalProfile(mechanicId) {
+      await backend.approveProfessionalProfile(mechanicId);
       await refresh();
     },
 

@@ -91,7 +91,7 @@ describe('professional profile', () => {
     expect(profileGaps(m)).toEqual([]);
     expect(profileGaps({ ...m, services: [], weeklyAvailability: [] })).toEqual(['services', 'availability']);
     expect(profileStatus({ ...m, services: [] })).toBe('incomplete');
-    expect(profileStatus({ ...m, demoVerified: false })).toBe('pending_verification');
-    expect(profileStatus({ ...m, demoVerified: true })).toBe('active');
+    expect(profileStatus({ ...m, listing: 'pending_verification' })).toBe('pending_verification');
+    expect(profileStatus({ ...m, listing: 'active' })).toBe('active');
   });
 });

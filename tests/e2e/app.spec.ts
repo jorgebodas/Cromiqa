@@ -120,13 +120,64 @@ test.describe('Navegación', () => {
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Mecánicos');
   });
 
-  test('cyclist-only accounts have no mechanic mode, and mechanic screens explain it', async ({ page }) => {
+  test('cyclist-only accounts have no mechanic mode, and mechanic screens lead to the onboarding', async ({ page }) => {
     await freshDemo(page, 'u-ana');
     await page.goto('./#/cuenta');
     await expect(page.getByRole('radio', { name: 'Mecánico' })).toHaveCount(0);
-    await expect(page.getByTestId('mode-card')).toContainText('El modo mecánico se activa al crear un perfil profesional');
+    await expect(page.getByTestId('start-onboarding')).toHaveText('Hazte mecánico');
     await page.goto('./#/pro');
-    await expect(page.getByText('Tu cuenta aún no tiene perfil profesional.')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Aún no tienes perfil profesional' })).toBeVisible();
+    await page.getByRole('link', { name: 'Hazte mecánico' }).click();
+    await expect(page).toHaveURL(/#\/pro\/alta/);
+  });
+
+  test('professional onboarding: draft kept, submitted for verification, listed only once approved', async ({ page }) => {
+    await freshDemo(page, 'u-pablo');
+    await page.goto('./#/cuenta');
+    await page.getByTestId('start-onboarding').click();
+    await expect(page.getByText('Paso 1 de 5')).toBeVisible();
+    await page.getByRole('button', { name: 'Continuar' }).click();
+    await expect(page.getByText('Indica tu nombre profesional')).toBeVisible();
+    await page.getByLabel('Nombre profesional o del taller').fill('Taller Serrano');
+    // Leaving keeps the draft on this device.
+    await page.getByRole('button', { name: 'Salir del alta' }).click();
+    await expect(page.getByTestId('start-onboarding')).toHaveText('Continuar alta de mecánico');
+    await page.getByTestId('start-onboarding').click();
+    await expect(page.getByLabel('Nombre profesional o del taller')).toHaveValue('Taller Serrano');
+
+    await page.getByLabel('Especialidad principal').fill('Carretera y gravel');
+    await page.getByLabel('Sobre ti').fill('Diez años montando y ajustando bicis de carretera en Vallecas.');
+    await page.getByLabel('Años de experiencia').fill('10');
+    await page.getByRole('button', { name: 'Continuar' }).click();
+
+    await page.getByRole('group', { name: 'Especialidades' }).getByRole('button').first().click();
+    await page.getByRole('group', { name: 'Tipos de bici con los que trabajas' }).getByRole('button', { name: /Carretera/ }).click();
+    await page.getByRole('button', { name: 'Continuar' }).click();
+
+    await page.getByLabel('Zona del taller').fill('Vallecas Villa');
+    await page.getByRole('button', { name: 'Continuar' }).click();
+
+    await page.getByRole('button', { name: 'Continuar' }).click();
+    await expect(page.getByText('Ofrece al menos un servicio.')).toBeVisible();
+    await page.locator('label', { hasText: 'Mantenimiento' }).first().click();
+    await page.getByLabel('Precio desde para Mantenimiento').fill('40');
+    await page.getByRole('button', { name: 'Continuar' }).click();
+
+    await expect(page.getByTestId('onboarding-review')).toContainText('Taller Serrano');
+    await page.getByRole('button', { name: 'Enviar a verificación' }).click();
+    await expect(page).toHaveURL(/#\/pro$/);
+    await expect(page.getByTestId('mechanic-hero')).toContainText('Tu perfil está en revisión.');
+    await expect(page.getByTestId('profile-status')).toContainText('Pendiente de verificación');
+
+    // Not listed yet.
+    await page.goto('./#/mecanicos');
+    await expect(page.getByTestId('mechanic-card').filter({ hasText: 'Pablo Serrano' })).toHaveCount(0);
+
+    await page.goto('./#/pro');
+    await page.getByRole('button', { name: 'Simular aprobación (demo)' }).click();
+    await expect(page.getByTestId('profile-status')).toContainText('Activo');
+    await page.goto('./#/mecanicos');
+    await expect(page.getByTestId('mechanic-card').filter({ hasText: 'Pablo Serrano' })).toHaveCount(1);
   });
 
   test('new request: + opens the four needs and starts the request flow', async ({ page }) => {

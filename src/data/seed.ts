@@ -15,7 +15,7 @@ import type {
 } from '@/domain/types';
 import { addDays, toISODate } from '@/domain/utils';
 
-export const SEED_VERSION = 5;
+export const SEED_VERSION = 6;
 
 const weekdays = (slots: WeeklyAvailability['slots'], days: number[]): WeeklyAvailability[] =>
   days.map((d) => ({ day: d as WeeklyAvailability['day'], slots }));
@@ -548,6 +548,6 @@ export function createSeed(now: Date = new Date()): DemoDatabase {
     { id: 'rv-15', mechanicId: 'm-nerea', authorName: 'Carmen J.', rating: 4, date: day(-130), service: 'Servicio de amortiguador', text: 'Muy buen trabajo; agenda bastante llena, hay que reservar con tiempo.' },
   ];
 
-  return { version: SEED_VERSION, users, mechanics, reviews, bikes, maintenance, requests };
+  return { version: SEED_VERSION, users, mechanics: mechanics.map((m) => ({ ...m, listing: 'active' as const })), reviews, bikes, maintenance, requests };
 }
 

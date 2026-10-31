@@ -9,8 +9,9 @@ import { RoleGate } from '@/components/layout/RoleGate';
 import { useMode } from '@/state/mode';
 import { canSwitchMode, type AppMode } from '@/domain/logic/modes';
 import { AccountSwitcherDialog, useSwitchAccount, useSwitchMode } from '@/components/layout/AccountSwitcher';
-import { Avatar, Button, Card, Field, Input, Select, cx } from '@/components/ui';
+import { Avatar, Button, Card, Field, Input, LinkButton, Select, cx } from '@/components/ui';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
+import { hasProfessionalDraft } from '@/pages/mechanic/OnboardingPage';
 
 function LinkRow({ to, icon: Icon, label, detail }: { to: string; icon: typeof Bike; label: string; detail?: string }) {
   return (
@@ -107,11 +108,16 @@ function Inner() {
             <ModeSwitch mode={mode} />
           </>
         ) : (
-          <div className="mt-2 flex items-start gap-3">
-            <UserRoundCog className="mt-0.5 size-5 shrink-0 text-muted" aria-hidden />
-            <p className="text-sm text-muted">
-              Usas Cromiqa como ciclista. El modo mecánico se activa al crear un perfil profesional; el alta de profesionales llegará próximamente.
-            </p>
+          <div className="mt-2">
+            <div className="flex items-start gap-3">
+              <UserRoundCog className="mt-0.5 size-5 shrink-0 text-muted" aria-hidden />
+              <p className="text-sm text-muted">
+                Usas Cromiqa como ciclista. Si eres mecánico, crea tu perfil profesional: lo revisaremos y, una vez activo, recibirás solicitudes.
+              </p>
+            </div>
+            <LinkButton to="/pro/alta" variant="dark" size="sm" className="mt-4" data-testid="start-onboarding">
+              {hasProfessionalDraft(user.id) ? 'Continuar alta de mecánico' : 'Hazte mecánico'}
+            </LinkButton>
           </div>
         )}
       </Card>

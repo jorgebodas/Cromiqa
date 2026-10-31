@@ -18,6 +18,7 @@ import { MechanicRequestDetailPage } from '@/pages/mechanic/MechanicRequestDetai
 import { ServicesPage } from '@/pages/mechanic/ServicesPage';
 import { AvailabilityPage } from '@/pages/mechanic/AvailabilityPage';
 import { ProfilePage } from '@/pages/mechanic/ProfilePage';
+import { OnboardingPage } from '@/pages/mechanic/OnboardingPage';
 import { DemoPanelPage } from '@/pages/demo/DemoPanelPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 
@@ -49,6 +50,7 @@ export function App() {
           <Route path="pro/servicios" element={<ServicesPage />} />
           <Route path="pro/disponibilidad" element={<AvailabilityPage />} />
           <Route path="pro/perfil" element={<ProfilePage />} />
+          <Route path="pro/alta" element={<OnboardingPage />} />
           <Route path="demo" element={<DemoPanelPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>

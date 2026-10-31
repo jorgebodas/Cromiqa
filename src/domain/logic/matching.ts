@@ -4,6 +4,7 @@
 import type { BikeType, LocationId, Mechanic, Review, ServiceCategory, ServiceMode } from '../types';
 import { approxDistanceKm, bikeTypeLabel, locationShort, specializationLabel } from '../catalog';
 import { inferSpecializations, ratingFor } from './search';
+import { isListed } from './onboarding';
 
 export interface MatchCriteria {
   category: ServiceCategory;
@@ -29,7 +30,7 @@ export interface Match {
 
 /** Capability check: the provider offers the service, the bike, the modality and the area. */
 export function canTake(m: Mechanic, c: MatchCriteria): boolean {
-  if (m.id === c.excludeMechanicId) return false;
+  if (m.id === c.excludeMechanicId || !isListed(m)) return false;
   if (!m.services.some((s) => s.category === c.category)) return false;
   if (c.bikeType && !m.bikeTypes.includes(c.bikeType)) return false;
   if (c.mode === 'home') return m.homeService && m.serviceAreas.includes(c.location);

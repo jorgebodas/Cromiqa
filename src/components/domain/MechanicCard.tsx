@@ -7,7 +7,7 @@ import { Avatar, Badge, DemoTag, Rating, buttonClass, cx } from '@/components/ui
 
 export function ModeIndicators({ home, workshop, compact }: { home: boolean; workshop: boolean; compact?: boolean }) {
   const item = (on: boolean, Icon: typeof Home, label: string) => (
-    <span className={cx('inline-flex items-center gap-1.5 text-sm', on ? 'text-ink' : 'text-subtle line-through')}>
+    <span className={cx('inline-flex items-center gap-1.5 text-sm', on ? 'text-ink' : 'text-muted line-through')}>
       <Icon className="size-4" aria-hidden />
       {label}
       <span className="sr-only">{on ? ': disponible' : ': no disponible'}</span>

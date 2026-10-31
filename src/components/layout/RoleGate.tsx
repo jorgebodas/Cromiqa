@@ -6,7 +6,7 @@ import { availableModes } from '@/domain/logic/modes';
 import { useCurrentUser } from '@/state/selectors';
 import { useMode } from '@/state/mode';
 import { useApp } from '@/state/store';
-import { Avatar, Button, EmptyState } from '@/components/ui';
+import { Avatar, Button, EmptyState, LinkButton } from '@/components/ui';
 import { useSwitchAccount, useSwitchMode } from './AccountSwitcher';
 
 /**
@@ -35,6 +35,21 @@ export function RoleGate({ role, children, reason }: { role?: Role; children: Re
           title={wanted === 'mechanic' ? 'Esto es del modo mecánico' : 'Esto es del modo ciclista'}
           description="Tu cuenta tiene los dos modos. Cambia para ver esta sección."
           action={<Button onClick={() => switchMode(wanted)}>{wanted === 'mechanic' ? 'Cambiar a modo mecánico' : 'Cambiar a modo ciclista'}</Button>}
+        />
+      </div>
+    );
+  }
+
+  // Signed in without a professional profile: the way in is the onboarding.
+  if (user && wanted === 'mechanic') {
+    return (
+      <div className="container-page py-10">
+        <EmptyState
+          as="h1"
+          icon={<Wrench className="size-6" />}
+          title="Aún no tienes perfil profesional"
+          description={reason ?? 'El modo mecánico se activa al crear tu perfil profesional. Lo revisaremos antes de publicarlo.'}
+          action={<LinkButton to="/pro/alta">Hazte mecánico</LinkButton>}
         />
       </div>
     );

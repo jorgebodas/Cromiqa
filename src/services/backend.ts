@@ -14,6 +14,7 @@ import type {
   User,
 } from '@/domain/types';
 import type { RequestAction } from '@/domain/logic/requests';
+import type { ProfessionalDraft } from '@/domain/logic/onboarding';
 
 export interface CromiqaBackend {
   /** Everything the demo UI reads. A real backend would expose scoped queries instead. */
@@ -30,6 +31,10 @@ export interface CromiqaBackend {
   removeBike(ownerId: ID, bikeId: ID): Promise<void>;
 
   updateMechanic(mechanicId: ID, patch: MechanicProfilePatch): Promise<Mechanic>;
+  /** Professional onboarding: creates the profile, pending verification, and links it to the account. */
+  submitProfessionalProfile(userId: ID, draft: ProfessionalDraft): Promise<Mechanic>;
+  /** Demo only: stands in for Cromiqa's verification. Real backends restrict it to staff. */
+  approveProfessionalProfile(mechanicId: ID): Promise<Mechanic>;
   updateUser(userId: ID, patch: Partial<Pick<User, 'name' | 'location'>>): Promise<User>;
 
   /** Demo only: restore the seed scenarios. */

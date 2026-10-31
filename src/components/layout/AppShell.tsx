@@ -12,6 +12,7 @@ import { NewRequestSheet } from './NewRequestSheet';
 import { GlobalSearch } from './GlobalSearch';
 import { useMode, useModeStore } from '@/state/mode';
 import { modeOfPath, type AppMode } from '@/domain/logic/modes';
+import { ErrorBoundary } from './ErrorBoundary';
 
 interface NavItem {
   to: string;
@@ -57,7 +58,7 @@ const OWNER_TABS: OwnerTab[] = [
 ];
 
 /** Focused flows hide the bottom bar and the + so nothing competes with finishing the task. */
-const FOCUSED_ROUTES = ['/solicitar'];
+const FOCUSED_ROUTES = ['/solicitar', '/pro/alta'];
 /** Screens with their own sticky primary action hide the bar on phones too. */
 const OWN_ACTION_ROUTES = ['/mecanicos/:id'];
 
@@ -449,7 +450,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
         <OwnerHeader tabHref={tabHref} onNewRequest={openNewRequest} onSearch={openSearch} />
       )}
       <main id="main" className={cx('flex-1 md:pb-0', isPro ? 'pb-28' : showOwnerBar ? 'pb-32' : 'pb-10')}>
-        {children ?? <Outlet />}
+        <ErrorBoundary>{children ?? <Outlet />}</ErrorBoundary>
       </main>
       <Footer />
       {isPro ? <MechanicBottomTabs items={mechanicItems} /> : showOwnerBar && <OwnerBottomNav tabHref={tabHref} onNewRequest={openNewRequest} condensed={condensed} expand={expand} />}

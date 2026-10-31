@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ArrowUpRight, CalendarCheck, ChevronRight, ClipboardList, Plus, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowUpRight, CalendarCheck, ChevronRight, ClipboardList, Loader2, Plus, Send, X } from 'lucide-react';
+import { HubActionContext, type HubActionApi, type HubPrimaryMeta } from './hubAction';
 import { headerButtonClass } from '@/components/layout/ScreenHeader';
 import type { ID, ServiceRequest } from '@/domain/types';
 import { bikeLabel, categoryLabel } from '@/domain/catalog';
@@ -213,6 +214,9 @@ function Detail({ item, onGo }: { item: HubItem; onGo: (to: string) => void }) {
   );
 }
 
+/** Width of the floating tabs pill the close button grows out of (3 tabs × 60 px + padding). */
+const PILL_FROM = 188;
+
 const TITLES: Record<HubView['kind'], string> = { overview: 'Tus solicitudes', detail: 'Solicitud', new: 'Nueva solicitud' };
 const SCREEN_TITLES: Record<QuickScreen, string> = {
   compare: 'Presupuestos',
@@ -332,6 +336,18 @@ export function RequestHubOverlay() {
   const panel = useRef<HTMLDivElement>(null);
   const [confirm, setConfirm] = useState(false);
   const open = view !== null;
+  // The form (in "new") drives the bottom row through these.
+  const runRef = useRef<() => void>(() => {});
+  const backRef = useRef<() => void>(() => {});
+  const [formMeta, setFormMeta] = useState<HubPrimaryMeta | null>(null);
+  const api = useMemo<HubActionApi>(() => ({ runRef, backRef, setMeta: setFormMeta }), []);
+  // The bar's pill shrinks into the close button right after opening (the morph).
+  const [entered, setEntered] = useState(false);
+  useEffect(() => {
+    if (!open) return setEntered(false);
+    const id = requestAnimationFrame(() => setEntered(true));
+    return () => cancelAnimationFrame(id);
+  }, [open]);
   const dirty = draft.description.trim().length > 0 || draft.step > 0 || draft.photos.length > 0;
 
   const requestClose = () => {
@@ -384,53 +400,25 @@ export function RequestHubOverlay() {
   const detailItem = view.kind === 'detail' ? items.find((i) => i.caseId === view.caseId) : undefined;
   // A request that stopped being active (e.g. completed) falls back to the overview.
   const shown: HubView = view.kind === 'detail' && !detailItem ? { kind: 'overview' } : view;
-  // From a request (any screen) there's always a way back to the overview.
-  const back = shown.kind === 'detail' ? () => openHub({ kind: 'overview' }) : undefined;
   const screen = shown.kind === 'detail' && shown.screen && shown.screen !== 'status' ? shown.screen : undefined;
+  const toNew = () => openHub({ kind: 'new', from: 'overview' });
 
+  // The bottom row's primary button: set here for the hub's own views, by the form in "new".
   let body: ReactNode;
-  let footer: ReactNode = null;
+  let primary: HubPrimaryMeta | null = null;
+  let run: () => void = () => {};
   if (shown.kind === 'overview') {
     body = <Overview items={items} onOpen={(item) => openHub({ kind: 'detail', caseId: item.caseId, screen: item.quick.screen })} />;
-    footer = (
-      <Button size="lg" block className="h-14 text-[17px]" icon={<Plus className="size-5" aria-hidden />} onClick={() => openHub({ kind: 'new', from: 'overview' })}>
-        Nueva solicitud
-      </Button>
-    );
-  } else if (shown.kind === 'detail' && detailItem && screen) {
-    body = <QuickScreenView item={detailItem} screen={screen} onGo={go} onSummary={() => openHub({ kind: 'detail', caseId: detailItem.caseId })} onScreen={(next) => openHub({ kind: 'detail', caseId: detailItem.caseId, screen: next })} />;
-    footer = (
-      <div className="flex w-full gap-3">
-        <button
-          type="button"
-          onClick={() => openHub({ kind: 'new', from: 'overview' })}
-          aria-label="Nueva solicitud"
-          className="float-pill flex size-14 shrink-0 items-center justify-center rounded-full text-ink active:scale-95"
-        >
-          <Plus className="size-6" aria-hidden />
-        </button>
-        <Button size="lg" variant="secondary" className="h-14 flex-1 text-[16px]" onClick={() => go(caseHref(detailItem.lead))}>
-          Ver solicitud completa
-        </Button>
-      </div>
-    );
+    primary = { label: 'Nueva solicitud', icon: 'plus', canBack: false };
+    run = toNew;
   } else if (shown.kind === 'detail' && detailItem) {
-    body = <Detail item={detailItem} onGo={go} />;
-    footer = (
-      <div className="flex w-full gap-3">
-        <button
-          type="button"
-          onClick={() => openHub({ kind: 'new', from: 'overview' })}
-          aria-label="Nueva solicitud"
-          className="float-pill flex size-14 shrink-0 items-center justify-center rounded-full text-ink active:scale-95"
-        >
-          <Plus className="size-6" aria-hidden />
-        </button>
-        <Button size="lg" className="h-14 flex-1 text-[17px]" onClick={() => go(caseHref(detailItem.lead))}>
-          {detailItem.pending ? 'Ver y responder' : 'Ver solicitud'}
-        </Button>
-      </div>
+    body = screen ? (
+      <QuickScreenView item={detailItem} screen={screen} onGo={go} onSummary={() => openHub({ kind: 'detail', caseId: detailItem.caseId })} onScreen={(next) => openHub({ kind: 'detail', caseId: detailItem.caseId, screen: next })} />
+    ) : (
+      <Detail item={detailItem} onGo={go} />
     );
+    primary = { label: screen ? 'Ver solicitud completa' : detailItem.pending ? 'Ver y responder' : 'Ver solicitud', icon: 'arrow', canBack: true };
+    run = () => go(caseHref(detailItem.lead));
   } else {
     body = (
       <RequestForm
@@ -440,35 +428,73 @@ export function RequestHubOverlay() {
       />
     );
   }
+  const meta = shown.kind === 'new' ? formMeta : primary;
+  const onPrimary = shown.kind === 'new' ? () => runRef.current() : run;
+  const onBack = shown.kind === 'new' ? () => backRef.current() : () => openHub({ kind: 'overview' });
+  const PrimaryIcon = meta?.icon === 'plus' ? Plus : meta?.icon === 'send' ? Send : ArrowRight;
 
   return createPortal(
     <div className="fixed inset-0 z-50" data-testid="request-hub">
       <div className="cq-fade-in absolute inset-0 bg-ink/40 backdrop-blur-[2px]" onClick={requestClose} aria-hidden />
+      {/*
+        One container: on phones the floating bar itself grows into the panel. Its bottom row is
+        the bar transformed: the tabs pill shrinks into the close button and the + stretches into
+        the primary action. On desktop it's a side panel with the same row at the bottom.
+      */}
       <div
         ref={panel}
         role="dialog"
         aria-modal="true"
         aria-labelledby="hub-title"
-        className="cq-sheet-up absolute inset-x-0 bottom-0 flex h-[92dvh] flex-col rounded-t-[28px] bg-paper shadow-pop md:inset-y-0 md:left-auto md:right-0 md:h-full md:w-[480px] md:rounded-l-[28px] md:rounded-tr-none"
+        className="cq-sheet-up absolute inset-x-2 bottom-[max(4px,env(safe-area-inset-bottom))] flex h-[min(88dvh,820px)] origin-bottom-right flex-col rounded-[30px] bg-paper shadow-pop md:inset-x-auto md:inset-y-0 md:bottom-0 md:right-0 md:h-full md:w-[480px] md:rounded-none md:rounded-l-[28px]"
       >
-        <div className="flex justify-center pt-2.5 md:hidden" aria-hidden>
-          <span className="h-1 w-10 rounded-full bg-line-strong" />
-        </div>
-        <header className="flex items-center gap-2 px-5 pb-2 pt-3 sm:px-6 md:pt-6">
-          {back && (
-            <button type="button" onClick={back} aria-label="Volver a tus solicitudes" className={headerButtonClass}>
+        <header className="flex items-center gap-2 px-4 pb-2 pt-4 sm:px-5 md:pt-6">
+          {meta?.canBack && (
+            <button type="button" onClick={onBack} aria-label={shown.kind === 'new' ? 'Atrás' : 'Volver a tus solicitudes'} className={headerButtonClass}>
               <ArrowLeft className="size-5" aria-hidden />
             </button>
           )}
           <h2 id="hub-title" tabIndex={-1} data-autofocus className="min-w-0 flex-1 truncate font-display text-[26px] font-bold tracking-tight outline-none">
             {screen ? SCREEN_TITLES[screen] : shown.kind === 'detail' && detailItem ? categoryLabel(detailItem.lead.category) : TITLES[shown.kind]}
           </h2>
-          <button type="button" onClick={requestClose} aria-label="Cerrar" className={headerButtonClass}>
-            <X className="size-5" aria-hidden />
-          </button>
+          {shown.kind === 'detail' && (
+            <button type="button" onClick={toNew} aria-label="Nueva solicitud" className={headerButtonClass}>
+              <Plus className="size-5" aria-hidden />
+            </button>
+          )}
         </header>
-        <div data-hub-scroll className="min-h-0 flex-1 overflow-y-auto px-5 pb-[max(12px,env(safe-area-inset-bottom))] sm:px-6">{body}</div>
-        {footer && <div className="border-t border-line px-5 pb-[max(14px,env(safe-area-inset-bottom))] pt-3 sm:px-6">{footer}</div>}
+        <HubActionContext.Provider value={api}>
+          <div data-hub-scroll className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 sm:px-5">
+            {body}
+          </div>
+        </HubActionContext.Provider>
+
+        {/* The bar, transformed. */}
+        <div className="flex items-center gap-3 px-2 pb-2 pt-1 md:px-5 md:pb-5">
+          <button
+            type="button"
+            onClick={requestClose}
+            aria-label="Cerrar"
+            className="float-pill flex h-16 shrink-0 items-center justify-center rounded-full text-ink transition-[width] duration-500 ease-[cubic-bezier(.2,1.2,.3,1)] active:scale-95"
+            style={{ width: entered ? 64 : PILL_FROM }}
+          >
+            <X className="size-6" aria-hidden />
+          </button>
+          {meta && (
+            <button
+              type="button"
+              onClick={onPrimary}
+              disabled={meta.loading}
+              className="flex h-16 min-w-0 flex-1 items-center justify-center gap-2 rounded-full text-[17px] font-semibold text-ink shadow-[0_8px_20px_-10px_rgb(110_170_0/0.55)] transition-transform active:scale-[0.98] disabled:opacity-70"
+              style={{ backgroundColor: 'var(--color-lime)' }}
+              data-testid="hub-primary"
+            >
+              {meta.loading ? <Loader2 className="size-5 animate-spin" aria-hidden /> : meta.icon === 'plus' && <PrimaryIcon className="size-5" aria-hidden />}
+              <span className={cx('truncate transition-opacity duration-300', entered ? 'opacity-100' : 'opacity-0')}>{meta.label}</span>
+              {!meta.loading && meta.icon !== 'plus' && <PrimaryIcon className="size-5" aria-hidden />}
+            </button>
+          )}
+        </div>
       </div>
 
       <Dialog

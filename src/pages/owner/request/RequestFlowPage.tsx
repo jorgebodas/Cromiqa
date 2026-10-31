@@ -15,6 +15,7 @@ import { LAST_STEP, STEP, STEP_TITLES, draftBikeType, draftToInput, firstInvalid
 import { StepProviders } from './StepProviders';
 import { StepBike, StepProblem, StepReview, StepWhen, StepWhere } from './Steps';
 import { StepPhotos } from './StepPhotos';
+import { useHubAction } from '@/components/hub/hubAction';
 
 export interface RequestFormProps {
   /** `page`: the /solicitar screen. `overlay`: inside the Request Hub panel. */
@@ -35,6 +36,8 @@ export interface RequestFormProps {
  */
 export function RequestForm({ variant, originMechanicId, params = new URLSearchParams(), onSent, onBackFromStart }: RequestFormProps) {
   const overlay = variant === 'overlay';
+  // Inside the Request Hub, the hub's own bottom row (the + stretched) is this form's primary action.
+  const hubAction = useHubAction();
   const draft = useApp((s) => s.draft);
   const setDraft = useApp((s) => s.setDraft);
   const resetDraft = useApp((s) => s.resetDraft);
@@ -211,6 +214,16 @@ export function RequestForm({ variant, originMechanicId, params = new URLSearchP
 
   const stepProps = { draft, set: setDraft, mechanic, errors };
 
+  if (hubAction) {
+    hubAction.runRef.current = step < LAST_STEP ? next : () => void submit();
+    hubAction.backRef.current = () => (step > 0 ? goTo(step - 1) : onBackFromStart?.());
+  }
+  const canBack = step > 0 || Boolean(onBackFromStart);
+  useEffect(() => {
+    hubAction?.setMeta({ label: step < LAST_STEP ? 'Continuar' : 'Enviar solicitud', icon: step < LAST_STEP ? 'arrow' : 'send', loading: submitting, canBack });
+  }, [hubAction, step, submitting, canBack]);
+  useEffect(() => () => hubAction?.setMeta(null), [hubAction]);
+
   const body = (
     <>
           <nav aria-label="Pasos de la solicitud">
@@ -271,7 +284,8 @@ export function RequestForm({ variant, originMechanicId, params = new URLSearchP
           )}
           {submitError && <div className="mt-4"><FieldError>{submitError}</FieldError></div>}
 
-          {/* Primary action. In the hub panel it's a sticky lime pill that becomes "Enviar solicitud" on the last step. */}
+          {/* Primary action. Inside the Request Hub, the hub's bottom row takes over (see hubAction). */}
+          {!hubAction && (
           <div
             className={cx(
               'flex items-center justify-between gap-3',
@@ -306,6 +320,7 @@ export function RequestForm({ variant, originMechanicId, params = new URLSearchP
               </Button>
             )}
           </div>
+          )}
     </>
   );
 

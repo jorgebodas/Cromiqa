@@ -3,13 +3,14 @@ import { useParams } from 'react-router-dom';
 import { CheckCheck, FlaskConical, Hammer, MessageCircleQuestion, Repeat, Send, X } from 'lucide-react';
 import type { ProposalInput, ServiceRequest, Mechanic, TimeSlot } from '@/domain/types';
 import { STATUSES, locationLabel } from '@/domain/catalog';
-import { DomainError, canPerform, currentProposal, validateProposal, type RequestAction } from '@/domain/logic/requests';
-import { formatLongDate, toISODate } from '@/domain/utils';
+import { AUTO_CLOSE_HOURS, DomainError, canPerform, currentProposal, validateProposal, type RequestAction } from '@/domain/logic/requests';
+import { toISODate } from '@/domain/utils';
 import { useApp } from '@/state/store';
 import { useCurrentMechanic, useRequest, useUserName } from '@/state/selectors';
 import { RoleGate } from '@/components/layout/RoleGate';
 import { useSwitchAccount } from '@/components/layout/AccountSwitcher';
 import { StatusBadge, StatusProgress } from '@/components/domain/Status';
+import { AppointmentCard, CompletionCard } from '@/components/domain/ServiceParts';
 import { OpenProposalCard, ProposalCard, RequestSummary, RequestTimeline } from '@/components/domain/RequestParts';
 import { Avatar, Button, Card, Dialog, EmptyState, Field, Input, LinkButton, Textarea } from '@/components/ui';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
@@ -160,7 +161,8 @@ function Inner() {
   const ownerUser = useApp((s) => s.db.users.find((u) => u.id === request?.ownerId));
   const switchAccount = useSwitchAccount();
   const [busy, setBusy] = useState<string | null>(null);
-  const [dialog, setDialog] = useState<'reject' | 'complete' | null>(null);
+  const [dialog, setDialog] = useState<'reject' | 'complete' | 'cancel' | null>(null);
+  const [textError, setTextError] = useState<string>();
   const [text, setText] = useState('');
   const [composing, setComposing] = useState<'quote' | 'open' | null>(null);
 
@@ -279,46 +281,45 @@ function Inner() {
             </ProposalCard>
           )}
 
-          {request.status === 'confirmed' && proposal && (
-            <section className="rounded-3xl bg-ink p-5 text-paper sm:p-6">
-              <p className="text-sm text-paper/70">Cita acordada</p>
-              <p className="mt-1 text-2xl font-extrabold first-letter:uppercase">
-                {formatLongDate(proposal.date)} · {proposal.time}
+          {['confirmed', 'in_progress', 'awaiting_completion'].includes(request.status) && <AppointmentCard request={request} viewer="mechanic" otherName={ownerName} />}
+
+          {request.status === 'confirmed' && (
+            <Card className="p-5 sm:p-6" data-testid="start-card">
+              <h2 className="text-lg font-bold">Empezar el trabajo</h2>
+              <p className="mt-1 text-sm text-muted">
+                {can('start') ? 'Márcalo en curso cuando empieces. Las novedades, por el chat.' : 'Podrás empezar cuando haya una cita confirmada por los dos.'}
               </p>
-              <p className="mt-1 text-paper/70">
-                {request.mode === 'home' ? `A domicilio en ${locationLabel(request.location)}` : 'En tu taller'} · {proposal.price} €
-              </p>
-              <button
-                type="button"
-                onClick={() => run({ type: 'start' }, 'Trabajo marcado en curso')}
-                disabled={busy === 'start'}
-                className="mt-5 inline-flex h-12 items-center gap-2 rounded-full bg-lime px-6 font-semibold text-ink hover:bg-lime-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime disabled:opacity-60"
-              >
-                <Hammer className="size-4" aria-hidden /> Marcar en curso
-              </button>
-            </section>
+              <Button size="lg" className="mt-5" disabled={!can('start')} loading={busy === 'start'} onClick={() => run({ type: 'start' }, 'Trabajo en curso')} icon={<Hammer className="size-4" aria-hidden />}>
+                Empezar trabajo
+              </Button>
+            </Card>
           )}
 
           {request.status === 'in_progress' && (
             <Card className="p-5 sm:p-6">
               <h2 className="text-lg font-bold">Trabajo en curso</h2>
-              <p className="mt-1 text-sm text-muted">Al completarlo, se añadirá un registro al historial de la bici de {ownerFirst}.</p>
+              <p className="mt-1 text-sm text-muted">
+                Al terminar, {ownerFirst} podrá confirmarlo o reportar un problema. Si no responde, se cerrará automáticamente a las {AUTO_CLOSE_HOURS} h.
+              </p>
               <Button size="lg" className="mt-5" onClick={() => setDialog('complete')} icon={<CheckCheck className="size-4" aria-hidden />}>
-                Marcar como completado
+                Trabajo terminado
               </Button>
             </Card>
           )}
+
+          <CompletionCard request={request} viewer="mechanic" otherName={ownerName} />
 
           {request.status === 'completed' && (
             <Card className="p-5 sm:p-6">
               <p className="flex items-center gap-2 font-bold">
                 <CheckCheck className="size-5" aria-hidden /> Trabajo completado
               </p>
+              {request.autoClosed && <p className="mt-1 text-sm text-muted">Cerrado automáticamente a las {AUTO_CLOSE_HOURS} h, sin confirmación del cliente.</p>}
               {request.completionSummary && <p className="mt-2 text-[15px]">{request.completionSummary}</p>}
             </Card>
           )}
 
-          {proposal && ['confirmed', 'in_progress', 'completed'].includes(request.status) && <ProposalCard proposal={proposal} />}
+          {proposal && ['confirmed', 'in_progress', 'awaiting_completion', 'completed'].includes(request.status) && <ProposalCard proposal={proposal} viewer="mechanic" />}
 
           <RequestSummary request={request} />
           <RequestTimeline request={request} mechanicName={mechanic.name} ownerName={ownerName} viewer="mechanic" />
@@ -338,6 +339,11 @@ function Inner() {
               Los datos de contacto se compartirían al confirmar la cita. En la demo no hay datos de contacto reales.
             </p>
           </Card>
+          {can('cancel_by_mechanic') && (
+            <Button variant="danger" block onClick={() => setDialog('cancel')}>
+              Cancelar servicio
+            </Button>
+          )}
           {can('reject_request') && !answering && (
             <Button variant="danger" block onClick={() => setDialog('reject')}>
               No puedo atenderla
@@ -365,8 +371,14 @@ function Inner() {
       <Dialog
         open={dialog !== null}
         onClose={() => setDialog(null)}
-        title={dialog === 'reject' ? 'Rechazar solicitud' : 'Completar trabajo'}
-        description={dialog === 'reject' ? `${ownerFirst} verá que no puedes atenderla. Solo se cierra tu invitación; su solicitud sigue abierta para otros mecánicos.` : 'Resume lo que has hecho. Aparecerá en el historial de la bici.'}
+        title={dialog === 'reject' ? 'Rechazar solicitud' : dialog === 'cancel' ? 'Cancelar servicio' : 'Trabajo terminado'}
+        description={
+          dialog === 'reject'
+            ? `${ownerFirst} verá que no puedes atenderla. Solo se cierra tu invitación; su solicitud sigue abierta para otros mecánicos.`
+            : dialog === 'cancel'
+              ? `${ownerFirst} verá el motivo. En la demo no hay penalización ni cargos.`
+              : `Resume lo que has hecho. ${ownerFirst} podrá confirmarlo o reportar un problema; aparecerá en el historial de la bici.`
+        }
         footer={
           <>
             <Button variant="ghost" onClick={() => setDialog(null)}>
@@ -376,20 +388,28 @@ function Inner() {
               <Button variant="danger" loading={busy === 'reject_request'} onClick={() => run({ type: 'reject_request', reason: text.trim() || undefined }, 'Solicitud rechazada')}>
                 Rechazar solicitud
               </Button>
+            ) : dialog === 'cancel' ? (
+              <Button
+                variant="danger"
+                loading={busy === 'cancel_by_mechanic'}
+                onClick={() => (text.trim() ? run({ type: 'cancel_by_mechanic', reason: text }, 'Servicio cancelado') : setTextError('Indica el motivo.'))}
+              >
+                Cancelar servicio
+              </Button>
             ) : (
-              <Button loading={busy === 'complete'} onClick={() => run({ type: 'complete', summary: text }, 'Trabajo completado. Registro añadido al garaje del cliente.')}>
-                Marcar como completado
+              <Button loading={busy === 'finish_work'} onClick={() => run({ type: 'finish_work', summary: text }, `Trabajo terminado. ${ownerFirst} tiene que confirmarlo.`)}>
+                Marcar como terminado
               </Button>
             )}
           </>
         }
       >
-        <Field label={dialog === 'reject' ? 'Motivo' : 'Resumen del trabajo'} optional={dialog === 'reject'}>
+        <Field label={dialog === 'complete' ? 'Resumen del trabajo' : 'Motivo'} optional={dialog === 'reject'} error={textError}>
           <Textarea
             rows={4}
             value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder={dialog === 'reject' ? 'Ej.: no tengo hueco esas fechas.' : 'Ej.: ajuste de desviador trasero, cable y funda nuevos, patilla enderezada.'}
+            onChange={(e) => (setText(e.target.value), setTextError(undefined))}
+            placeholder={dialog === 'complete' ? 'Ej.: ajuste de desviador trasero, cable y funda nuevos, patilla enderezada.' : 'Ej.: no tengo hueco esas fechas.'}
           />
         </Field>
       </Dialog>

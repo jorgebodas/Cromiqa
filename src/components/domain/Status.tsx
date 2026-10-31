@@ -39,18 +39,19 @@ export function StatusBadge({ status, className }: { status: RequestStatus; clas
 const STEPS: { label: string; statuses: RequestStatus[] }[] = [
   { label: 'Enviada', statuses: ['sent'] },
   { label: 'Valorando', statuses: ['awaiting_proposal'] },
-  { label: 'Propuesta', statuses: ['proposal_received'] },
-  { label: 'Confirmada', statuses: ['confirmed'] },
+  { label: 'Presupuesto', statuses: ['proposal_received'] },
+  { label: 'Contratado', statuses: ['confirmed'] },
   { label: 'En curso', statuses: ['in_progress'] },
+  { label: 'Terminado', statuses: ['awaiting_completion'] },
   { label: 'Completada', statuses: ['completed'] },
 ];
 
 /** Horizontal progress through the lifecycle. */
 export function StatusProgress({ status }: { status: RequestStatus }) {
-  if (status === 'cancelled') return null;
+  if (status === 'cancelled' || status === 'not_selected') return null;
   const current = STATUSES[status].step;
   return (
-    <ol className="grid grid-cols-6 gap-1" aria-label="Progreso de la solicitud">
+    <ol className="grid grid-cols-7 gap-1" aria-label="Progreso de la solicitud">
       {STEPS.map((step, i) => {
         const done = i < current || status === 'completed';
         const active = i === current && status !== 'completed';

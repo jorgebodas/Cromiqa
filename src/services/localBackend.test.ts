@@ -35,7 +35,7 @@ describe('LocalBackend persistence', () => {
 
   it('rejects invalid mutations without corrupting stored data', async () => {
     const backend = new LocalBackend(now);
-    await expect(backend.updateRequest('r-01', { type: 'complete' }, 'mechanic')).rejects.toThrow();
+    await expect(backend.updateRequest('r-01', { type: 'finish_work' }, 'mechanic')).rejects.toThrow();
     await expect(backend.addBike('u-ana', { name: '', brand: '', model: '', type: 'mtb' })).rejects.toThrow();
     const db = await new LocalBackend(now).loadAll();
     expect(db.requests.find((r) => r.id === 'r-01')!.status).toBe('sent');

@@ -1,5 +1,5 @@
 import type { DemoDatabase } from '@/domain/types';
-import { addReview, applyRequestAction, createRequest, inviteToCase } from '@/domain/logic/requests';
+import { addReview, applyRequestAction, createRequest, inviteToCase, runScheduledTransitions } from '@/domain/logic/requests';
 import { addBike, removeBike, updateBike, updateMechanic, updateUser } from '@/domain/logic/garage';
 import { SEED_VERSION, createSeed } from '@/data/seed';
 import type { CromiqaBackend } from './backend';
@@ -21,7 +21,11 @@ export class LocalBackend implements CromiqaBackend {
   private read(): DemoDatabase | null {
     const parsed = storage.getJSON<DemoDatabase>(DB_KEY);
     if (!parsed || parsed.version !== SEED_VERSION || !Array.isArray(parsed.requests)) return null;
-    return parsed;
+    // Time-based transitions (72 h closure) run on every read: idempotent and restart-safe.
+    // Integration point: a real backend runs `runScheduledTransitions` from a server scheduler.
+    const due = runScheduledTransitions(parsed, this.now());
+    if (due !== parsed) storage.setJSON(DB_KEY, due);
+    return due;
   }
 
   private write(db: DemoDatabase): DemoDatabase {

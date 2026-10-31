@@ -12,7 +12,7 @@ export const RECOVERY_HOURS = { noResponse: 4, noQuote: 24 } as const;
 
 export function caseStatus(threads: ServiceRequest[]): CaseStatus {
   if (threads.some((r) => r.status === 'completed')) return 'completed';
-  if (threads.some(isHired) && threads.some((r) => r.status === 'confirmed' || r.status === 'in_progress')) return 'booked';
+  if (threads.some(isHired) && threads.some((r) => ['confirmed', 'in_progress', 'awaiting_completion'].includes(r.status))) return 'booked';
   if (threads.some((r) => r.status === 'proposal_received' || (r.openProposal && r.status === 'awaiting_proposal'))) return 'proposals_received';
   if (threads.some((r) => r.status === 'sent' || r.status === 'awaiting_proposal')) return 'searching';
   if (threads.some((r) => r.events.some((e) => e.type === 'cancelled_by_owner'))) return 'canceled';

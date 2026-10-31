@@ -2,8 +2,8 @@ import { useState, type FormEvent, type ReactNode } from 'react';
 import { CalendarDays, Clock, MessageSquare, Send } from 'lucide-react';
 import type { Proposal, RequestEvent, Role, ServiceRequest } from '@/domain/types';
 import { bikeTypeLabel, categoryLabel, locationLabel, modeLabel, slotLabel } from '@/domain/catalog';
-import { canPerform } from '@/domain/logic/requests';
-import { formatDateTime, formatLongDate, formatPrice } from '@/domain/utils';
+import { AUTO_CLOSE_HOURS, canPerform } from '@/domain/logic/requests';
+import { formatDate, formatDateTime, formatLongDate, formatPrice } from '@/domain/utils';
 import { useApp } from '@/state/store';
 import { Button, Card, KeyValue, Textarea, cx } from '@/components/ui';
 
@@ -89,7 +89,8 @@ export function ProposalCard({
         {formatPrice(proposal.price)}
       </p>
       <p className="text-sm text-muted">Precio cerrado para el trabajo descrito. Aceptarlo no es un pago: en la demo no se gestiona ninguno.</p>
-      <div className="mt-4 grid grid-cols-1 gap-2 text-[15px] sm:grid-cols-2">
+      <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-muted">Fecha que propone · se confirma tras contratar</p>
+      <div className="mt-1.5 grid grid-cols-1 gap-2 text-[15px] sm:grid-cols-2">
         <p className="flex items-center gap-2">
           <CalendarDays className="size-4 text-muted" aria-hidden />
           <span className="first-letter:uppercase">{formatLongDate(proposal.date)}</span>
@@ -107,7 +108,14 @@ export function ProposalCard({
 }
 
 function eventText(e: RequestEvent, mechanicName: string, ownerName: string, request: ServiceRequest): { title: string; body?: string } {
-  const first = (n: string) => n.split(' ')[0];
+  const first = (n: string) => n.split(' ')[0]!;
+  const who = e.by === 'mechanic' ? mechanicName : ownerName;
+  // Appointment events store "YYYY-MM-DD HH:MM[ · note]".
+  const slotText = (t?: string) => {
+    const [date = '', time = ''] = (t ?? '').split(' ');
+    const note = t?.split(' · ')[1];
+    return `${date ? formatDate(date, { weekday: 'short', day: 'numeric', month: 'short' }) : ''}, ${time}${note ? ` · ${note}` : ''}`;
+  };
   switch (e.type) {
     case 'created':
       return { title: `${first(ownerName)} envió la solicitud` };
@@ -115,12 +123,12 @@ function eventText(e: RequestEvent, mechanicName: string, ownerName: string, req
       return { title: `${first(mechanicName)} aceptó valorar la solicitud` };
     case 'proposal_sent': {
       const p = request.proposals.find((x) => Math.abs(new Date(x.createdAt).getTime() - new Date(e.at).getTime()) < 6 * 3600_000);
-      return { title: p ? `Propuesta enviada: ${formatPrice(p.price)}` : 'Propuesta enviada', body: e.text };
+      return { title: p ? `Presupuesto enviado: ${formatPrice(p.price)}` : 'Presupuesto enviado', body: e.text };
     }
     case 'proposal_accepted':
-      return { title: `${first(ownerName)} aceptó la propuesta. Cita confirmada.` };
+      return { title: `${first(ownerName)} aceptó el presupuesto. Servicio contratado.` };
     case 'proposal_rejected':
-      return { title: `${first(ownerName)} rechazó la propuesta`, body: e.text };
+      return { title: `${first(ownerName)} rechazó el presupuesto`, body: e.text };
     case 'started':
       return { title: 'Trabajo en curso' };
     case 'completed':
@@ -137,8 +145,24 @@ function eventText(e: RequestEvent, mechanicName: string, ownerName: string, req
     }
     case 'not_selected':
       return { title: `${first(ownerName)} contrató a otro mecánico para esta solicitud` };
+    case 'cancelled_by_mechanic':
+      return { title: `${first(mechanicName)} canceló el servicio`, body: e.text };
+    case 'appointment_proposed':
+      return { title: `${first(who)} propuso una cita: ${slotText(e.text)}` };
+    case 'appointment_confirmed':
+      return { title: `Cita confirmada: ${slotText(e.text)}` };
+    case 'work_finished':
+      return { title: `${first(mechanicName)} marcó el trabajo como terminado`, body: e.text };
+    case 'completion_confirmed':
+      return { title: `${first(ownerName)} confirmó que el servicio está terminado` };
+    case 'auto_closed':
+      return { title: `Cerrado automáticamente a las ${AUTO_CLOSE_HOURS} h`, body: 'Cierre administrativo: no implica conformidad ni renuncia a reclamar.' };
+    case 'incident_opened':
+      return { title: `${first(ownerName)} reportó un problema`, body: e.text };
+    case 'incident_resolved':
+      return { title: 'Problema marcado como resuelto' };
     case 'message':
-      return { title: e.by === 'mechanic' ? first(mechanicName) : first(ownerName), body: e.text };
+      return { title: first(who), body: e.text };
   }
 }
 

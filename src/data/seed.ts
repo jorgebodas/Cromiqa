@@ -15,7 +15,7 @@ import type {
 } from '@/domain/types';
 import { addDays, toISODate } from '@/domain/utils';
 
-export const SEED_VERSION = 4;
+export const SEED_VERSION = 5;
 
 const weekdays = (slots: WeeklyAvailability['slots'], days: number[]): WeeklyAvailability[] =>
   days.map((d) => ({ day: d as WeeklyAvailability['day'], slots }));
@@ -374,6 +374,8 @@ export function createSeed(now: Date = new Date()): DemoDatabase {
         ev('e-04c', 'proposal_sent', 'mechanic', -4, 'Puesta a punto general más revisión y rellenado de líquido tubeless. Paso a las 8:00 por tu casa.', 12),
         ev('e-04d', 'proposal_accepted', 'owner', -4, undefined, 18),
       ],
+      // Hired; the quote's date is Javier's appointment proposal, still to be confirmed by Diego.
+      appointment: { pending: { date: day(3), time: '08:00', by: 'mechanic', at: at(-4, 18) } },
       createdAt: at(-6),
     }),
     req({
@@ -451,6 +453,7 @@ export function createSeed(now: Date = new Date()): DemoDatabase {
         ev('e-09c', 'proposal_accepted', 'owner', -2, undefined, 18),
         ev('e-09d', 'started', 'mechanic', 0, undefined, 9),
       ],
+      appointment: { confirmed: { date: day(0), time: '09:30', confirmedAt: at(-2, 19) } },
       createdAt: at(-3),
     }),
     req({
@@ -479,7 +482,9 @@ export function createSeed(now: Date = new Date()): DemoDatabase {
         ev('e-11b', 'accepted_for_review', 'mechanic', -4),
         ev('e-11c', 'proposal_sent', 'mechanic', -3, 'Bike fitting básico de 75 minutos. Trae tu culotte y zapatillas habituales.', 12),
         ev('e-11d', 'proposal_accepted', 'owner', -3, undefined, 18),
+        ev('e-11e', 'appointment_confirmed', 'owner', -3, `${day(6)} 10:30`, 19),
       ],
+      appointment: { confirmed: { date: day(6), time: '10:30', confirmedAt: at(-3, 19) } },
       createdAt: at(-5),
     }),
     req({
@@ -500,6 +505,28 @@ export function createSeed(now: Date = new Date()): DemoDatabase {
         ev('e-12e', 'completed', 'mechanic', -92, 'Cuadro sin fisuras, horquilla con holgura leve en casquillos. Recomendado negociar 60 € menos.', 19),
       ],
       createdAt: at(-94),
+    }),
+    // Finished 50 h ago and not yet confirmed: closes automatically in about 22 h.
+    req({
+      id: 'r-14', code: 'CRQ-1014', ownerId: 'u-ana', mechanicId: 'm-carlos', category: 'repair',
+      description: 'Sangrado de frenos de la urbana: la maneta delantera va hasta el puño.',
+      bikeId: 'b-ana-urban', bike: { type: 'urban', brand: "B'Twin", model: 'Elops 520', name: 'La de diario', year: 2019 },
+      location: 'rivas', mode: 'workshop',
+      availability: { timeSlots: ['afternoon'], flexible: true },
+      status: 'awaiting_completion',
+      proposals: [prop('pr-14', 28, -3, '18:00', 'Purgado del freno delantero y pastillas revisadas. Tráela a las 18:00.', 'accepted', -5, 40)],
+      completionSummary: 'Purgado del freno delantero y ajuste de la maneta. Pastillas al 60 %.',
+      appointment: { confirmed: { date: day(-3), time: '18:00', confirmedAt: at(-5, 19) } },
+      finishedAt: new Date(now.getTime() - 50 * 3600_000).toISOString(),
+      events: [
+        ev('e-14a', 'created', 'owner', -6),
+        ev('e-14b', 'proposal_sent', 'mechanic', -5, 'Purgado del freno delantero y pastillas revisadas. Tráela a las 18:00.', 12),
+        ev('e-14c', 'proposal_accepted', 'owner', -5, undefined, 18),
+        ev('e-14d', 'appointment_confirmed', 'owner', -5, `${day(-3)} 18:00`, 19),
+        ev('e-14e', 'started', 'mechanic', -3, undefined, 18),
+        { id: 'e-14f', type: 'work_finished', by: 'mechanic', at: new Date(now.getTime() - 50 * 3600_000).toISOString(), text: 'Purgado del freno delantero y ajuste de la maneta. Pastillas al 60 %.' },
+      ],
+      createdAt: at(-6),
     }),
   ];
 

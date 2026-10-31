@@ -51,4 +51,4 @@ export function useUserName(id: ID | undefined) {
   return users.find((u) => u.id === id)?.name ?? 'Usuario';
 }
 
-export const ACTIVE_STATUSES: RequestStatus[] = ['sent', 'awaiting_proposal', 'proposal_received', 'confirmed', 'in_progress'];
+export const ACTIVE_STATUSES: RequestStatus[] = ['sent', 'awaiting_proposal', 'proposal_received', 'confirmed', 'in_progress', 'awaiting_completion'];

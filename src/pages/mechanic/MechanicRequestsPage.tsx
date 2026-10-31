@@ -12,7 +12,7 @@ import { ProfileButton } from '@/components/layout/QuickActions';
 
 /** Booked work (a quote was accepted): it belongs to Servicios, the rest to Solicitudes. */
 export function isBooked(r: ServiceRequest) {
-  return ['confirmed', 'in_progress', 'completed'].includes(r.status) || (r.status === 'cancelled' && r.proposals.some((p) => p.status === 'accepted'));
+  return ['confirmed', 'in_progress', 'awaiting_completion', 'completed'].includes(r.status) || (r.status === 'cancelled' && r.proposals.some((p) => p.status === 'accepted'));
 }
 
 interface Segment {
@@ -29,8 +29,10 @@ const REQUEST_SEGMENTS: Segment[] = [
   { id: 'todas', label: 'Todas' },
 ];
 const SERVICE_SEGMENTS: Segment[] = [
-  { id: 'proximos', label: 'Con cita', match: has('confirmed') },
+  { id: 'por-agendar', label: 'Por agendar', match: (r) => r.status === 'confirmed' && !r.appointment?.confirmed },
+  { id: 'proximos', label: 'Con cita', match: (r) => r.status === 'confirmed' && !!r.appointment?.confirmed },
   { id: 'en-curso', label: 'En curso', match: has('in_progress') },
+  { id: 'por-confirmar', label: 'Por confirmar', match: has('awaiting_completion') },
   { id: 'completados', label: 'Completados', match: has('completed') },
   { id: 'cancelados', label: 'Cancelados', match: has('cancelled') },
   { id: 'todos', label: 'Todos' },

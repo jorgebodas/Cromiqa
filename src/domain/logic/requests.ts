@@ -1,6 +1,7 @@
 // Service-request lifecycle as pure functions: (db, input) -> new db.
 // Any backend (LocalStorage today, Supabase tomorrow) can reuse these rules.
 import type {
+  AppointmentSlot,
   Bike,
   DemoDatabase,
   ID,
@@ -32,12 +33,19 @@ export type RequestAction =
   | { type: 'reject_proposal'; reason?: string }
   | { type: 'reject_request'; reason?: string }
   | { type: 'cancel_by_owner'; reason?: string }
+  | { type: 'cancel_by_mechanic'; reason: string }
+  | { type: 'propose_appointment'; slot: AppointmentSlot }
+  | { type: 'confirm_appointment' }
   | { type: 'start' }
-  | { type: 'complete'; summary?: string }
+  | { type: 'finish_work'; summary?: string }
+  | { type: 'confirm_completion' }
+  | { type: 'report_problem'; text: string }
+  | { type: 'resolve_incident' }
   | { type: 'message'; text: string; by: Role };
 
 /** Which role may perform an action and from which statuses. */
-const RULES: Record<Exclude<RequestAction['type'], 'message'>, { by: Role; from: RequestStatus[]; to: RequestStatus }> = {
+// `to` omitted: the action doesn't change the status. `both`: either party may act.
+const RULES: Record<Exclude<RequestAction['type'], 'message'>, { by: Role | 'both'; from: RequestStatus[]; to?: RequestStatus }> = {
   accept_for_review: { by: 'mechanic', from: ['sent'], to: 'awaiting_proposal' },
   // Open proposal: can't price yet; opens the conversation, hires nobody.
   send_open_proposal: { by: 'mechanic', from: ['sent', 'awaiting_proposal'], to: 'awaiting_proposal' },
@@ -49,14 +57,86 @@ const RULES: Record<Exclude<RequestAction['type'], 'message'>, { by: Role; from:
   reject_proposal: { by: 'owner', from: ['proposal_received'], to: 'cancelled' },
   reject_request: { by: 'mechanic', from: ['sent', 'awaiting_proposal', 'proposal_received'], to: 'cancelled' },
   cancel_by_owner: { by: 'owner', from: ['sent', 'awaiting_proposal', 'proposal_received', 'confirmed'], to: 'cancelled' },
+  // After hiring, either party can cancel before the work starts, always with a reason. No penalty in the MVP.
+  cancel_by_mechanic: { by: 'mechanic', from: ['confirmed'], to: 'cancelled' },
+  // The appointment is negotiated after hiring: either party proposes, the other confirms or counters.
+  propose_appointment: { by: 'both', from: ['confirmed'] },
+  confirm_appointment: { by: 'both', from: ['confirmed'] },
   start: { by: 'mechanic', from: ['confirmed'], to: 'in_progress' },
-  complete: { by: 'mechanic', from: ['in_progress'], to: 'completed' },
+  finish_work: { by: 'mechanic', from: ['in_progress'], to: 'awaiting_completion' },
+  confirm_completion: { by: 'owner', from: ['awaiting_completion'], to: 'completed' },
+  report_problem: { by: 'owner', from: ['awaiting_completion'] },
+  resolve_incident: { by: 'owner', from: ['awaiting_completion'] },
+};
+
+const HOUR = 60 * 60 * 1000;
+/** Administrative closure after the work is marked finished, and the reminder before it. Configurable. */
+export const AUTO_CLOSE_HOURS = 72;
+export const AUTO_CLOSE_REMINDER_HOURS = 24;
+
+export const openIncident = (r: ServiceRequest) => r.incidents?.find((i) => !i.resolvedAt);
+
+/**
+ * When the 72 h closure would happen: counted from the moment the work was marked finished, or
+ * from the last resolved incident. Never while an incident is open.
+ */
+export function autoCloseAt(r: ServiceRequest): Date | null {
+  if (r.status !== 'awaiting_completion' || !r.finishedAt || openIncident(r)) return null;
+  const from = Math.max(new Date(r.finishedAt).getTime(), ...(r.incidents ?? []).map((i) => new Date(i.resolvedAt!).getTime()));
+  return new Date(from + AUTO_CLOSE_HOURS * HOUR);
+}
+
+/** Whether the "closes in 24 h" reminder applies now. */
+export function autoCloseReminderDue(r: ServiceRequest, now = new Date()): boolean {
+  const at = autoCloseAt(r);
+  return !!at && now.getTime() >= at.getTime() - AUTO_CLOSE_REMINDER_HOURS * HOUR && now < at;
+}
+
+/** Service sub-state of a hired invitation, derived from the stored record. */
+export type ServiceState =
+  | 'awaiting_appointment'
+  | 'appointment_proposed'
+  | 'appointment_confirmed'
+  | 'in_progress'
+  | 'awaiting_completion'
+  | 'incident_open'
+  | 'completed'
+  | 'canceled';
+
+export function serviceState(r: ServiceRequest): ServiceState | null {
+  if (!isHired(r)) return null;
+  switch (r.status) {
+    case 'confirmed':
+      return r.appointment?.confirmed ? 'appointment_confirmed' : r.appointment?.pending ? 'appointment_proposed' : 'awaiting_appointment';
+    case 'in_progress':
+      return 'in_progress';
+    case 'awaiting_completion':
+      return openIncident(r) ? 'incident_open' : 'awaiting_completion';
+    case 'completed':
+      return 'completed';
+    default:
+      return 'canceled';
+  }
+}
+
+export const SERVICE_STATE_LABEL: Record<ServiceState, string> = {
+  awaiting_appointment: 'Cita por acordar',
+  appointment_proposed: 'Cita propuesta',
+  appointment_confirmed: 'Cita confirmada',
+  in_progress: 'En curso',
+  awaiting_completion: 'Por confirmar',
+  incident_open: 'Incidencia abierta',
+  completed: 'Completado',
+  canceled: 'Cancelado',
 };
 
 /** Hired: a quote was accepted for this invitation. */
 export function isHired(r: ServiceRequest) {
   return r.proposals.some((p) => p.status === 'accepted');
 }
+
+/** The hired service is underway (booked and not closed). */
+export const isActiveService = (r: ServiceRequest) => ['confirmed', 'in_progress', 'awaiting_completion'].includes(r.status);
 
 /**
  * The conversation opens with an open proposal, or once a quote is accepted; never just
@@ -70,7 +150,63 @@ export function chatUnlocked(r: ServiceRequest): boolean {
 export function canPerform(request: ServiceRequest, action: RequestAction['type'], role: Role): boolean {
   if (action === 'message') return chatUnlocked(request);
   const rule = RULES[action];
-  return rule.by === role && rule.from.includes(request.status);
+  if (!(rule.by === role || rule.by === 'both') || !rule.from.includes(request.status)) return false;
+  // Guards that depend on more than the status.
+  if (action === 'confirm_appointment') return !!request.appointment?.pending && request.appointment.pending.by !== role;
+  if (action === 'start') return !!request.appointment?.confirmed;
+  if (action === 'report_problem') return !openIncident(request);
+  if (action === 'resolve_incident') return !!openIncident(request);
+  return true;
+}
+
+export function validateSlot(slot: AppointmentSlot, now = new Date()): string | undefined {
+  if (!slot.date) return 'Elige una fecha.';
+  if (slot.date < toISODate(now)) return 'La fecha no puede estar en el pasado.';
+  if (!/^\d{2}:\d{2}$/.test(slot.time)) return 'Indica una hora (HH:MM).';
+  return undefined;
+}
+
+/** Marks a service completed (by the cyclist or by the 72 h closure) and records it in the garage. */
+function completeService(db: DemoDatabase, req: ServiceRequest, now: Date): MaintenanceRecord[] {
+  if (!req.bikeId || db.maintenance.some((m) => m.requestId === req.id)) return db.maintenance;
+  const accepted = req.proposals.find((p) => p.status === 'accepted');
+  const record: MaintenanceRecord = {
+    id: uid('mnt'),
+    bikeId: req.bikeId,
+    date: toISODate(now),
+    title: categoryLabel(req.category),
+    description: req.completionSummary ?? req.description,
+    mechanicId: req.mechanicId,
+    requestId: req.id,
+    cost: accepted?.price,
+  };
+  return [record, ...db.maintenance];
+}
+
+/**
+ * Time-based transitions: the 72 h administrative closure. Idempotent and safe to run any
+ * number of times (on load, on an interval, or from a server job): it only acts on records
+ * whose stored timestamps say the deadline passed, so restarts don't lose or repeat it.
+ * In production this belongs in a server-side scheduler; the demo runs it in the browser.
+ */
+export function runScheduledTransitions(db: DemoDatabase, now = new Date()): DemoDatabase {
+  let maintenance = db.maintenance;
+  let changed = false;
+  const requests = db.requests.map((r) => {
+    const at = autoCloseAt(r);
+    if (!at || now < at) return r;
+    changed = true;
+    const closed: ServiceRequest = {
+      ...r,
+      status: 'completed',
+      autoClosed: true,
+      updatedAt: at.toISOString(),
+      events: [...r.events, event('auto_closed', 'mechanic', at)],
+    };
+    maintenance = completeService({ ...db, maintenance }, closed, at);
+    return closed;
+  });
+  return changed ? { ...db, requests, maintenance } : db;
 }
 
 /** All invitations of the same cyclist request. */
@@ -297,6 +433,10 @@ export function applyRequestAction(
         ...req.events,
         event(accepted ? 'proposal_accepted' : 'proposal_rejected', 'owner', now, accepted ? undefined : action.reason),
       ];
+      // Hiring confirms price and scope, not the date: the quote's date becomes the mechanic's
+      // first appointment proposal, still to be confirmed by the cyclist.
+      const quote = currentProposal(current);
+      if (accepted && quote) req.appointment = { pending: { date: quote.date, time: quote.time, by: 'mechanic', at: now.toISOString() } };
       break;
     }
     case 'reject_request':
@@ -304,32 +444,56 @@ export function applyRequestAction(
       req.events = [...req.events, event('rejected_by_mechanic', 'mechanic', now, action.reason)];
       break;
     case 'cancel_by_owner':
+    case 'cancel_by_mechanic': {
+      const reason = action.reason?.trim() || undefined;
+      // Once hired, cancelling always needs a reason.
+      if (isHired(current) && !reason) throw new DomainError('Indica el motivo de la cancelación.');
       req.proposals = req.proposals.map((p) => (p.status === 'pending' ? { ...p, status: 'withdrawn' } : p));
-      req.events = [...req.events, event('cancelled_by_owner', 'owner', now, action.reason)];
+      req.appointment = req.appointment?.confirmed ? { confirmed: req.appointment.confirmed } : undefined;
+      req.events = [...req.events, event(action.type === 'cancel_by_owner' ? 'cancelled_by_owner' : 'cancelled_by_mechanic', actor, now, reason)];
       break;
+    }
+    case 'propose_appointment': {
+      const err = validateSlot(action.slot, now);
+      if (err) throw new DomainError(err);
+      const note = action.slot.note?.trim() || undefined;
+      // A change keeps the confirmed appointment until the new one is accepted.
+      req.appointment = { ...req.appointment, pending: { date: action.slot.date, time: action.slot.time, note, by: actor, at: now.toISOString() } };
+      req.events = [...req.events, event('appointment_proposed', actor, now, `${action.slot.date} ${action.slot.time}${note ? ` · ${note}` : ''}`)];
+      break;
+    }
+    case 'confirm_appointment': {
+      const { by: _by, at: _at, ...slot } = req.appointment!.pending!;
+      req.appointment = { confirmed: { ...slot, confirmedAt: now.toISOString() } };
+      req.events = [...req.events, event('appointment_confirmed', actor, now, `${slot.date} ${slot.time}`)];
+      break;
+    }
     case 'start':
       req.events = [...req.events, event('started', 'mechanic', now)];
       break;
-    case 'complete': {
-      const summary = action.summary?.trim() || undefined;
-      req.completionSummary = summary;
-      req.events = [...req.events, event('completed', 'mechanic', now, summary)];
-      if (req.bikeId) {
-        const accepted = req.proposals.find((p) => p.status === 'accepted');
-        const record: MaintenanceRecord = {
-          id: uid('mnt'),
-          bikeId: req.bikeId,
-          date: toISODate(now),
-          title: categoryLabel(req.category),
-          description: summary ?? req.description,
-          mechanicId: req.mechanicId,
-          requestId: req.id,
-          cost: accepted?.price,
-        };
-        maintenance = [record, ...maintenance];
-      }
+    case 'finish_work': {
+      req.completionSummary = action.summary?.trim() || undefined;
+      req.finishedAt = now.toISOString();
+      req.events = [...req.events, event('work_finished', 'mechanic', now, req.completionSummary)];
       break;
     }
+    case 'confirm_completion': {
+      req.incidents = req.incidents?.map((i) => (i.resolvedAt ? i : { ...i, resolvedAt: now.toISOString() }));
+      req.events = [...req.events, event('completion_confirmed', 'owner', now)];
+      maintenance = completeService(db, req, now);
+      break;
+    }
+    case 'report_problem': {
+      const text = action.text.trim();
+      if (text.length < 10) throw new DomainError('Describe el problema (al menos 10 caracteres).');
+      req.incidents = [...(req.incidents ?? []), { text, openedAt: now.toISOString() }];
+      req.events = [...req.events, event('incident_opened', 'owner', now, text)];
+      break;
+    }
+    case 'resolve_incident':
+      req.incidents = req.incidents!.map((i) => (i.resolvedAt ? i : { ...i, resolvedAt: now.toISOString() }));
+      req.events = [...req.events, event('incident_resolved', 'owner', now)];
+      break;
     case 'message': {
       const text = action.text.trim();
       if (!text) throw new DomainError('Escribe un mensaje.');
@@ -338,7 +502,7 @@ export function applyRequestAction(
     }
   }
 
-  if (action.type !== 'message') req.status = RULES[action.type].to;
+  if (action.type !== 'message') req.status = RULES[action.type].to ?? req.status;
   req = { ...req };
   let requests = db.requests.map((r) => (r.id === requestId ? req : r));
   // Hiring one provider closes the other invitations of the same request.

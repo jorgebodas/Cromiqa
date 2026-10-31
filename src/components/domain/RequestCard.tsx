@@ -55,9 +55,16 @@ export function RequestCard({
       </div>
       <div className="mt-3 flex items-center justify-between gap-3 border-t border-line pt-3 text-sm">
         <span className="text-muted">
-          {proposal && ['proposal_received', 'confirmed', 'in_progress', 'completed'].includes(request.status) ? (
+          {proposal && ['proposal_received', 'confirmed', 'in_progress', 'awaiting_completion', 'completed'].includes(request.status) ? (
             <>
-              <span className="font-semibold text-ink">{formatPrice(proposal.price)}</span> · {formatDate(proposal.date, { weekday: 'short', day: 'numeric', month: 'short' })} a las {proposal.time}
+              <span className="font-semibold text-ink">{formatPrice(proposal.price)}</span>
+              {request.status === 'proposal_received'
+                ? ` · propone ${formatDate(proposal.date, { weekday: 'short', day: 'numeric', month: 'short' })}`
+                : request.appointment?.confirmed
+                  ? ` · ${formatDate(request.appointment.confirmed.date, { weekday: 'short', day: 'numeric', month: 'short' })} a las ${request.appointment.confirmed.time}`
+                  : request.status === 'confirmed'
+                    ? ' · cita por acordar'
+                    : ''}
             </>
           ) : perspective === 'owner' ? (
             STATUSES[request.status].ownerHint

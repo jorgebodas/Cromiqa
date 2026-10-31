@@ -37,13 +37,13 @@ describe('cyclist home', () => {
 
   it('lists in-progress work without the items that need the cyclist', () => {
     const list = cyclistInProgress(db.requests);
-    expect(list.every((r) => ['sent', 'awaiting_proposal', 'confirmed', 'in_progress'].includes(r.status))).toBe(true);
+    expect(list.every((r) => ['sent', 'awaiting_proposal', 'confirmed', 'in_progress', 'awaiting_completion'].includes(r.status))).toBe(true);
   });
 });
 
 describe('mechanic home', () => {
   it('orders the to-do list by urgency: new invitations first', () => {
-    const rank = { respond: 0, message: 1, propose: 2, start: 3, finish: 4 };
+    const rank = { respond: 0, message: 1, incident: 1, propose: 2, appointment: 3, start: 4, finish: 5 };
     for (const m of db.mechanics) {
       const kinds = mechanicAttention(forMechanic(m.id), now).map((i) => rank[i.kind]);
       expect(kinds).toEqual([...kinds].sort((a, b) => a - b));

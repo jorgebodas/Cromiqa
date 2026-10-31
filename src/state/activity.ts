@@ -4,6 +4,7 @@
 import { useMemo } from 'react';
 import { create } from 'zustand';
 import type { ID, RequestEventType, ServiceRequest } from '@/domain/types';
+import { AUTO_CLOSE_REMINDER_HOURS, autoCloseAt, autoCloseReminderDue } from '@/domain/logic/requests';
 import { storage } from '@/services/storage';
 import { useApp } from './store';
 
@@ -27,16 +28,31 @@ const OWNER_NEWS: Partial<Record<RequestEventType, (mechanic: string) => string>
   started: (m) => `${m} ha empezado el trabajo`,
   completed: (m) => `${m} ha terminado el servicio`,
   rejected_by_mechanic: (m) => `${m} no puede atender tu solicitud`,
+  appointment_proposed: (m) => `${m} propone una cita`,
+  appointment_confirmed: (m) => `${m} confirmó la cita`,
+  work_finished: (m) => `${m} ha terminado el trabajo: confírmalo o reporta un problema`,
+  cancelled_by_mechanic: (m) => `${m} canceló el servicio`,
   message: (m) => `Mensaje de ${m}`,
 };
 
-export function ownerActivity(requests: ServiceRequest[], mechanicName: (id: ID) => string): ActivityItem[] {
+const HOUR = 3600_000;
+
+export function ownerActivity(requests: ServiceRequest[], mechanicName: (id: ID) => string, now = new Date()): ActivityItem[] {
   return requests
-    .flatMap((r) =>
-      r.events
+    .flatMap((r) => {
+      const items: ActivityItem[] = r.events
         .filter((e) => e.by === 'mechanic' && OWNER_NEWS[e.type])
-        .map((e) => ({ id: e.id, requestId: r.id, type: e.type, at: e.at, title: OWNER_NEWS[e.type]!(mechanicName(r.mechanicId)), text: e.text })),
-    )
+        .map((e) => ({ id: e.id, requestId: r.id, type: e.type, at: e.at, title: OWNER_NEWS[e.type]!(mechanicName(r.mechanicId)), text: e.text }));
+      // System notices, derived from stored timestamps: the 24 h reminder and the closure itself.
+      const closesAt = autoCloseAt(r);
+      if (closesAt && autoCloseReminderDue(r, now)) {
+        const at = new Date(closesAt.getTime() - AUTO_CLOSE_REMINDER_HOURS * HOUR).toISOString();
+        items.push({ id: `${r.id}-reminder`, requestId: r.id, type: 'work_finished', at, title: 'Se cerrará automáticamente en 24 h', text: 'Confírmalo o reporta un problema si algo no está bien.' });
+      }
+      for (const e of r.events.filter((x) => x.type === 'auto_closed'))
+        items.push({ id: e.id, requestId: r.id, type: e.type, at: e.at, title: 'Servicio cerrado automáticamente', text: 'Pasaron 72 h sin confirmación ni problemas reportados.' });
+      return items;
+    })
     .sort((a, b) => b.at.localeCompare(a.at));
 }
 

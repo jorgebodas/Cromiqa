@@ -4,12 +4,12 @@ import { Bike, Check, CircleCheckBig, FlaskConical, Repeat, Star, X } from 'luci
 import { STATUSES } from '@/domain/catalog';
 import { canPerform, currentProposal, DomainError, type RequestAction } from '@/domain/logic/requests';
 import { caseHref, threadHref } from '@/domain/logic/cases';
-import { formatLongDate } from '@/domain/utils';
 import { useApp } from '@/state/store';
 import { useCurrentUser, useMechanic, useRequest } from '@/state/selectors';
 import { RoleGate } from '@/components/layout/RoleGate';
 import { useSwitchAccount } from '@/components/layout/AccountSwitcher';
 import { StatusBadge, StatusProgress } from '@/components/domain/Status';
+import { AppointmentCard, CompletionCard } from '@/components/domain/ServiceParts';
 import { OpenProposalCard, ProposalCard, RequestSummary, RequestTimeline } from '@/components/domain/RequestParts';
 import { Avatar, Button, Card, Dialog, EmptyState, Field, LinkButton, Textarea, cx } from '@/components/ui';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
@@ -79,6 +79,7 @@ function Inner() {
   const [busy, setBusy] = useState<string | null>(null);
   const [dialog, setDialog] = useState<'reject' | 'cancel' | null>(null);
   const [reason, setReason] = useState('');
+  const [reasonError, setReasonError] = useState<string>();
 
   if (!request || !mechanic || request.ownerId !== user.id) {
     return (
@@ -141,10 +142,10 @@ function Inner() {
             <ProposalCard proposal={proposal} version={request.proposals.length} highlight>
               <p className="mb-4 text-sm text-muted">
                 {request.proposals.length > 1 ? `${first} ha revisado su presupuesto; necesita tu aprobación. ` : ''}
-                Al aceptar, contratas a {first} y la cita queda acordada{siblings.length ? '; las demás invitaciones de esta solicitud se cerrarán' : ''}. Aceptar no es un pago. Si lo rechazas, solo se cierra esta invitación.
+                Al aceptar, contratas a {first} por este precio y alcance; la fecha la confirmáis después{siblings.length ? '; las demás invitaciones de esta solicitud se cerrarán' : ''}. Aceptar no es un pago. Si lo rechazas, solo se cierra esta invitación.
               </p>
               <div className="flex flex-col gap-2 sm:flex-row">
-                <Button size="lg" onClick={() => run({ type: 'accept_proposal' }, 'Presupuesto aceptado. Cita acordada.')} loading={busy === 'accept_proposal'} icon={<Check className="size-5" aria-hidden />}>
+                <Button size="lg" onClick={() => run({ type: 'accept_proposal' }, 'Presupuesto aceptado. Ahora confirmad la cita.')} loading={busy === 'accept_proposal'} icon={<Check className="size-5" aria-hidden />}>
                   Aceptar presupuesto
                 </Button>
                 <Button size="lg" variant="secondary" onClick={() => setDialog('reject')}>
@@ -163,25 +164,20 @@ function Inner() {
 
           {request.status !== 'not_selected' && <OpenProposalCard request={request} mechanicName={mechanic.name} />}
 
-          {request.status === 'confirmed' && proposal && (
-            <div className="rounded-3xl bg-ink p-5 text-paper sm:p-6">
-              <p className="flex items-center gap-2 text-sm text-paper/70">
-                <CircleCheckBig className="size-4 text-lime" aria-hidden /> Cita confirmada
-              </p>
-              <p className="mt-2 text-2xl font-extrabold first-letter:uppercase">
-                {formatLongDate(proposal.date)} · {proposal.time}
-              </p>
-              <p className="mt-1 text-paper/70">
-                {request.mode === 'home' ? `${first} irá a tu domicilio.` : `Lleva la bici al taller de ${first}.`}
-              </p>
-            </div>
-          )}
+          {['confirmed', 'in_progress', 'awaiting_completion'].includes(request.status) && <AppointmentCard request={request} viewer="owner" otherName={mechanic.name} />}
+
+          <CompletionCard request={request} viewer="owner" otherName={mechanic.name} />
 
           {request.status === 'completed' && (
             <Card className="p-5 sm:p-6">
               <p className="flex items-center gap-2 font-bold">
                 <CircleCheckBig className="size-5" aria-hidden /> Servicio completado
               </p>
+              {request.autoClosed && (
+                <p className="mt-1 text-sm text-muted" data-testid="auto-closed">
+                  Cerrado automáticamente 72 h después de que {first} lo marcara como terminado. No implica conformidad ni renuncia a reclamar.
+                </p>
+              )}
               {request.completionSummary && <p className="mt-2 text-[15px]">{request.completionSummary}</p>}
               {garageBike ? (
                 <LinkButton to={`/garaje/${garageBike.id}`} variant="secondary" size="sm" className="mt-4" icon={<Bike className="size-4" aria-hidden />}>
@@ -216,7 +212,7 @@ function Inner() {
           </Card>
           {canPerform(request, 'cancel_by_owner', 'owner') && (
             <Button variant="danger" block onClick={() => setDialog('cancel')}>
-              {request.status === 'confirmed' ? 'Cancelar cita' : 'Cancelar invitación'}
+              {request.status === 'confirmed' ? 'Cancelar servicio' : 'Cancelar invitación'}
             </Button>
           )}
           <div className="rounded-2xl border border-dashed border-line-strong p-4">
@@ -241,12 +237,12 @@ function Inner() {
       <Dialog
         open={dialog !== null}
         onClose={() => setDialog(null)}
-        title={dialog === 'reject' ? 'Rechazar presupuesto' : request.status === 'confirmed' ? 'Cancelar cita' : 'Cancelar invitación'}
+        title={dialog === 'reject' ? 'Rechazar presupuesto' : request.status === 'confirmed' ? 'Cancelar servicio' : 'Cancelar invitación'}
         description={
           dialog === 'reject'
             ? `Se cerrará la invitación a ${first}. Tu solicitud y las demás invitaciones siguen abiertas.`
             : request.status === 'confirmed'
-              ? 'La cita acordada se anulará. En la demo no hay penalización.'
+              ? `Se cancelará el servicio contratado con ${first}. Indica el motivo; en la demo no hay penalización ni cargos.`
               : `${first} dejará de ver tu solicitud. Las demás invitaciones siguen abiertas.`
         }
         footer={
@@ -259,15 +255,22 @@ function Inner() {
                 Rechazar presupuesto
               </Button>
             ) : (
-              <Button variant="danger" loading={busy === 'cancel_by_owner'} onClick={() => run({ type: 'cancel_by_owner', reason: reason.trim() || undefined }, request.status === 'confirmed' ? 'Cita cancelada' : 'Invitación cancelada')}>
-                {request.status === 'confirmed' ? 'Cancelar cita' : 'Cancelar invitación'}
+              <Button
+                variant="danger"
+                loading={busy === 'cancel_by_owner'}
+                onClick={() => {
+                  if (request.status === 'confirmed' && !reason.trim()) return setReasonError('Indica el motivo.');
+                  run({ type: 'cancel_by_owner', reason: reason.trim() || undefined }, request.status === 'confirmed' ? 'Servicio cancelado' : 'Invitación cancelada');
+                }}
+              >
+                {request.status === 'confirmed' ? 'Cancelar servicio' : 'Cancelar invitación'}
               </Button>
             )}
           </>
         }
       >
-        <Field label="Motivo" optional hint={`Se lo haremos saber a ${first}.`}>
-          <Textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder={dialog === 'reject' ? 'Ej.: el precio es más alto de lo esperado, ¿hay otra fecha?' : ''} />
+        <Field label="Motivo" optional={!(dialog === 'cancel' && request.status === 'confirmed')} hint={`Se lo haremos saber a ${first}.`} error={reasonError}>
+          <Textarea rows={3} value={reason} onChange={(e) => (setReason(e.target.value), setReasonError(undefined))} placeholder={dialog === 'reject' ? 'Ej.: el precio es más alto de lo esperado, ¿hay otra fecha?' : ''} />
         </Field>
       </Dialog>
       </div>

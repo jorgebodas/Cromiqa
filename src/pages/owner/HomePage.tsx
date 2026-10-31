@@ -96,6 +96,33 @@ function AttentionCard({ item, mechanicName }: { item: CyclistAttention; mechani
       cta: 'Abrir conversación',
       to: threadHref(r),
     },
+    appointment: r.appointment?.pending
+      ? {
+          title: `${mechanicName} propone una cita`,
+          detail: `${categoryLabel(r.category)} · ${formatDate(r.appointment.pending.date, { weekday: 'short', day: 'numeric', month: 'short' })}, ${r.appointment.pending.time}`,
+          cta: 'Confirmar o proponer otra',
+          to: threadHref(r),
+        }
+      : {
+          title: `Acuerda la cita con ${mechanicName}`,
+          detail: `${categoryLabel(r.category)} · Servicio contratado, falta la fecha`,
+          cta: 'Proponer fecha',
+          to: threadHref(r),
+        },
+    confirm: {
+      title: `${mechanicName} ha terminado el trabajo`,
+      detail: item.closingSoon
+        ? `${categoryLabel(r.category)} · Se cerrará automáticamente en menos de 24 h`
+        : `${categoryLabel(r.category)} · Confirma que está bien o reporta un problema`,
+      cta: 'Revisar y confirmar',
+      to: threadHref(r),
+    },
+    incident: {
+      title: 'Problema abierto',
+      detail: `${categoryLabel(r.category)} · Con ${mechanicName}. El cierre automático está en pausa`,
+      cta: 'Ver incidencia',
+      to: threadHref(r),
+    },
     declined: {
       title: 'Ningún mecánico ha podido atenderte',
       detail: `${categoryLabel(r.category)} · Invita a otros mecánicos a esta solicitud`,
@@ -109,7 +136,7 @@ function AttentionCard({ item, mechanicName }: { item: CyclistAttention; mechani
       to: threadHref(r),
     },
   }[item.kind];
-  const dark = item.kind === 'proposal';
+  const dark = item.kind === 'proposal' || item.kind === 'confirm' || item.kind === 'appointment';
   return (
     <Link
       to={content.to}
@@ -129,8 +156,8 @@ function AttentionCard({ item, mechanicName }: { item: CyclistAttention; mechani
 
 /** 3 · In progress: a short summary; the full list lives in Solicitudes. */
 function InProgressRow({ request: r, mechanicName }: { request: ServiceRequest; mechanicName: string }) {
-  const p = currentProposal(r);
-  const booked = r.status === 'confirmed' || r.status === 'in_progress';
+  const booked = ['confirmed', 'in_progress', 'awaiting_completion'].includes(r.status);
+  const appt = r.appointment?.confirmed;
   return (
     <li>
       <Link to={booked ? threadHref(r) : caseHref(r)} className="flex items-center gap-3 px-4 py-3.5 hover:bg-canvas/60">
@@ -140,7 +167,7 @@ function InProgressRow({ request: r, mechanicName }: { request: ServiceRequest; 
           </span>
           <span className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted">
             <StatusBadge status={r.status} />
-            {booked && p && <span>{formatDate(p.date, { weekday: 'short', day: 'numeric', month: 'short' })}, {p.time}</span>}
+            {booked && (appt ? <span>{formatDate(appt.date, { weekday: 'short', day: 'numeric', month: 'short' })}, {appt.time}</span> : r.status === 'confirmed' && <span>Cita por acordar</span>)}
           </span>
         </span>
         <ChevronRight className="size-4 shrink-0 text-muted" aria-hidden />

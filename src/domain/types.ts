@@ -149,6 +149,8 @@ export type RequestStatus =
   | 'proposal_received'
   | 'confirmed'
   | 'in_progress'
+  /** The mechanic marked the work finished; waiting for the cyclist (or the 72 h closure). */
+  | 'awaiting_completion'
   | 'completed'
   | 'cancelled'
   /** The cyclist hired another provider for this request. */
@@ -204,6 +206,14 @@ export type RequestEventType =
   | 'open_proposal_sent'
   | 'proposal_revised'
   | 'not_selected'
+  | 'appointment_proposed'
+  | 'appointment_confirmed'
+  | 'work_finished'
+  | 'completion_confirmed'
+  | 'auto_closed'
+  | 'incident_opened'
+  | 'incident_resolved'
+  | 'cancelled_by_mechanic'
   | 'message';
 
 export interface RequestEvent {
@@ -227,6 +237,29 @@ export interface OpenProposal {
  * One invitation: the cyclist's request as sent to one provider, with that provider's
  * response (open proposal, versioned quotes), the conversation and, once hired, the service.
  */
+/** A date and time for the service, proposed by either party. */
+export interface AppointmentSlot {
+  date: ISODate;
+  time: string;
+  note?: string;
+}
+
+/**
+ * The appointment is agreed after hiring. A proposal only becomes the appointment when the
+ * other party confirms it; a change keeps the confirmed slot until its replacement is accepted.
+ */
+export interface Appointment {
+  confirmed?: AppointmentSlot & { confirmedAt: ISODateTime };
+  pending?: AppointmentSlot & { by: Role; at: ISODateTime };
+}
+
+/** A problem the cyclist reported after the work was marked finished. Blocks the automatic closure. */
+export interface Incident {
+  text: string;
+  openedAt: ISODateTime;
+  resolvedAt?: ISODateTime;
+}
+
 export interface ServiceRequest {
   id: ID;
   /** The cyclist's request this invitation belongs to; shared by every invited provider. */
@@ -248,6 +281,12 @@ export interface ServiceRequest {
   openProposal?: OpenProposal;
   events: RequestEvent[];
   completionSummary?: string;
+  appointment?: Appointment;
+  /** When the mechanic marked the work finished (starts the 72 h closure clock). */
+  finishedAt?: ISODateTime;
+  incidents?: Incident[];
+  /** Completed by the 72 h administrative closure, not by the cyclist's confirmation. */
+  autoClosed?: boolean;
   createdAt: ISODateTime;
   updatedAt: ISODateTime;
 }

@@ -112,6 +112,8 @@ export const useApp = create<AppState>((set, get) => {
       const draft = { ...emptyDraft(), ...(storage.getJSON<RequestDraft>(DRAFT_KEY) ?? {}) };
       if (!Array.isArray(draft.mechanicIds)) draft.mechanicIds = [];
       set({ db, sessionUserId, draft, ready: true });
+      // Keep time-based transitions (the 72 h closure) current while the app stays open.
+      if (typeof window !== 'undefined') window.setInterval(() => void refresh(), 60_000);
     },
 
     switchUser(userId) {

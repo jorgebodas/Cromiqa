@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, CalendarCheck, ChevronRight, Hammer, Inbox, MapPin, Pencil, ShieldCheck } from 'lucide-react';
 import type { ServiceRequest } from '@/domain/types';
 import { categoryLabel, locationShort } from '@/domain/catalog';
-import { currentProposal } from '@/domain/logic/requests';
 import { mechanicAttention, mechanicCounts, profileGaps, profileStatus, upcomingAppointments, type MechanicAttention, type ProfileGap } from '@/domain/logic/home';
 import { formatDate } from '@/domain/utils';
 import { useApp } from '@/state/store';
@@ -21,7 +20,9 @@ function todayLabel() {
 const ACTION: Record<MechanicAttention['kind'], { verb: string; cta: string }> = {
   respond: { verb: 'Nueva solicitud de', cta: 'Responder' },
   message: { verb: 'Mensaje de', cta: 'Contestar' },
-  propose: { verb: 'Envía tu propuesta a', cta: 'Preparar propuesta' },
+  incident: { verb: 'Problema reportado por', cta: 'Ver incidencia' },
+  propose: { verb: 'Envía tu presupuesto a', cta: 'Preparar presupuesto' },
+  appointment: { verb: 'Acuerda la cita con', cta: 'Coordinar cita' },
   start: { verb: 'Hoy toca el servicio de', cta: 'Empezar trabajo' },
   finish: { verb: 'Trabajo en curso para', cta: 'Marcar como terminado' },
 };
@@ -85,7 +86,7 @@ function Inner() {
                   {attention.map(({ kind, request: r }) => (
                     <li key={`${kind}-${r.id}`}>
                       <Link to={`/pro/solicitudes/${r.id}`} className="flex items-center gap-3 px-4 py-3.5 hover:bg-canvas/60" data-testid={`todo-${kind}`}>
-                        <span className={cx('size-2 shrink-0 rounded-full', kind === 'respond' || kind === 'message' ? 'bg-lime ring-2 ring-ink' : 'bg-line-strong')} aria-hidden />
+                        <span className={cx('size-2 shrink-0 rounded-full', kind === 'respond' || kind === 'message' || kind === 'incident' ? 'bg-lime ring-2 ring-ink' : 'bg-line-strong')} aria-hidden />
                         <span className="min-w-0 flex-1">
                           <span className="block truncate font-semibold">
                             {ACTION[kind].verb} {client(r).split(' ')[0]}
@@ -106,7 +107,7 @@ function Inner() {
             {/* 2 · Counts that lead to the filtered list. */}
             <div className="grid grid-cols-3 gap-3">
               <Count label="Sin responder" value={counts.unanswered} to="/pro/solicitudes?estado=sin-responder" icon={Inbox} testId="count-unanswered" />
-              <Count label="Con cita" value={counts.withAppointment} to="/pro/trabajos?estado=proximos" icon={CalendarCheck} testId="count-appointments" />
+              <Count label="Por agendar" value={counts.withAppointment} to="/pro/trabajos?estado=por-agendar" icon={CalendarCheck} testId="count-appointments" />
               <Count label="En curso" value={counts.active} to="/pro/trabajos?estado=en-curso" icon={Hammer} testId="count-active" />
             </div>
 
@@ -115,7 +116,7 @@ function Inner() {
               <Section title="Próximas citas" action={<Link to="/pro/trabajos" className="text-sm font-semibold hover:underline">Ver todas</Link>}>
                 <ul className="surface divide-y divide-line overflow-hidden">
                   {upcoming.map((r) => {
-                    const p = currentProposal(r)!;
+                    const p = r.appointment!.confirmed!;
                     return (
                       <li key={r.id}>
                         <Link to={`/pro/solicitudes/${r.id}`} className="flex items-center gap-3 px-4 py-3.5 hover:bg-canvas/60">

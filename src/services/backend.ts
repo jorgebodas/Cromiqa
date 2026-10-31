@@ -19,7 +19,9 @@ export interface CromiqaBackend {
   /** Everything the demo UI reads. A real backend would expose scoped queries instead. */
   loadAll(): Promise<DemoDatabase>;
 
-  createRequest(input: NewRequestInput): Promise<ServiceRequest>;
+  /** One invitation per chosen provider; returns them all (they share a `caseId`). */
+  createRequest(input: NewRequestInput): Promise<ServiceRequest[]>;
+  inviteToCase(caseId: ID, ownerId: ID, mechanicIds: ID[]): Promise<ServiceRequest[]>;
   updateRequest(requestId: ID, action: RequestAction, actor: Role): Promise<ServiceRequest>;
   addReview(requestId: ID, ownerId: ID, input: { rating: number; text: string }): Promise<void>;
 

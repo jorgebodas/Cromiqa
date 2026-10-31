@@ -9,17 +9,16 @@ import { Dialog } from '@/components/ui';
 
 
 /**
- * "Nueva solicitud", the one global action. Picking a need starts the existing request
- * flow: it seeds the draft and opens the mechanic search filtered by that service; choosing
- * a mechanic then continues in /solicitar with the category already selected.
+ * "Nueva solicitud", the one global action. Picking a need starts the request flow with that
+ * service selected; providers are chosen inside the flow.
  */
 export function NewRequestSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const navigate = useNavigate();
   const draft = useApp((s) => s.draft);
   const startRequest = useStartRequest();
-  const draftMechanic = useMechanic(draft.mechanicId);
+  const draftMechanic = useMechanic(draft.originMechanicId);
   // A request already under way is offered first, so tapping + by accident never loses it.
-  const inProgress = draftMechanic && (draft.step > 0 || draft.description.trim().length > 0);
+  const inProgress = draft.step > 0 || draft.description.trim().length > 0;
 
   const start = (category: ServiceCategory) => {
     onClose();
@@ -27,13 +26,13 @@ export function NewRequestSheet({ open, onClose }: { open: boolean; onClose: () 
   };
 
   return (
-    <Dialog open={open} onClose={onClose} title="¿Qué necesita tu bici?" description="Elige una opción y te mostramos los mecánicos que pueden ayudarte." sheet>
+    <Dialog open={open} onClose={onClose} title="¿Qué necesita tu bici?" description="Elige una opción. Después te mostramos los mecánicos que encajan." sheet>
       {inProgress && (
         <button
           type="button"
           onClick={() => {
             onClose();
-            navigate(`/solicitar?mecanico=${draftMechanic.id}`);
+            navigate(draftMechanic ? `/solicitar?mecanico=${draftMechanic.id}` : '/solicitar');
           }}
           className="mb-3 flex w-full items-center gap-3 rounded-2xl border border-ink bg-sand px-4 py-3 text-left"
         >
@@ -41,7 +40,8 @@ export function NewRequestSheet({ open, onClose }: { open: boolean; onClose: () 
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-semibold">Continuar la solicitud en curso</span>
             <span className="block truncate text-xs text-muted">
-              {draft.category ? `${categoryLabel(draft.category)} · ` : ''}con {draftMechanic.name}
+              {draft.category ? categoryLabel(draft.category) : 'Sin tipo de servicio'}
+              {draftMechanic ? ` · con ${draftMechanic.name}` : draft.mechanicIds.length ? ` · ${draft.mechanicIds.length} mecánicos elegidos` : ''}
             </span>
           </span>
           <ChevronRight className="size-4 shrink-0 text-muted" aria-hidden />

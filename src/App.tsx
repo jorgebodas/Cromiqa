@@ -8,6 +8,7 @@ import { RequestSentPage } from '@/pages/owner/RequestSentPage';
 import { ActivityPage } from '@/pages/owner/ActivityPage';
 import { OwnerRequestsPage } from '@/pages/owner/OwnerRequestsPage';
 import { OwnerRequestDetailPage } from '@/pages/owner/OwnerRequestDetailPage';
+import { OwnerCasePage } from '@/pages/owner/OwnerCasePage';
 import { GaragePage } from '@/pages/owner/garage/GaragePage';
 import { BikeDetailPage } from '@/pages/owner/garage/BikeDetailPage';
 import { AccountPage } from '@/pages/owner/AccountPage';
@@ -33,7 +34,9 @@ export function App() {
           <Route path="solicitudes" element={<OwnerRequestsPage />} />
           {/* The bell: notifications. */}
           <Route path="actividad" element={<ActivityPage />} />
-          <Route path="solicitudes/:id" element={<OwnerRequestDetailPage />} />
+          {/* A request (case) and, inside it, one invited mechanic's thread. */}
+          <Route path="solicitudes/:id" element={<OwnerCasePage />} />
+          <Route path="solicitudes/:id/mecanico/:threadId" element={<OwnerRequestDetailPage />} />
           <Route path="solicitudes/:id/enviada" element={<RequestSentPage />} />
           <Route path="garaje" element={<GaragePage />} />
           <Route path="garaje/:id" element={<BikeDetailPage />} />

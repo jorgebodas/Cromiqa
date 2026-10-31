@@ -21,7 +21,8 @@ import type { DraftErrors } from './draftValidation';
 interface StepProps {
   draft: RequestDraft;
   set: (patch: Partial<RequestDraft>) => void;
-  mechanic: Mechanic;
+  /** The provider the request started from (mechanic-first); narrows the choices. */
+  mechanic?: Mechanic;
   errors: DraftErrors;
 }
 
@@ -39,7 +40,7 @@ export function StepProblem({ draft, set, mechanic, errors }: StepProps) {
         <legend className="mb-3 text-sm font-medium">Tipo de servicio</legend>
         <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2" id="field-category" tabIndex={-1}>
           {CATEGORIES.map((c) => {
-            const offered = mechanic.services.some((s) => s.category === c.id);
+            const offered = !mechanic || mechanic.services.some((s) => s.category === c.id);
             const Icon = CATEGORY_ICONS[c.id];
             return (
               <ChoiceCard
@@ -51,7 +52,7 @@ export function StepProblem({ draft, set, mechanic, errors }: StepProps) {
                 disabled={!offered}
                 icon={<Icon className="size-5" />}
                 title={c.label}
-                description={offered ? c.description : `${mechanic.name.split(' ')[0]} no ofrece este servicio.`}
+                description={offered ? c.description : `${mechanic!.name.split(' ')[0]} no ofrece este servicio.`}
               />
             );
           })}
@@ -76,13 +77,13 @@ export function StepProblem({ draft, set, mechanic, errors }: StepProps) {
   );
 }
 
-function BikeTypePicker({ value, onChange, mechanic, error }: { value?: Bike['type']; onChange: (t: Bike['type']) => void; mechanic: Mechanic; error?: string }) {
+function BikeTypePicker({ value, onChange, mechanic, error }: { value?: Bike['type']; onChange: (t: Bike['type']) => void; mechanic?: Mechanic; error?: string }) {
   return (
     <fieldset>
       <legend className="mb-2 text-sm font-medium">Tipo de bici</legend>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" id="field-type" tabIndex={-1} role="radiogroup">
         {BIKE_TYPES.map((t) => {
-          const supported = mechanic.bikeTypes.includes(t.id);
+          const supported = !mechanic || mechanic.bikeTypes.includes(t.id);
           return (
             <label
               key={t.id}
@@ -91,7 +92,7 @@ function BikeTypePicker({ value, onChange, mechanic, error }: { value?: Bike['ty
                 value === t.id ? 'border-ink bg-ink text-paper' : 'border-line-strong hover:border-ink',
                 !supported && 'cursor-not-allowed opacity-40',
               )}
-              title={supported ? undefined : `${mechanic.name} no trabaja con este tipo de bici`}
+              title={supported ? undefined : `${mechanic!.name} no trabaja con este tipo de bici`}
             >
               <input type="radio" name="bike-type" className="sr-only" value={t.id} checked={value === t.id} disabled={!supported} onChange={() => onChange(t.id)} />
               {t.label}
@@ -122,7 +123,7 @@ export function StepBike({
     <div className="space-y-6">
       {inspection && (
         <p className="rounded-2xl bg-sand p-4 text-sm">
-          Cuéntanos qué bici quieres comprar. {mechanic.name.split(' ')[0]} la revisará antes de que pagues.
+          Cuéntanos qué bici quieres comprar. {mechanic ? mechanic.name.split(' ')[0] : 'Un mecánico'} la revisará antes de que pagues.
         </p>
       )}
       {!user && !inspection && guestHint}
@@ -140,7 +141,7 @@ export function StepBike({
                 onSelect={() => set({ bikeChoice: 'garage', bikeId: b.id })}
                 icon={<BikeIcon className="size-5" />}
                 title={b.name}
-                description={`${b.brand} ${b.model} · ${bikeTypeLabel(b.type)}${mechanic.bikeTypes.includes(b.type) ? '' : ' · no compatible con este mecánico'}`}
+                description={`${b.brand} ${b.model} · ${bikeTypeLabel(b.type)}${!mechanic || mechanic.bikeTypes.includes(b.type) ? '' : ' · no compatible con este mecánico'}`}
               />
             ))}
             <ChoiceCard
@@ -236,7 +237,7 @@ export function StepWhereWhen({ draft, set, mechanic, errors }: StepProps) {
       : [...draft.availability.timeSlots, slot];
     set({ availability: { ...draft.availability, timeSlots: slots } });
   };
-  const homeCovers = !draft.location || mechanic.serviceAreas.includes(draft.location);
+  const homeCovers = !mechanic || !draft.location || mechanic.serviceAreas.includes(draft.location);
   return (
     <div className="space-y-6">
       <Field label="Zona" error={errors.location}>
@@ -258,17 +259,19 @@ export function StepWhereWhen({ draft, set, mechanic, errors }: StepProps) {
             value="home"
             selected={draft.mode === 'home'}
             onSelect={() => set({ mode: 'home' })}
-            disabled={!mechanic.homeService}
+            disabled={mechanic ? !mechanic.homeService : false}
             icon={<Home className="size-5" />}
             title="A domicilio"
             description={
-              !mechanic.homeService
-                ? 'No disponible con este mecánico.'
-                : !homeCovers
-                  ? 'No se desplaza a la zona elegida.'
-                  : mechanic.homeServiceFee
-                    ? `Desplazamiento: ${formatPrice(mechanic.homeServiceFee)}`
-                    : 'Desplazamiento incluido.'
+              !mechanic
+                ? 'El mecánico va a donde esté la bici, dentro de su zona.'
+                : !mechanic.homeService
+                  ? 'No disponible con este mecánico.'
+                  : !homeCovers
+                    ? 'No se desplaza a la zona elegida.'
+                    : mechanic.homeServiceFee
+                      ? `Desplazamiento: ${formatPrice(mechanic.homeServiceFee)}`
+                      : 'Desplazamiento incluido.'
             }
           />
           <ChoiceCard
@@ -276,10 +279,10 @@ export function StepWhereWhen({ draft, set, mechanic, errors }: StepProps) {
             value="workshop"
             selected={draft.mode === 'workshop'}
             onSelect={() => set({ mode: 'workshop' })}
-            disabled={!mechanic.workshop}
+            disabled={mechanic ? !mechanic.workshop : false}
             icon={<Store className="size-5" />}
             title="En taller"
-            description={mechanic.workshop ? mechanic.workshopArea ?? 'Llevas tú la bici.' : 'Solo trabaja a domicilio.'}
+            description={!mechanic ? 'Llevas tú la bici a un taller cercano.' : mechanic.workshop ? mechanic.workshopArea ?? 'Llevas tú la bici.' : 'Solo trabaja a domicilio.'}
           />
         </div>
         {errors.mode && <div className="mt-2"><FieldError>{errors.mode}</FieldError></div>}
@@ -317,12 +320,14 @@ export function StepWhereWhen({ draft, set, mechanic, errors }: StepProps) {
         {errors.timeSlots && <div className="mt-2"><FieldError>{errors.timeSlots}</FieldError></div>}
       </fieldset>
 
-      <p className="flex items-start gap-2 rounded-2xl bg-sand p-4 text-sm">
-        <CalendarDays className="mt-0.5 size-4 shrink-0" aria-hidden />
-        <span>
-          <strong className="font-semibold">Agenda de {mechanic.name.split(' ')[0]}:</strong> {mechanic.availabilityNote}
-        </span>
-      </p>
+      {mechanic && (
+        <p className="flex items-start gap-2 rounded-2xl bg-sand p-4 text-sm">
+          <CalendarDays className="mt-0.5 size-4 shrink-0" aria-hidden />
+          <span>
+            <strong className="font-semibold">Agenda de {mechanic.name.split(' ')[0]}:</strong> {mechanic.availabilityNote}
+          </span>
+        </p>
+      )}
 
       <Field label="Notas para la cita" optional>
         <Textarea
@@ -353,13 +358,13 @@ function ReviewBlock({ title, onEdit, children }: { title: string; onEdit: () =>
 
 export function StepReview({
   draft,
-  mechanic,
+  recipients,
   bikes,
   goTo,
   ownerPicker,
 }: {
   draft: RequestDraft;
-  mechanic: Mechanic;
+  recipients: Mechanic[];
   bikes: Bike[];
   goTo: (step: number) => void;
   ownerPicker: ReactNode;
@@ -368,13 +373,20 @@ export function StepReview({
   const bike = garageBike ?? draft.bike;
   return (
     <div className="space-y-3">
-      <section className="flex items-center gap-3 rounded-2xl bg-sand p-4">
-        <Avatar name={mechanic.name} tone={mechanic.avatarTone} />
-        <div>
-          <p className="text-sm text-muted">Solicitud para</p>
-          <p className="font-bold">{mechanic.name} · {mechanic.businessName}</p>
-        </div>
-      </section>
+      <ReviewBlock title={recipients.length === 1 ? 'Se enviará a' : `Se enviará a ${recipients.length} mecánicos`} onEdit={() => goTo(3)}>
+        <ul className="space-y-2" data-testid="review-recipients">
+          {recipients.map((m) => (
+            <li key={m.id} className="flex items-center gap-3">
+              <Avatar name={m.name} tone={m.avatarTone} size="sm" />
+              <span className="min-w-0">
+                <span className="block font-semibold">{m.name}</span>
+                <span className="block truncate text-sm text-muted">{m.businessName}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+        {recipients.length > 1 && <p className="mt-3 text-sm text-muted">Cada uno recibe una invitación independiente. Podrás comparar sus respuestas y contratar a uno.</p>}
+      </ReviewBlock>
       <ReviewBlock title="El problema" onEdit={() => goTo(0)}>
         <p className="font-semibold">{draft.category && categoryLabel(draft.category)}</p>
         <p className="mt-1 whitespace-pre-line text-[15px]">{draft.description}</p>

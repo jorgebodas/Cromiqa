@@ -2,7 +2,6 @@ import { useNavigate } from 'react-router-dom';
 import { CircleHelp, ScanSearch, Settings2, Wrench } from 'lucide-react';
 import type { ServiceCategory } from '@/domain/types';
 import { useApp } from '@/state/store';
-import { buildSearchParams } from './searchParams';
 
 export const CATEGORY_ICONS: Record<ServiceCategory, typeof Wrench> = {
   repair: Wrench,
@@ -20,14 +19,14 @@ export const NEED_OPTIONS: { id: ServiceCategory; label: string }[] = [
 ];
 
 /**
- * Starts a request for a need: seeds the draft with the category and opens Mecánicos filtered
- * by it; picking a mechanic continues in the request flow with the category preselected.
+ * Request-first: starts a new request for a need. The flow asks what's wrong, which bike and
+ * where, then shows matching providers to choose from.
  */
 export function useStartRequest() {
   const navigate = useNavigate();
   const resetDraft = useApp((s) => s.resetDraft);
   return (category: ServiceCategory) => {
     resetDraft({ category });
-    navigate(`/mecanicos?${buildSearchParams({ category, fromHome: true })}`);
+    navigate('/solicitar');
   };
 }

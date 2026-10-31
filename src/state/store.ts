@@ -15,7 +15,7 @@ import type {
   TimeSlot,
   User,
 } from '@/domain/types';
-import type { RequestAction } from '@/domain/logic/requests';
+import { canPerform, type RequestAction } from '@/domain/logic/requests';
 import { backend } from '@/services';
 import { storage } from '@/services/storage';
 
@@ -23,7 +23,10 @@ const SESSION_KEY = 'cromiqa:demo:session';
 const DRAFT_KEY = 'cromiqa:demo:draft';
 
 export interface RequestDraft {
-  mechanicId?: ID;
+  /** Providers the cyclist picked (1–5), confirmed on the review step. */
+  mechanicIds: ID[];
+  /** Set when the request started from a provider's profile (mechanic-first). */
+  originMechanicId?: ID;
   category?: ServiceCategory;
   description: string;
   bikeChoice: 'garage' | 'new';
@@ -38,6 +41,7 @@ export interface RequestDraft {
 }
 
 export const emptyDraft = (): RequestDraft => ({
+  mechanicIds: [],
   description: '',
   bikeChoice: 'garage',
   bike: { brand: '', model: '', name: '', notes: '' },
@@ -65,7 +69,10 @@ interface AppState {
   setDraft(patch: Partial<RequestDraft>): void;
   resetDraft(patch?: Partial<RequestDraft>): void;
 
-  createRequest(input: NewRequestInput): Promise<ServiceRequest>;
+  createRequest(input: NewRequestInput): Promise<ServiceRequest[]>;
+  inviteToCase(caseId: ID, mechanicIds: ID[]): Promise<ServiceRequest[]>;
+  /** Withdraws the whole request: every invitation not yet hired. */
+  withdrawCase(caseId: ID, reason?: string): Promise<void>;
   actOnRequest(requestId: ID, action: RequestAction): Promise<ServiceRequest>;
   addReview(requestId: ID, input: { rating: number; text: string }): Promise<void>;
   addBike(input: BikeInput): Promise<void>;
@@ -103,6 +110,7 @@ export const useApp = create<AppState>((set, get) => {
       const saved = storage.getJSON<{ userId: ID | null }>(SESSION_KEY);
       const sessionUserId = saved?.userId && db.users.some((u) => u.id === saved.userId) ? saved.userId : null;
       const draft = { ...emptyDraft(), ...(storage.getJSON<RequestDraft>(DRAFT_KEY) ?? {}) };
+      if (!Array.isArray(draft.mechanicIds)) draft.mechanicIds = [];
       set({ db, sessionUserId, draft, ready: true });
     },
 
@@ -128,9 +136,24 @@ export const useApp = create<AppState>((set, get) => {
     },
 
     async createRequest(input) {
-      const request = await backend.createRequest(input);
+      const requests = await backend.createRequest(input);
       await refresh();
-      return request;
+      return requests;
+    },
+
+    async inviteToCase(caseId, mechanicIds) {
+      const requests = await backend.inviteToCase(caseId, currentUser().id, mechanicIds);
+      await refresh();
+      return requests;
+    },
+
+    async withdrawCase(caseId, reason) {
+      const user = currentUser();
+      const open = get().db.requests.filter(
+        (r) => r.caseId === caseId && r.ownerId === user.id && canPerform(r, 'cancel_by_owner', 'owner') && !r.proposals.some((p) => p.status === 'accepted'),
+      );
+      for (const r of open) await backend.updateRequest(r.id, { type: 'cancel_by_owner', reason }, 'owner');
+      await refresh();
     },
 
     async actOnRequest(requestId, action) {

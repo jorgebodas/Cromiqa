@@ -15,7 +15,7 @@ import type {
 } from '@/domain/types';
 import { addDays, toISODate } from '@/domain/utils';
 
-export const SEED_VERSION = 3;
+export const SEED_VERSION = 4;
 
 const weekdays = (slots: WeeklyAvailability['slots'], days: number[]): WeeklyAvailability[] =>
   days.map((d) => ({ day: d as WeeklyAvailability['day'], slots }));
@@ -295,8 +295,9 @@ export function createSeed(now: Date = new Date()): DemoDatabase {
     durationMinutes,
   });
 
-  const req = (r: Omit<ServiceRequest, 'updatedAt'> & { status: RequestStatus }): ServiceRequest => ({
+  const req = (r: Omit<ServiceRequest, 'updatedAt' | 'caseId'> & { caseId?: string; status: RequestStatus }): ServiceRequest => ({
     ...r,
+    caseId: r.caseId ?? r.id,
     updatedAt: r.events[r.events.length - 1]?.at ?? r.createdAt,
   });
 
@@ -318,10 +319,11 @@ export function createSeed(now: Date = new Date()): DemoDatabase {
       location: 'arganda', mode: 'home',
       availability: { timeSlots: ['afternoon', 'evening'], flexible: false, notes: 'Mejor después de las 18:00.' },
       status: 'awaiting_proposal', proposals: [],
+      openProposal: { message: 'Antes de darte precio: ¿incluimos las suspensiones? En una XC 500 la horquilla suele agradecer limpieza de barras.', createdAt: at(-2, 11) },
       events: [
         ev('e-02a', 'created', 'owner', -3, undefined, 9),
         ev('e-02b', 'accepted_for_review', 'mechanic', -2, undefined, 11),
-        ev('e-02c', 'message', 'mechanic', -2, '¿Las suspensiones también? En una XC 500 la horquilla suele agradecer limpieza de barras.', 11),
+        ev('e-02c', 'open_proposal_sent', 'mechanic', -2, 'Antes de darte precio: ¿incluimos las suspensiones? En una XC 500 la horquilla suele agradecer limpieza de barras.', 11),
         ev('e-02d', 'message', 'owner', -2, 'Sí, si no se dispara mucho el precio.', 20),
       ],
       createdAt: at(-3, 9),
@@ -339,6 +341,22 @@ export function createSeed(now: Date = new Date()): DemoDatabase {
         ev('e-03a', 'created', 'owner', -2, undefined, 21),
         ev('e-03b', 'accepted_for_review', 'mechanic', -1, undefined, 9),
         ev('e-03c', 'proposal_sent', 'mechanic', -1, 'Puedo ir contigo a ver la bici. Reviso cuadro, bieletas, suspensiones y transmisión, y te doy un informe con lo que costaría ponerla a punto.', 12),
+      ],
+      createdAt: at(-2, 21),
+    }),
+    // Same request, also sent to Nerea: two quotes to compare.
+    req({
+      id: 'r-13', caseId: 'r-03', code: 'CRQ-1013', ownerId: 'u-pablo', mechanicId: 'm-nerea', category: 'inspection',
+      description: 'Voy a comprar una MTB doble suspensión de segunda mano a un particular en Rivas. Quiero que alguien la revise antes de pagar.',
+      bike: { type: 'mtb', brand: 'Giant', model: 'Trance 29 2', year: 2021, notes: 'Dice el vendedor que la horquilla tiene servicio reciente.' },
+      inspection: { askingPrice: 1650, sellerLocation: 'Rivas-Vaciamadrid (centro)', listingReference: 'Anuncio en portal de segunda mano' },
+      location: 'rivas', mode: 'home',
+      availability: { timeSlots: ['evening'], flexible: false, preferredDate: day(3) },
+      status: 'proposal_received',
+      proposals: [prop('pr-13', 50, 4, '19:00', 'Inspección pre-compra completa con informe y fotos: cuadro, bieletas, holguras y suspensiones (presión y retenes). Incluye desplazamiento a Rivas.', 'pending', -1, 75)],
+      events: [
+        ev('e-13a', 'created', 'owner', -2, undefined, 21),
+        ev('e-13b', 'proposal_sent', 'mechanic', -1, 'Inspección pre-compra completa con informe y fotos: cuadro, bieletas, holguras y suspensiones (presión y retenes). Incluye desplazamiento a Rivas.', 16),
       ],
       createdAt: at(-2, 21),
     }),

@@ -11,6 +11,7 @@ import { useSwitchAccount } from '@/components/layout/AccountSwitcher';
 import { StatusBadge } from '@/components/domain/Status';
 import { Avatar, Badge, Button, Card, Dialog, Field, Input, cx } from '@/components/ui';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
+import { threadHref } from '@/domain/logic/cases';
 
 const SCENARIOS: { id: string; title: string; steps: string; start: { label: string; user?: ID | null; to: string } }[] = [
   {
@@ -247,7 +248,7 @@ export function DemoPanelPage() {
                     <td className="px-4 py-3 text-muted">{relativeTime(r.updatedAt)}</td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-1">
-                        <Button size="sm" variant="ghost" onClick={() => switchAccount(r.ownerId, { to: `/solicitudes/${r.id}` })}>
+                        <Button size="sm" variant="ghost" onClick={() => switchAccount(r.ownerId, { to: threadHref(r) })}>
                           Como cliente
                         </Button>
                         {m && (

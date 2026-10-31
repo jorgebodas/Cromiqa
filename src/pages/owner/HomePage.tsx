@@ -5,6 +5,7 @@ import type { BikeType, LocationId, ServiceRequest, User } from '@/domain/types'
 import { bikeTypeLabel, categoryLabel, locationShort, specializationLabel } from '@/domain/catalog';
 import { currentProposal } from '@/domain/logic/requests';
 import { searchMechanics, type MechanicResult } from '@/domain/logic/search';
+import { caseHref, threadHref } from '@/domain/logic/cases';
 import { cyclistAttention, cyclistInProgress, type CyclistAttention } from '@/domain/logic/home';
 import { formatDate, formatPrice } from '@/domain/utils';
 import { useApp } from '@/state/store';
@@ -75,23 +76,37 @@ function AttentionCard({ item, mechanicName }: { item: CyclistAttention; mechani
   const r = item.request;
   const proposal = currentProposal(r);
   const content = {
-    proposal: {
-      title: `Propuesta de ${mechanicName}`,
-      detail: proposal ? `${categoryLabel(r.category)} · ${formatPrice(proposal.price)} · ${formatDate(proposal.date, { weekday: 'short', day: 'numeric', month: 'short' })}, ${proposal.time}` : categoryLabel(r.category),
-      cta: 'Revisar propuesta',
-      to: `/solicitudes/${r.id}`,
+    proposal:
+      item.count && item.count > 1
+        ? {
+            title: `${item.count} presupuestos para comparar`,
+            detail: `${categoryLabel(r.category)} · Elige uno y los demás se cerrarán`,
+            cta: 'Comparar presupuestos',
+            to: caseHref(r),
+          }
+        : {
+            title: `Presupuesto de ${mechanicName}`,
+            detail: proposal ? `${categoryLabel(r.category)} · ${formatPrice(proposal.price)} · ${formatDate(proposal.date, { weekday: 'short', day: 'numeric', month: 'short' })}, ${proposal.time}` : categoryLabel(r.category),
+            cta: 'Revisar presupuesto',
+            to: caseHref(r),
+          },
+    clarify: {
+      title: `${mechanicName} necesita aclarar algo`,
+      detail: `${categoryLabel(r.category)} · Respóndele en el chat`,
+      cta: 'Abrir conversación',
+      to: threadHref(r),
     },
     declined: {
-      title: `${mechanicName} no puede atenderte`,
-      detail: `${categoryLabel(r.category)} · Busca otro profesional para esta solicitud`,
-      cta: 'Buscar otro mecánico',
-      to: `/mecanicos?servicio=${r.category}`,
+      title: 'Ningún mecánico ha podido atenderte',
+      detail: `${categoryLabel(r.category)} · Invita a otros mecánicos a esta solicitud`,
+      cta: 'Invitar a otros',
+      to: caseHref(r),
     },
     review: {
       title: `¿Qué tal con ${mechanicName}?`,
       detail: `${categoryLabel(r.category)} · Servicio completado`,
       cta: 'Valorar el servicio',
-      to: `/solicitudes/${r.id}`,
+      to: threadHref(r),
     },
   }[item.kind];
   const dark = item.kind === 'proposal';
@@ -118,7 +133,7 @@ function InProgressRow({ request: r, mechanicName }: { request: ServiceRequest; 
   const booked = r.status === 'confirmed' || r.status === 'in_progress';
   return (
     <li>
-      <Link to={`/solicitudes/${r.id}`} className="flex items-center gap-3 px-4 py-3.5 hover:bg-canvas/60">
+      <Link to={booked ? threadHref(r) : caseHref(r)} className="flex items-center gap-3 px-4 py-3.5 hover:bg-canvas/60">
         <span className="min-w-0 flex-1">
           <span className="block truncate font-semibold">
             {categoryLabel(r.category)} <span className="font-normal text-muted">· {mechanicName}</span>

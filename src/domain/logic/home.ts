@@ -8,40 +8,70 @@ const DAY = 24 * 60 * 60 * 1000;
 
 // ── Cyclist ──────────────────────────────────────────────────────────────────
 
-export type CyclistAttentionKind = 'proposal' | 'declined' | 'review';
+export type CyclistAttentionKind = 'proposal' | 'clarify' | 'declined' | 'review';
 
 export interface CyclistAttention {
   kind: CyclistAttentionKind;
   request: ServiceRequest;
+  /** For proposals: how many quotes are waiting in the same request. */
+  count?: number;
 }
 
+const isLive = (r: ServiceRequest) => ['sent', 'awaiting_proposal', 'proposal_received', 'confirmed', 'in_progress', 'completed'].includes(r.status);
+
 /**
- * Things only the cyclist can move forward: a proposal to answer, a mechanic who could not
- * take the job (recently), a finished service still to review. Most urgent first.
+ * Things only the cyclist can move forward, one per request: quotes to compare, a mechanic
+ * who needs a clarification (open proposal), a request every invited mechanic declined
+ * (recently), a finished service still to review. Most urgent first.
  */
 export function cyclistAttention(requests: ServiceRequest[], reviews: Review[], now = new Date()): CyclistAttention[] {
   const items: (CyclistAttention & { rank: number; at: string })[] = [];
-  for (const r of requests) {
-    if (r.status === 'proposal_received' && currentProposal(r)?.status === 'pending') items.push({ kind: 'proposal', request: r, rank: 0, at: r.updatedAt });
-    const last = r.events[r.events.length - 1];
-    if (r.status === 'cancelled' && last?.type === 'rejected_by_mechanic' && now.getTime() - new Date(last.at).getTime() < 7 * DAY)
-      items.push({ kind: 'declined', request: r, rank: 1, at: last.at });
-    if (r.status === 'completed' && !reviews.some((v) => v.requestId === r.id) && now.getTime() - new Date(r.updatedAt).getTime() < 30 * DAY)
-      items.push({ kind: 'review', request: r, rank: 2, at: r.updatedAt });
+  const byCase = new Map<string, ServiceRequest[]>();
+  for (const r of requests) byCase.set(r.caseId, [...(byCase.get(r.caseId) ?? []), r]);
+  for (const threads of byCase.values()) {
+    const quotes = threads.filter((r) => r.status === 'proposal_received' && currentProposal(r)?.status === 'pending');
+    if (quotes.length) {
+      const first = [...quotes].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0]!;
+      items.push({ kind: 'proposal', request: first, count: quotes.length, rank: 0, at: first.updatedAt });
+    }
+    for (const r of threads) {
+      const last = r.events[r.events.length - 1];
+      if (r.status === 'awaiting_proposal' && r.openProposal && last && last.by === 'mechanic' && (last.type === 'open_proposal_sent' || last.type === 'message'))
+        items.push({ kind: 'clarify', request: r, rank: 1, at: last.at });
+      if (r.status === 'completed' && !reviews.some((v) => v.requestId === r.id) && now.getTime() - new Date(r.updatedAt).getTime() < 30 * DAY)
+        items.push({ kind: 'review', request: r, rank: 3, at: r.updatedAt });
+    }
+    // Declines only need the cyclist once no invitation of the request is still alive.
+    const declines = threads.filter((r) => r.status === 'cancelled' && r.events[r.events.length - 1]?.type === 'rejected_by_mechanic');
+    const lastDecline = declines.map((r) => r.events[r.events.length - 1]!.at).sort().pop();
+    if (lastDecline && !threads.some(isLive) && now.getTime() - new Date(lastDecline).getTime() < 7 * DAY)
+      items.push({ kind: 'declined', request: declines[0]!, rank: 2, at: lastDecline });
   }
-  return items.sort((a, b) => a.rank - b.rank || b.at.localeCompare(a.at)).map(({ kind, request }) => ({ kind, request }));
+  return items.sort((a, b) => a.rank - b.rank || b.at.localeCompare(a.at)).map(({ kind, request, count }) => ({ kind, request, count }));
 }
 
-/** Requests in motion that don't need the cyclist right now: booked work first, by date. */
+/**
+ * Requests in motion that don't need the cyclist right now, one row per request (its lead
+ * invitation): booked work first, by date, then requests still waiting for answers.
+ */
 export function cyclistInProgress(requests: ServiceRequest[]): ServiceRequest[] {
   const booked = (r: ServiceRequest) => r.status === 'confirmed' || r.status === 'in_progress';
   const when = (r: ServiceRequest) => {
     const p = currentProposal(r);
     return p ? `${p.date}T${p.time}` : '9999';
   };
-  return requests
-    .filter((r) => ['sent', 'awaiting_proposal', 'confirmed', 'in_progress'].includes(r.status))
-    .sort((a, b) => Number(booked(b)) - Number(booked(a)) || (booked(a) ? when(a).localeCompare(when(b)) : b.updatedAt.localeCompare(a.updatedAt)));
+  const byCase = new Map<string, ServiceRequest[]>();
+  for (const r of requests) byCase.set(r.caseId, [...(byCase.get(r.caseId) ?? []), r]);
+  const rows: ServiceRequest[] = [];
+  for (const threads of byCase.values()) {
+    const hired = threads.find(booked);
+    if (hired) rows.push(hired);
+    else if (!threads.some((r) => r.status === 'proposal_received' || r.status === 'completed' || r.openProposal)) {
+      const waiting = threads.filter((r) => r.status === 'sent' || r.status === 'awaiting_proposal');
+      if (waiting.length) rows.push([...waiting].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0]!);
+    }
+  }
+  return rows.sort((a, b) => Number(booked(b)) - Number(booked(a)) || (booked(a) ? when(a).localeCompare(when(b)) : b.updatedAt.localeCompare(a.updatedAt)));
 }
 
 // ── Mechanic ─────────────────────────────────────────────────────────────────

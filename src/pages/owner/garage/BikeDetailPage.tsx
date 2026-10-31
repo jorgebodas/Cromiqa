@@ -11,6 +11,7 @@ import { Button, Card, Dialog, EmptyState, KeyValue, LinkButton } from '@/compon
 import { BikeFormDialog } from './BikeForm';
 import { BikePhoto } from './GaragePage';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
+import { threadHref } from '@/domain/logic/cases';
 
 function Inner() {
   const { id } = useParams();
@@ -82,7 +83,7 @@ function Inner() {
               <ul className="space-y-2">
                 {related.map((r) => (
                   <li key={r.id}>
-                    <Link to={`/solicitudes/${r.id}`} className="surface flex items-center justify-between gap-3 p-4">
+                    <Link to={threadHref(r)} className="surface flex items-center justify-between gap-3 p-4">
                       <span className="flex items-center gap-3">
                         <ClipboardList className="size-5 text-muted" aria-hidden />
                         <span>

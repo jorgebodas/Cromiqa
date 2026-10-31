@@ -1,15 +1,16 @@
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Navigate, useParams } from 'react-router-dom';
 import { Bike, Check, CircleCheckBig, FlaskConical, Repeat, Star, X } from 'lucide-react';
 import { STATUSES } from '@/domain/catalog';
 import { canPerform, currentProposal, DomainError, type RequestAction } from '@/domain/logic/requests';
+import { caseHref, threadHref } from '@/domain/logic/cases';
 import { formatLongDate } from '@/domain/utils';
 import { useApp } from '@/state/store';
 import { useCurrentUser, useMechanic, useRequest } from '@/state/selectors';
 import { RoleGate } from '@/components/layout/RoleGate';
 import { useSwitchAccount } from '@/components/layout/AccountSwitcher';
 import { StatusBadge, StatusProgress } from '@/components/domain/Status';
-import { ProposalCard, RequestSummary, RequestTimeline } from '@/components/domain/RequestParts';
+import { OpenProposalCard, ProposalCard, RequestSummary, RequestTimeline } from '@/components/domain/RequestParts';
 import { Avatar, Button, Card, Dialog, EmptyState, Field, LinkButton, Textarea, cx } from '@/components/ui';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 
@@ -65,9 +66,10 @@ function ReviewForm({ requestId, mechanicName }: { requestId: string; mechanicNa
 }
 
 function Inner() {
-  const { id } = useParams();
+  const { id, threadId } = useParams();
   const user = useCurrentUser()!;
-  const request = useRequest(id);
+  const request = useRequest(threadId);
+  const requests = useApp((s) => s.db.requests);
   const mechanic = useMechanic(request?.mechanicId);
   const actOnRequest = useApp((s) => s.actOnRequest);
   const toast = useApp((s) => s.toast);
@@ -92,6 +94,9 @@ function Inner() {
     );
   }
 
+  if (id !== request.caseId) return <Navigate to={threadHref(request)} replace />;
+  const siblings = requests.filter((r) => r.caseId === request.caseId && r.id !== request.id && !['cancelled', 'not_selected', 'completed'].includes(r.status));
+
   const run = async (action: RequestAction, success: string) => {
     setBusy(action.type);
     try {
@@ -114,7 +119,7 @@ function Inner() {
 
   return (
     <>
-      <ScreenHeader title="Solicitud" back="/solicitudes" />
+      <ScreenHeader title={mechanic.name} back={caseHref(request)} />
       <div className="container-page pb-8 sm:pb-10">
       <header className="mb-8">
         <div className="flex flex-wrap items-center gap-3">
@@ -133,11 +138,14 @@ function Inner() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
         <div className="min-w-0 space-y-6">
           {pending && proposal && (
-            <ProposalCard proposal={proposal} highlight>
-              <p className="mb-4 text-sm text-muted">Al aceptar, la cita queda confirmada con {first}. Si la rechazas, podrá enviarte otra propuesta.</p>
+            <ProposalCard proposal={proposal} version={request.proposals.length} highlight>
+              <p className="mb-4 text-sm text-muted">
+                {request.proposals.length > 1 ? `${first} ha revisado su presupuesto; necesita tu aprobación. ` : ''}
+                Al aceptar, contratas a {first} y la cita queda acordada{siblings.length ? '; las demás invitaciones de esta solicitud se cerrarán' : ''}. Aceptar no es un pago. Si lo rechazas, solo se cierra esta invitación.
+              </p>
               <div className="flex flex-col gap-2 sm:flex-row">
-                <Button size="lg" onClick={() => run({ type: 'accept_proposal' }, 'Propuesta aceptada. Cita confirmada.')} loading={busy === 'accept_proposal'} icon={<Check className="size-5" aria-hidden />}>
-                  Aceptar propuesta
+                <Button size="lg" onClick={() => run({ type: 'accept_proposal' }, 'Presupuesto aceptado. Cita acordada.')} loading={busy === 'accept_proposal'} icon={<Check className="size-5" aria-hidden />}>
+                  Aceptar presupuesto
                 </Button>
                 <Button size="lg" variant="secondary" onClick={() => setDialog('reject')}>
                   Rechazar
@@ -145,6 +153,15 @@ function Inner() {
               </div>
             </ProposalCard>
           )}
+
+          {request.status === 'not_selected' && (
+            <div className="surface p-5" data-testid="not-selected">
+              <p className="font-bold">No seleccionado</p>
+              <p className="mt-1 text-sm text-muted">Contrataste a otro mecánico para esta solicitud, así que esta invitación se cerró.</p>
+            </div>
+          )}
+
+          {request.status !== 'not_selected' && <OpenProposalCard request={request} mechanicName={mechanic.name} />}
 
           {request.status === 'confirmed' && proposal && (
             <div className="rounded-3xl bg-ink p-5 text-paper sm:p-6">
@@ -178,7 +195,7 @@ function Inner() {
 
           {request.status === 'completed' && !reviewed && <ReviewForm requestId={request.id} mechanicName={mechanic.name} />}
 
-          {proposal && !pending && request.status !== 'cancelled' && <ProposalCard proposal={proposal} />}
+          {proposal && !pending && <ProposalCard proposal={proposal} version={request.proposals.length} />}
 
           <RequestSummary request={request} />
           <RequestTimeline request={request} mechanicName={mechanic.name} ownerName={user.name} viewer="owner" />
@@ -199,7 +216,7 @@ function Inner() {
           </Card>
           {canPerform(request, 'cancel_by_owner', 'owner') && (
             <Button variant="danger" block onClick={() => setDialog('cancel')}>
-              Cancelar solicitud
+              {request.status === 'confirmed' ? 'Cancelar cita' : 'Cancelar invitación'}
             </Button>
           )}
           <div className="rounded-2xl border border-dashed border-line-strong p-4">
@@ -224,13 +241,13 @@ function Inner() {
       <Dialog
         open={dialog !== null}
         onClose={() => setDialog(null)}
-        title={dialog === 'reject' ? 'Rechazar propuesta' : 'Cancelar solicitud'}
+        title={dialog === 'reject' ? 'Rechazar presupuesto' : request.status === 'confirmed' ? 'Cancelar cita' : 'Cancelar invitación'}
         description={
           dialog === 'reject'
-            ? `${first} podrá enviarte una nueva propuesta.`
+            ? `Se cerrará la invitación a ${first}. Tu solicitud y las demás invitaciones siguen abiertas.`
             : request.status === 'confirmed'
               ? 'La cita acordada se anulará. En la demo no hay penalización.'
-              : 'La solicitud dejará de estar activa.'
+              : `${first} dejará de ver tu solicitud. Las demás invitaciones siguen abiertas.`
         }
         footer={
           <>
@@ -238,12 +255,12 @@ function Inner() {
               Volver
             </Button>
             {dialog === 'reject' ? (
-              <Button variant="dark" loading={busy === 'reject_proposal'} onClick={() => run({ type: 'reject_proposal', reason: reason.trim() || undefined }, 'Propuesta rechazada')}>
-                Rechazar propuesta
+              <Button variant="dark" loading={busy === 'reject_proposal'} onClick={() => run({ type: 'reject_proposal', reason: reason.trim() || undefined }, 'Presupuesto rechazado')}>
+                Rechazar presupuesto
               </Button>
             ) : (
-              <Button variant="danger" loading={busy === 'cancel_by_owner'} onClick={() => run({ type: 'cancel_by_owner', reason: reason.trim() || undefined }, 'Solicitud cancelada')}>
-                Cancelar solicitud
+              <Button variant="danger" loading={busy === 'cancel_by_owner'} onClick={() => run({ type: 'cancel_by_owner', reason: reason.trim() || undefined }, request.status === 'confirmed' ? 'Cita cancelada' : 'Invitación cancelada')}>
+                {request.status === 'confirmed' ? 'Cancelar cita' : 'Cancelar invitación'}
               </Button>
             )}
           </>

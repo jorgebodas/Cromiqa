@@ -139,6 +139,10 @@ export interface MaintenanceRecord {
   cost?: number;
 }
 
+/**
+ * Status of one invitation (a request sent to one provider). The cyclist's request is the
+ * case grouping its invitations; its status is derived (see `domain/logic/cases.ts`).
+ */
 export type RequestStatus =
   | 'sent'
   | 'awaiting_proposal'
@@ -146,7 +150,9 @@ export type RequestStatus =
   | 'confirmed'
   | 'in_progress'
   | 'completed'
-  | 'cancelled';
+  | 'cancelled'
+  /** The cyclist hired another provider for this request. */
+  | 'not_selected';
 
 export interface BikeSnapshot {
   type: BikeType;
@@ -170,7 +176,8 @@ export interface RequestAvailability {
   notes?: string;
 }
 
-export type ProposalStatus = 'pending' | 'accepted' | 'rejected' | 'withdrawn';
+/** `withdrawn` also marks a version replaced by a revision; `not_selected` another quote won. */
+export type ProposalStatus = 'pending' | 'accepted' | 'rejected' | 'withdrawn' | 'not_selected';
 
 export interface Proposal {
   id: ID;
@@ -194,6 +201,9 @@ export type RequestEventType =
   | 'completed'
   | 'cancelled_by_owner'
   | 'rejected_by_mechanic'
+  | 'open_proposal_sent'
+  | 'proposal_revised'
+  | 'not_selected'
   | 'message';
 
 export interface RequestEvent {
@@ -204,8 +214,23 @@ export interface RequestEvent {
   text?: string;
 }
 
+/**
+ * An open proposal: the provider can't price it yet and says what they need to clarify. It
+ * unlocks the conversation without hiring anyone; it is never a binding quote.
+ */
+export interface OpenProposal {
+  message: string;
+  createdAt: ISODateTime;
+}
+
+/**
+ * One invitation: the cyclist's request as sent to one provider, with that provider's
+ * response (open proposal, versioned quotes), the conversation and, once hired, the service.
+ */
 export interface ServiceRequest {
   id: ID;
+  /** The cyclist's request this invitation belongs to; shared by every invited provider. */
+  caseId: ID;
   code: string;
   ownerId: ID;
   mechanicId: ID;
@@ -218,7 +243,9 @@ export interface ServiceRequest {
   mode: ServiceMode;
   availability: RequestAvailability;
   status: RequestStatus;
+  /** Closed quotes, oldest first: each revision adds a version and withdraws the previous one. */
   proposals: Proposal[];
+  openProposal?: OpenProposal;
   events: RequestEvent[];
   completionSummary?: string;
   createdAt: ISODateTime;
@@ -237,7 +264,8 @@ export interface DemoDatabase {
 
 export interface NewRequestInput {
   ownerId: ID;
-  mechanicId: ID;
+  /** Providers the cyclist chose and confirmed: one invitation each (1–5 per send). */
+  mechanicIds: ID[];
   category: ServiceCategory;
   description: string;
   bikeId?: ID;

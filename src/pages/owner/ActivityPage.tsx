@@ -9,6 +9,7 @@ import { useActivitySeen, useOwnerActivity } from '@/state/activity';
 import { RoleGate } from '@/components/layout/RoleGate';
 import { EmptyState, cx } from '@/components/ui';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
+import { threadHref } from '@/domain/logic/cases';
 
 function Updates() {
   const user = useCurrentUser()!;
@@ -37,7 +38,7 @@ function Updates() {
         const isNew = !seenOnOpen.current || item.at > seenOnOpen.current;
         return (
           <li key={item.id}>
-            <Link to={`/solicitudes/${item.requestId}`} className="flex items-start gap-3 px-4 py-4 hover:bg-sand/60 sm:px-5">
+            <Link to={request ? threadHref(request) : `/solicitudes/${item.requestId}`} className="flex items-start gap-3 px-4 py-4 hover:bg-sand/60 sm:px-5">
               <span className={cx('mt-2 size-2 shrink-0 rounded-full', isNew ? 'bg-ink' : 'bg-transparent')} aria-hidden />
               <span className="min-w-0 flex-1">
                 <span className="block font-semibold leading-snug">

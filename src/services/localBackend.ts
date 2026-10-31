@@ -1,5 +1,5 @@
 import type { DemoDatabase } from '@/domain/types';
-import { addReview, applyRequestAction, createRequest } from '@/domain/logic/requests';
+import { addReview, applyRequestAction, createRequest, inviteToCase } from '@/domain/logic/requests';
 import { addBike, removeBike, updateBike, updateMechanic, updateUser } from '@/domain/logic/garage';
 import { SEED_VERSION, createSeed } from '@/data/seed';
 import type { CromiqaBackend } from './backend';
@@ -48,7 +48,13 @@ export class LocalBackend implements CromiqaBackend {
   createRequest: CromiqaBackend['createRequest'] = (input) =>
     this.commit((db) => {
       const r = createRequest(db, input, this.now());
-      return { db: r.db, result: r.request };
+      return { db: r.db, result: r.requests };
+    });
+
+  inviteToCase: CromiqaBackend['inviteToCase'] = (caseId, ownerId, mechanicIds) =>
+    this.commit((db) => {
+      const r = inviteToCase(db, caseId, ownerId, mechanicIds, this.now());
+      return { db: r.db, result: r.requests };
     });
 
   updateRequest: CromiqaBackend['updateRequest'] = (id, action, actor) =>

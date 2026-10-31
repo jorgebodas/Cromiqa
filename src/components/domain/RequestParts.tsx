@@ -52,12 +52,26 @@ export function RequestSummary({ request }: { request: ServiceRequest }) {
   );
 }
 
-export function ProposalCard({ proposal, highlight, children }: { proposal: Proposal; highlight?: boolean; children?: ReactNode }) {
+export function ProposalCard({
+  proposal,
+  version,
+  highlight,
+  children,
+  viewer = 'owner',
+}: {
+  proposal: Proposal;
+  /** Quote version (1, 2…) when it was revised. */
+  version?: number;
+  highlight?: boolean;
+  children?: ReactNode;
+  viewer?: Role;
+}) {
   const statusText: Record<Proposal['status'], string> = {
-    pending: 'Pendiente de tu respuesta',
-    accepted: 'Aceptada',
-    rejected: 'Rechazada',
-    withdrawn: 'Sustituida',
+    pending: viewer === 'owner' ? 'Pendiente de tu respuesta' : 'Pendiente del cliente',
+    accepted: 'Aceptado',
+    rejected: 'Rechazado',
+    withdrawn: 'Ya no está vigente',
+    not_selected: 'No seleccionado',
   };
   return (
     <section
@@ -67,14 +81,14 @@ export function ProposalCard({ proposal, highlight, children }: { proposal: Prop
     >
       <div className="flex items-start justify-between gap-3">
         <h2 id={`proposal-${proposal.id}`} className="font-bold">
-          Propuesta del mecánico
+          Presupuesto cerrado{version && version > 1 ? ` · versión ${version}` : ''}
         </h2>
         <span className="text-xs font-medium text-muted">{statusText[proposal.status]}</span>
       </div>
       <p className="mt-3 font-display text-4xl font-extrabold" data-testid="proposal-price">
         {formatPrice(proposal.price)}
       </p>
-      <p className="text-sm text-muted">Precio propuesto. En la demo no se gestiona ningún pago.</p>
+      <p className="text-sm text-muted">Precio cerrado para el trabajo descrito. Aceptarlo no es un pago: en la demo no se gestiona ninguno.</p>
       <div className="mt-4 grid grid-cols-1 gap-2 text-[15px] sm:grid-cols-2">
         <p className="flex items-center gap-2">
           <CalendarDays className="size-4 text-muted" aria-hidden />
@@ -115,9 +129,33 @@ function eventText(e: RequestEvent, mechanicName: string, ownerName: string, req
       return { title: `${first(ownerName)} canceló la solicitud`, body: e.text };
     case 'rejected_by_mechanic':
       return { title: `${first(mechanicName)} no puede atender esta solicitud`, body: e.text };
+    case 'open_proposal_sent':
+      return { title: `${first(mechanicName)} necesita aclarar algo antes de dar precio`, body: e.text };
+    case 'proposal_revised': {
+      const p = request.proposals.find((x) => Math.abs(new Date(x.createdAt).getTime() - new Date(e.at).getTime()) < 6 * 3600_000);
+      return { title: p ? `Presupuesto revisado: ${formatPrice(p.price)}` : 'Presupuesto revisado', body: e.text };
+    }
+    case 'not_selected':
+      return { title: `${first(ownerName)} contrató a otro mecánico para esta solicitud` };
     case 'message':
       return { title: e.by === 'mechanic' ? first(mechanicName) : first(ownerName), body: e.text };
   }
+}
+
+/** The provider's open proposal: what they need to know before pricing. Not a quote. */
+export function OpenProposalCard({ request, mechanicName, viewer = 'owner' }: { request: ServiceRequest; mechanicName: string; viewer?: Role }) {
+  if (!request.openProposal) return null;
+  return (
+    <section className="surface p-5 sm:p-6" data-testid="open-proposal">
+      <h2 className="font-bold">Propuesta abierta</h2>
+      <p className="mt-1 text-sm text-muted">
+        {viewer === 'owner'
+          ? `${mechanicName.split(' ')[0]} necesita aclarar algo antes de darte un precio cerrado. No es un presupuesto ni contrata nada; podéis hablar en el chat.`
+          : 'Enviaste esta pregunta antes de dar precio. El chat está abierto; no es vinculante para ninguno de los dos.'}
+      </p>
+      <blockquote className="mt-4 rounded-2xl bg-sand p-4 text-[15px] leading-relaxed">“{request.openProposal.message}”</blockquote>
+    </section>
+  );
 }
 
 export function RequestTimeline({
@@ -136,6 +174,7 @@ export function RequestTimeline({
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const canMessage = canPerform(request, 'message', viewer);
+  const hasMessages = request.events.some((e) => e.type === 'message');
 
   const send = async (e: FormEvent) => {
     e.preventDefault();
@@ -157,6 +196,14 @@ export function RequestTimeline({
       <h2 className="flex items-center gap-2 font-bold">
         <MessageSquare className="size-4" aria-hidden /> Actividad y mensajes
       </h2>
+      {!canMessage && !['cancelled', 'completed', 'not_selected'].includes(request.status) && (
+        <p className="mt-3 rounded-2xl bg-canvas px-4 py-3 text-sm text-muted" data-testid="chat-locked">
+          {viewer === 'owner'
+            ? 'El chat se abre cuando aceptas un presupuesto, o antes si el mecánico te envía una propuesta abierta.'
+            : 'El chat se abre cuando el cliente acepta tu presupuesto, o antes si le envías una propuesta abierta.'}
+          {hasMessages ? ' Abajo tienes los mensajes anteriores.' : ''}
+        </p>
+      )}
       {canMessage && (
         <form onSubmit={send} className="mt-4">
           <label htmlFor={`msg-${request.id}`} className="sr-only">

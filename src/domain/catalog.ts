@@ -187,14 +187,14 @@ export const STATUSES: Record<
     step: 0,
   },
   awaiting_proposal: {
-    label: 'Esperando propuesta',
+    label: 'Esperando presupuesto',
     ownerHint: 'El mecánico está valorando tu caso y te enviará precio y fecha.',
     mechanicHint: 'Has aceptado valorarla. Envía una propuesta de precio y cita.',
     tone: 'waiting',
     step: 1,
   },
   proposal_received: {
-    label: 'Propuesta recibida',
+    label: 'Presupuesto recibido',
     ownerHint: 'Revisa el precio y la cita propuestos. Aún no hay nada reservado.',
     mechanicHint: 'Propuesta enviada. Esperando la respuesta del cliente.',
     tone: 'action',
@@ -206,6 +206,13 @@ export const STATUSES: Record<
     mechanicHint: 'Cita acordada con el cliente.',
     tone: 'positive',
     step: 3,
+  },
+  not_selected: {
+    label: 'No seleccionada',
+    ownerHint: 'Contrataste a otro mecánico para esta solicitud.',
+    mechanicHint: 'El cliente eligió otra propuesta para esta solicitud.',
+    tone: 'neutral',
+    step: -1,
   },
   in_progress: {
     label: 'En curso',

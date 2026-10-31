@@ -21,7 +21,9 @@ export interface ActivityItem {
 /** Events the mechanic triggers are news for the owner; the owner's own actions are not. */
 const OWNER_NEWS: Partial<Record<RequestEventType, (mechanic: string) => string>> = {
   accepted_for_review: (m) => `${m} está revisando tu solicitud`,
-  proposal_sent: (m) => `${m} te ha enviado una propuesta`,
+  proposal_sent: (m) => `${m} te ha enviado un presupuesto`,
+  proposal_revised: (m) => `${m} ha revisado su presupuesto`,
+  open_proposal_sent: (m) => `${m} necesita aclarar algo`,
   started: (m) => `${m} ha empezado el trabajo`,
   completed: (m) => `${m} ha terminado el servicio`,
   rejected_by_mechanic: (m) => `${m} no puede atender tu solicitud`,

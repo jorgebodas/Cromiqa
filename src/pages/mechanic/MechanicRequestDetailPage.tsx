@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { CheckCheck, FlaskConical, Hammer, Repeat, Send, ThumbsUp, X } from 'lucide-react';
+import { CheckCheck, FlaskConical, Hammer, MessageCircleQuestion, Repeat, Send, X } from 'lucide-react';
 import type { ProposalInput, ServiceRequest, Mechanic, TimeSlot } from '@/domain/types';
 import { STATUSES, locationLabel } from '@/domain/catalog';
 import { DomainError, canPerform, currentProposal, validateProposal, type RequestAction } from '@/domain/logic/requests';
@@ -10,10 +10,11 @@ import { useCurrentMechanic, useRequest, useUserName } from '@/state/selectors';
 import { RoleGate } from '@/components/layout/RoleGate';
 import { useSwitchAccount } from '@/components/layout/AccountSwitcher';
 import { StatusBadge, StatusProgress } from '@/components/domain/Status';
-import { ProposalCard, RequestSummary, RequestTimeline } from '@/components/domain/RequestParts';
+import { OpenProposalCard, ProposalCard, RequestSummary, RequestTimeline } from '@/components/domain/RequestParts';
 import { Avatar, Button, Card, Dialog, EmptyState, Field, Input, LinkButton, Textarea } from '@/components/ui';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { isBooked } from './MechanicRequestsPage';
+import { threadHref } from '@/domain/logic/cases';
 
 const SLOT_TIME: Record<TimeSlot, string> = { morning: '10:00', afternoon: '17:00', evening: '19:30' };
 
@@ -32,10 +33,14 @@ function defaultProposal(r: ServiceRequest, m: Mechanic, ownerFirst: string): Pr
   };
 }
 
-function ProposalForm({ request, mechanic, ownerFirst, onDone }: { request: ServiceRequest; mechanic: Mechanic; ownerFirst: string; onDone: () => void }) {
+function ProposalForm({ request, mechanic, ownerFirst, onDone, onCancel }: { request: ServiceRequest; mechanic: Mechanic; ownerFirst: string; onDone: () => void; onCancel?: () => void }) {
+  const revising = request.status === 'proposal_received';
   const actOnRequest = useApp((s) => s.actOnRequest);
   const toast = useApp((s) => s.toast);
-  const [form, setForm] = useState<ProposalInput>(() => defaultProposal(request, mechanic, ownerFirst));
+  const [form, setForm] = useState<ProposalInput>(() => {
+    const current = currentProposal(request);
+    return revising && current ? { price: current.price, date: current.date, time: current.time, durationMinutes: current.durationMinutes, message: current.message } : defaultProposal(request, mechanic, ownerFirst);
+  });
   const [priceText, setPriceText] = useState(String(form.price));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -48,8 +53,8 @@ function ProposalForm({ request, mechanic, ownerFirst, onDone }: { request: Serv
     if (Object.keys(e).length) return;
     setSaving(true);
     try {
-      await actOnRequest(request.id, { type: 'send_proposal', proposal: input });
-      toast(`Propuesta enviada a ${ownerFirst}`);
+      await actOnRequest(request.id, { type: revising ? 'revise_proposal' : 'send_proposal', proposal: input });
+      toast(revising ? `Presupuesto revisado. ${ownerFirst} tiene que aprobarlo.` : `Presupuesto enviado a ${ownerFirst}`);
       onDone();
     } catch (err) {
       toast(err instanceof DomainError ? err.message : 'No se pudo enviar la propuesta.', 'error');
@@ -60,8 +65,14 @@ function ProposalForm({ request, mechanic, ownerFirst, onDone }: { request: Serv
 
   return (
     <section className="rounded-3xl border border-ink p-5 sm:p-6" aria-labelledby="proposal-form-title" data-testid="proposal-form">
-      <h2 id="proposal-form-title" className="text-lg font-bold">Enviar propuesta</h2>
-      <p className="mt-1 text-sm text-muted">{ownerFirst} verá el precio, la fecha y tu mensaje, y podrá aceptarla o rechazarla.</p>
+      <h2 id="proposal-form-title" className="text-lg font-bold">
+        {revising ? `Revisar presupuesto · versión ${request.proposals.length + 1}` : 'Presupuesto cerrado'}
+      </h2>
+      <p className="mt-1 text-sm text-muted">
+        {revising
+          ? `Sustituye a la versión actual. ${ownerFirst} tendrá que aprobar la nueva versión; nada cambia sin su aceptación.`
+          : `Precio, fecha y alcance. ${ownerFirst} podrá aceptarlo o rechazarlo; el chat se abre si lo acepta.`}
+      </p>
       <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Precio total (€)" error={errors.price} hint={request.mode === 'home' && mechanic.homeServiceFee ? `Incluye desplazamiento (${mechanic.homeServiceFee} €).` : undefined}>
           <Input name="price" type="number" inputMode="decimal" min={1} step="1" value={priceText} onChange={(e) => setPriceText(e.target.value)} />
@@ -86,9 +97,53 @@ function ProposalForm({ request, mechanic, ownerFirst, onDone }: { request: Serv
       <Field label="Mensaje para el cliente" error={errors.message} className="mt-4" hint="Explica qué incluye el precio y qué necesitas de su parte.">
         <Textarea name="message" rows={4} value={form.message} onChange={(e) => set({ message: e.target.value })} maxLength={600} />
       </Field>
-      <div className="mt-5 flex justify-end">
+      <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        {onCancel && (
+          <Button size="lg" variant="ghost" onClick={onCancel}>
+            Cancelar
+          </Button>
+        )}
         <Button size="lg" onClick={submit} loading={saving} icon={<Send className="size-4" aria-hidden />}>
-          Enviar propuesta
+          {revising ? 'Enviar revisión' : 'Enviar presupuesto'}
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+function OpenProposalForm({ request, ownerFirst, onDone }: { request: ServiceRequest; ownerFirst: string; onDone: () => void }) {
+  const actOnRequest = useApp((s) => s.actOnRequest);
+  const toast = useApp((s) => s.toast);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState<string>();
+  const [saving, setSaving] = useState(false);
+  const submit = async () => {
+    setSaving(true);
+    try {
+      await actOnRequest(request.id, { type: 'send_open_proposal', message });
+      toast(`Propuesta abierta enviada. Ya podéis hablar por chat.`);
+      onDone();
+    } catch (err) {
+      setError(err instanceof DomainError ? err.message : 'No se pudo enviar.');
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <section className="rounded-3xl border border-ink p-5 sm:p-6" data-testid="open-proposal-form">
+      <h2 className="text-lg font-bold">Propuesta abierta</h2>
+      <p className="mt-1 text-sm text-muted">
+        Para cuando necesitas aclarar algo antes de dar un precio. Abre el chat con {ownerFirst}; no es un presupuesto ni le compromete a nada.
+      </p>
+      <Field label="Qué necesitas saber" error={error} className="mt-4">
+        <Textarea rows={4} value={message} onChange={(e) => (setMessage(e.target.value), setError(undefined))} maxLength={600} placeholder="Ej.: ¿me mandas una foto del cambio? Según lo que vea, puede ser solo ajuste o hará falta patilla nueva." />
+      </Field>
+      <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <Button size="lg" variant="ghost" onClick={onDone}>
+          Cancelar
+        </Button>
+        <Button size="lg" onClick={submit} loading={saving} icon={<MessageCircleQuestion className="size-4" aria-hidden />}>
+          Enviar propuesta abierta
         </Button>
       </div>
     </section>
@@ -107,7 +162,7 @@ function Inner() {
   const [busy, setBusy] = useState<string | null>(null);
   const [dialog, setDialog] = useState<'reject' | 'complete' | null>(null);
   const [text, setText] = useState('');
-  const [reproposing, setReproposing] = useState(false);
+  const [composing, setComposing] = useState<'quote' | 'open' | null>(null);
 
   if (!request || request.mechanicId !== mechanic.id) {
     return (
@@ -125,8 +180,9 @@ function Inner() {
 
   const ownerFirst = ownerName.split(' ')[0]!;
   const proposal = currentProposal(request);
-  const lastRejected = request.status === 'awaiting_proposal' && proposal?.status === 'rejected' ? proposal : undefined;
+  const lastRejected = request.status === 'cancelled' && proposal?.status === 'rejected' ? proposal : undefined;
   const rejectionReason = lastRejected ? [...request.events].reverse().find((e) => e.type === 'proposal_rejected')?.text : undefined;
+  const answering = request.status === 'sent' || request.status === 'awaiting_proposal';
   const can = (a: RequestAction['type']) => canPerform(request, a, 'mechanic');
 
   const run = async (action: RequestAction, success: string) => {
@@ -143,7 +199,6 @@ function Inner() {
     }
   };
 
-  const showForm = request.status === 'awaiting_proposal' || reproposing;
 
   return (
     <>
@@ -155,7 +210,13 @@ function Inner() {
           <StatusBadge status={request.status} />
         </div>
         <h2 className="mt-2 text-2xl font-extrabold sm:text-3xl" data-testid="request-status-title">
-          {request.status === 'sent' ? `Nueva solicitud de ${ownerFirst}` : request.status === 'proposal_received' ? 'Propuesta enviada' : STATUSES[request.status].label}
+          {request.status === 'sent'
+            ? `Nueva solicitud de ${ownerFirst}`
+            : request.status === 'proposal_received'
+              ? 'Presupuesto enviado'
+              : request.status === 'awaiting_proposal' && request.openProposal
+                ? 'Propuesta abierta'
+                : STATUSES[request.status].label}
         </h2>
         <p className="mt-2 text-muted">{STATUSES[request.status].mechanicHint}</p>
         <div className="mt-6 max-w-2xl">
@@ -165,38 +226,54 @@ function Inner() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
         <div className="min-w-0 space-y-6">
-          {request.status === 'sent' && (
-            <Card className="p-5 sm:p-6">
-              <h2 className="text-lg font-bold">¿Puedes encargarte?</h2>
+          {request.status !== 'not_selected' && <OpenProposalCard request={request} mechanicName={mechanic.name} viewer="mechanic" />}
+
+          {answering && !composing && (
+            <Card className="p-5 sm:p-6" data-testid="respond-options">
+              <h2 className="text-lg font-bold">{request.openProposal ? `¿Ya puedes darle precio a ${ownerFirst}?` : `Responde a ${ownerFirst}`}</h2>
               <p className="mt-1 text-sm text-muted">
-                Acepta para valorarla y prepara tu propuesta, o envía directamente precio y cita si lo tienes claro.
+                {request.openProposal
+                  ? 'Cuando lo tengas claro, envía un presupuesto cerrado con precio y fecha.'
+                  : 'Envía un presupuesto cerrado si lo tienes claro, o una propuesta abierta si necesitas aclarar algo antes.'}
               </p>
-              <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-                <Button size="lg" loading={busy === 'accept_for_review'} onClick={() => run({ type: 'accept_for_review' }, 'Solicitud aceptada para valorar')} icon={<ThumbsUp className="size-4" aria-hidden />}>
-                  Aceptar para valorar
+              <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                <Button size="lg" onClick={() => setComposing('quote')} icon={<Send className="size-4" aria-hidden />}>
+                  Presupuesto cerrado
                 </Button>
-                <Button size="lg" variant="secondary" onClick={() => setReproposing(true)}>
-                  Proponer precio ya
+                {!request.openProposal && (
+                  <Button size="lg" variant="secondary" onClick={() => setComposing('open')} icon={<MessageCircleQuestion className="size-4" aria-hidden />}>
+                    Propuesta abierta
+                  </Button>
+                )}
+                <Button size="lg" variant="ghost" onClick={() => setDialog('reject')}>
+                  No puedo atenderla
                 </Button>
               </div>
             </Card>
           )}
 
+          {composing === 'open' && <OpenProposalForm request={request} ownerFirst={ownerFirst} onDone={() => setComposing(null)} />}
+          {composing === 'quote' && <ProposalForm request={request} mechanic={mechanic} ownerFirst={ownerFirst} onDone={() => setComposing(null)} onCancel={() => setComposing(null)} />}
+
           {lastRejected && (
-            <div className="rounded-2xl bg-sand p-4 text-sm">
-              <strong className="font-semibold">{ownerFirst} rechazó tu propuesta anterior</strong>
-              {rejectionReason ? `: “${rejectionReason}”` : '.'} Puedes enviar una nueva.
+            <div className="rounded-2xl bg-sand p-4 text-sm" data-testid="quote-rejected">
+              <strong className="font-semibold">{ownerFirst} rechazó tu presupuesto</strong>
+              {rejectionReason ? `: “${rejectionReason}”` : '.'} Esta invitación queda cerrada.
             </div>
           )}
 
-          {showForm && <ProposalForm request={request} mechanic={mechanic} ownerFirst={ownerFirst} onDone={() => setReproposing(false)} />}
+          {request.status === 'not_selected' && (
+            <div className="rounded-2xl bg-sand p-4 text-sm" data-testid="not-selected">
+              <strong className="font-semibold">{ownerFirst} eligió a otro mecánico.</strong> Esta invitación queda cerrada; gracias por responder.
+            </div>
+          )}
 
-          {request.status === 'proposal_received' && proposal && !reproposing && (
-            <ProposalCard proposal={proposal}>
+          {request.status === 'proposal_received' && proposal && composing !== 'quote' && (
+            <ProposalCard proposal={proposal} version={request.proposals.length} viewer="mechanic">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm text-muted">Esperando la respuesta de {ownerFirst}.</p>
-                <Button variant="secondary" size="sm" onClick={() => setReproposing(true)}>
-                  Enviar otra propuesta
+                <Button variant="secondary" size="sm" onClick={() => setComposing('quote')}>
+                  Revisar presupuesto
                 </Button>
               </div>
             </ProposalCard>
@@ -261,7 +338,7 @@ function Inner() {
               Los datos de contacto se compartirían al confirmar la cita. En la demo no hay datos de contacto reales.
             </p>
           </Card>
-          {can('reject_request') && (
+          {can('reject_request') && !answering && (
             <Button variant="danger" block onClick={() => setDialog('reject')}>
               No puedo atenderla
             </Button>
@@ -277,7 +354,7 @@ function Inner() {
               block
               className="mt-3"
               icon={<Repeat className="size-4" aria-hidden />}
-              onClick={() => switchAccount(request.ownerId, { to: `/solicitudes/${request.id}` })}
+              onClick={() => switchAccount(request.ownerId, { to: threadHref(request) })}
             >
               Ver como {ownerFirst}
             </Button>
@@ -289,7 +366,7 @@ function Inner() {
         open={dialog !== null}
         onClose={() => setDialog(null)}
         title={dialog === 'reject' ? 'Rechazar solicitud' : 'Completar trabajo'}
-        description={dialog === 'reject' ? `${ownerFirst} verá que no puedes atenderla y podrá pedírselo a otro mecánico.` : 'Resume lo que has hecho. Aparecerá en el historial de la bici.'}
+        description={dialog === 'reject' ? `${ownerFirst} verá que no puedes atenderla. Solo se cierra tu invitación; su solicitud sigue abierta para otros mecánicos.` : 'Resume lo que has hecho. Aparecerá en el historial de la bici.'}
         footer={
           <>
             <Button variant="ghost" onClick={() => setDialog(null)}>

@@ -25,7 +25,7 @@ const has = (...statuses: RequestStatus[]) => (r: ServiceRequest) => statuses.in
 const REQUEST_SEGMENTS: Segment[] = [
   { id: 'sin-responder', label: 'Sin responder', match: has('sent', 'awaiting_proposal') },
   { id: 'respondidas', label: 'Respondidas', match: has('proposal_received') },
-  { id: 'cerradas', label: 'Cerradas', match: has('cancelled') },
+  { id: 'cerradas', label: 'Cerradas', match: has('cancelled', 'not_selected') },
   { id: 'todas', label: 'Todas' },
 ];
 const SERVICE_SEGMENTS: Segment[] = [

@@ -56,11 +56,12 @@ export function ProfileAvatarButton() {
   );
 }
 
-/** Phone header actions in cyclist mode: search and the account (notifications live in the bottom bar). */
+/** Phone header actions in cyclist mode: search, notifications and the account. */
 export function CyclistHeaderActions({ search = true }: { search?: boolean }) {
   return (
     <span className="flex items-center gap-2 md:hidden">
       {search && <SearchButton />}
+      <NotificationsButton />
       <ProfileAvatarButton />
     </span>
   );

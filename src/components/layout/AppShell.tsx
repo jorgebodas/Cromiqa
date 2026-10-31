@@ -189,29 +189,9 @@ function OwnerHeader({ tabHref, onNewRequest, onSearch }: { tabHref: (t: OwnerTa
   );
 }
 
-const TAB_W = 64; // px per tab: the pill hugs its icons
+const TAB_W = 60; // px per tab: the pill hugs its icons
+const PILL_PAD = 4; // px around the tabs: the highlight sits close to the pill's edge
 const ROUND = 'float-pill pointer-events-auto flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-full';
-
-/** Phone navigation: notifications as their own circle, between the bar and the +. */
-function BellCircle() {
-  const user = useCurrentUser();
-  const { unread } = useOwnerActivity(user?.id);
-  return (
-    <Link
-      to="/actividad"
-      aria-label={unread ? `Notificaciones, ${unread} sin leer` : 'Notificaciones'}
-      className={cx(ROUND, 'relative overflow-visible text-ink transition-transform active:scale-95')}
-      data-testid="activity-link"
-    >
-      <Bell className="size-[26px]" strokeWidth={1.9} aria-hidden />
-      {unread > 0 && (
-        <span className="absolute right-2 top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-ink px-1 text-[11px] font-bold text-paper ring-2 ring-paper" aria-hidden>
-          {unread > 9 ? '9+' : unread}
-        </span>
-      )}
-    </Link>
-  );
-}
 
 /**
  * The floating pill of the phone navigation: icons only, a white pill with a soft halo, and a
@@ -220,7 +200,7 @@ function BellCircle() {
 function FloatingTabs({ tabs, className, hidden }: { hidden?: boolean; tabs: { key: string; to: string; label: string; icon: typeof House; active: boolean; badge?: number; state?: unknown }[]; className?: string }) {
   const index = tabs.findIndex((t) => t.active);
   return (
-    <nav aria-label="Principal (móvil)" className={cx('h-full p-1.5', className)} {...(hidden ? { inert: '' } : {})}>
+    <nav aria-label="Principal (móvil)" className={cx('h-full', className)} style={{ padding: PILL_PAD }} {...(hidden ? { inert: '' } : {})}>
       <ul className="relative grid h-full" style={{ gridTemplateColumns: `repeat(${tabs.length}, ${TAB_W}px)` }}>
         {index >= 0 && (
           <li
@@ -228,7 +208,7 @@ function FloatingTabs({ tabs, className, hidden }: { hidden?: boolean; tabs: { k
             className="pointer-events-none absolute inset-y-0 left-0 flex items-center justify-center transition-transform duration-300 ease-[cubic-bezier(.3,1.25,.4,1)]"
             style={{ width: `${100 / tabs.length}%`, transform: `translateX(${index * 100}%)` }}
           >
-            <span className="size-[52px] rounded-full bg-canvas" />
+            <span className="aspect-square h-full rounded-full bg-[#efefef]" />
           </li>
         )}
         {tabs.map((t) => (
@@ -238,10 +218,10 @@ function FloatingTabs({ tabs, className, hidden }: { hidden?: boolean; tabs: { k
               state={t.state}
               aria-label={t.badge ? `${t.label} (${t.badge} sin responder)` : t.label}
               aria-current={t.active ? 'page' : undefined}
-              className={cx('flex h-full items-center justify-center rounded-full transition-colors', t.active ? 'text-ink' : 'text-muted hover:text-ink')}
+              className={cx('flex h-full items-center justify-center rounded-full transition-colors', t.active ? 'text-[#3b3b3b]' : 'text-[#7a7a7a] hover:text-[#3b3b3b]')}
             >
               <span className="relative">
-                <t.icon className="size-[26px]" strokeWidth={t.active ? 2.1 : 1.8} aria-hidden />
+                <t.icon className="size-[26px]" strokeWidth={2} aria-hidden />
                 {!!t.badge && (
                   <span className="absolute -right-2.5 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-lime px-1 text-[10px] font-bold text-ink ring-2 ring-paper" aria-hidden>
                     {t.badge}
@@ -275,7 +255,7 @@ function OwnerBottomNav({
       <div className="mx-auto flex max-w-[380px] items-center justify-between gap-3">
         <div
           className="float-pill pointer-events-auto relative h-16 overflow-hidden rounded-full transition-[width] duration-300 ease-out"
-          style={{ width: condensed ? 64 : OWNER_TABS.length * TAB_W + 12 }}
+          style={{ width: condensed ? 64 : OWNER_TABS.length * TAB_W + PILL_PAD * 2 }}
         >
           <FloatingTabs
             className={cx('transition-opacity duration-200', condensed ? 'opacity-0' : 'opacity-100')}
@@ -295,10 +275,9 @@ function OwnerBottomNav({
             )}
             data-testid="nav-condensed"
           >
-            <CurrentIcon className="size-[26px]" strokeWidth={2.1} aria-hidden />
+            <CurrentIcon className="size-[26px] text-[#3b3b3b]" strokeWidth={2} aria-hidden />
           </button>
         </div>
-        <BellCircle />
         <button
           type="button"
           onClick={onNewRequest}
@@ -395,7 +374,7 @@ function MechanicBottomTabs({ items }: { items: NavItem[] }) {
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(12px,env(safe-area-inset-bottom))] md:hidden">
       <div className="mx-auto flex items-center justify-center gap-3">
-        <div className="float-pill pointer-events-auto h-16 rounded-full" style={{ width: items.length * TAB_W + 12 }}>
+        <div className="float-pill pointer-events-auto h-16 rounded-full" style={{ width: items.length * TAB_W + PILL_PAD * 2 }}>
           <FloatingTabs tabs={items.map((i) => ({ key: i.to, to: i.to, label: i.label, icon: i.icon, active: isActive(i), badge: i.badge }))} />
         </div>
       </div>

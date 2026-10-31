@@ -143,14 +143,6 @@
     0 30px 80px -28px rgb(23 23 23 / 0.38);
 }
 
-/* Very subtle moving lime/yellow light behind the hero. */
-/* Lime glow at the bottom of the landing page: a slow, subtle breathing drift in a loop. */
-@keyframes cq-glow {
-  0%, 100% { transform: translate(-50%, 0) scale(1); }
-  33% { transform: translate(-44%, -4%) scale(1.06); }
-  66% { transform: translate(-56%, -2%) scale(0.97); }
-}
-.cq-glow { animation: cq-glow 22s ease-in-out infinite; }
 
 /* "Próximamente": deep lime text (5:1 on white) that a brighter lime glint sweeps across
    every 5 s, then rests. */

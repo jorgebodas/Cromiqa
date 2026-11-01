@@ -7,10 +7,10 @@ import { autoCloseReminderDue, currentProposal, openIncident } from './requests'
 
 /**
  * Lower = more urgent, by what happens if the cyclist doesn't act:
- * 1 incidents · 2 confirmations and dates · 3 quotes and choosing a mechanic · 4 messages ·
- * 5 waiting on someone else (never above anything that needs the cyclist).
+ * 1 incidents · 2 appointment dates · 3 quotes and choosing a mechanic · 4 information requests ·
+ * 5 completion to confirm · 6 waiting on someone else (never above anything that needs the cyclist).
  */
-export type HubPriority = 1 | 2 | 3 | 4 | 5;
+export type HubPriority = 1 | 2 | 3 | 4 | 5 | 6;
 
 /** Every situation a request can be in, from the cyclist's side. All map to stored states. */
 export type HubSituation =
@@ -33,20 +33,20 @@ export type HubSituation =
 /** Group and order inside the group (waiting states: the most relevant first). */
 export const SITUATION_RANK: Record<HubSituation, [HubPriority, number]> = {
   incident: [1, 0],
-  confirm_delivery: [2, 0],
-  work_finished: [2, 0],
+  confirm_delivery: [5, 0],
+  work_finished: [5, 0],
   new_date: [2, 0],
   confirm_appointment: [2, 0],
   propose_date: [2, 0],
   quotes: [3, 0],
   quote: [3, 0],
-  choose_mechanic: [3, 0],
+  choose_mechanic: [3, 1],
   message: [4, 0],
-  in_progress: [5, 0],
-  appointment_confirmed: [5, 1],
-  waiting_confirmation: [5, 2],
-  waiting_quotes: [5, 3],
-  searching: [5, 4],
+  in_progress: [6, 0],
+  appointment_confirmed: [6, 1],
+  waiting_confirmation: [6, 2],
+  waiting_quotes: [6, 3],
+  searching: [6, 4],
 };
 
 /** What decides which of two things comes first, shared by the floating hub and Home's "Requiere tu atención". */
@@ -127,7 +127,7 @@ export function getRequestQuickAction(threads: ServiceRequest[], now = new Date(
   const [noun, Noun, done] = SERVICE_NOUN[lead.category];
   const make = (situation: HubSituation, q: { label: string; action?: string; screen: QuickScreen; href?: string; threadId?: ID; at: string; deadline?: boolean }): QuickAction => {
     const [priority, order] = SITUATION_RANK[situation];
-    return { situation, ...q, threadId: q.threadId ?? lead.id, priority, order, requiresAction: priority <= 4 };
+    return { situation, ...q, threadId: q.threadId ?? lead.id, priority, order, requiresAction: priority <= 5 };
   };
   const hired = threads.find((r) => ['confirmed', 'in_progress', 'awaiting_completion'].includes(r.status));
   if (hired?.status === 'awaiting_completion') {

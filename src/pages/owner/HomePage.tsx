@@ -38,7 +38,7 @@ function AttentionRow({ item, mechanicName }: { item: CyclistAttention; mechanic
             to: caseHref(r),
           },
     clarify: {
-      title: `${mechanicName} necesita aclarar algo`,
+      title: item.count && item.count > 1 ? `${item.count} mecánicos necesitan aclarar algo` : `${mechanicName} necesita aclarar algo`,
       detail: `${categoryLabel(r.category)} · Respóndele en el chat`,
       cta: 'Abrir conversación',
       to: threadHref(r),

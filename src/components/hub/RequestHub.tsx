@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type Ref } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ArrowRight, CalendarClock, ChevronDown, ChevronLeft, ChevronRight, CircleCheck, ClipboardList, Loader2, MessageCircle, Plus, ReceiptText, Send, TriangleAlert, UserSearch, X } from 'lucide-react';
+import { ArrowRight, CalendarClock, ChevronDown, ChevronLeft, ChevronRight, CircleCheck, ClipboardList, Loader2, MessageCircle, Plus, ReceiptText, Send, TriangleAlert, X } from 'lucide-react';
 import { HubActionContext, type HubActionApi, type HubPrimaryMeta } from './hubAction';
 import { categoryLabel } from '@/domain/catalog';
 import { hubItems, type HubItem } from '@/domain/logic/hub';
-import { attentionHref, cyclistAttention, type CyclistAttention, type CyclistAttentionKind } from '@/domain/logic/home';
+import { attentionHref, cyclistPendingActions, type CyclistAttention } from '@/domain/logic/home';
 import { useApp } from '@/state/store';
 import { useCurrentUser, useRequestsFor } from '@/state/selectors';
 import { useMode } from '@/state/mode';
@@ -131,15 +131,14 @@ function useOpenChip() {
 }
 
 /**
- * What only the cyclist can move forward right now: the same items as Home's "Requiere tu
- * atención" (one source of truth), minus reviews of finished services. One entry per action.
+ * The cyclist's unresolved P0 decisions (see `REQUIRES_USER_ACTION`): derived from the stored
+ * requests, so resolving one updates the count at once; opening anything never resolves it.
  */
 export function usePendingActions(): CyclistAttention[] {
   const user = useCurrentUser();
   const mode = useMode();
   const requests = useRequestsFor({ ownerId: user && mode === 'cyclist' ? user.id : '__none__' });
-  const reviews = useApp((s) => s.db.reviews);
-  return useMemo(() => cyclistAttention(requests, reviews).filter((i) => i.kind !== 'review'), [requests, reviews]);
+  return useMemo(() => cyclistPendingActions(requests), [requests]);
 }
 
 export const pendingLabel = (n: number) => `${n} ${n === 1 ? 'pendiente' : 'pendientes'}`;
@@ -189,12 +188,14 @@ export function PendingPill({
   );
 }
 
-const PENDING_KIND: Record<Exclude<CyclistAttentionKind, 'review'>, { title: string; icon: typeof ClipboardList }> = {
+/** The compact preview shows at most this many; the count and Solicitudes keep them all. */
+const PREVIEW_MAX = 3;
+
+const PENDING_KIND: Partial<Record<CyclistAttention['kind'], { title: string; icon: typeof ClipboardList }>> = {
   incident: { title: 'Incidencia', icon: TriangleAlert },
   confirm: { title: 'Servicio terminado', icon: CircleCheck },
   appointment: { title: 'Cita', icon: CalendarClock },
   proposal: { title: 'Presupuestos', icon: ReceiptText },
-  declined: { title: 'Mecánicos', icon: UserSearch },
   clarify: { title: 'Mensajes', icon: MessageCircle },
 };
 
@@ -207,27 +208,24 @@ function pendingText(item: CyclistAttention, mechanic: string): string {
     case 'appointment':
       return r.appointment?.pending ? (r.appointment.confirmed ? 'Nueva fecha propuesta' : `${mechanic} propone una fecha`) : 'Elige fecha para el servicio';
     case 'clarify':
-      return `${mechanic} te ha escrito`;
+      return item.count && item.count > 1 ? `${item.count} mecánicos necesitan más información` : `${mechanic} necesita más información`;
     case 'confirm':
       return item.closingSoon ? 'Confirma la entrega: se cierra en menos de 24 h' : 'Confirma que está bien o reporta un problema';
-    case 'incident':
-      return `Incidencia abierta con ${mechanic}`;
     default:
-      return 'Nadie ha podido atenderte: invita a otros';
+      return `Incidencia abierta con ${mechanic}`;
   }
 }
 
 /**
- * "Pendiente de ti": the cyclist's pending actions, most urgent first, grouped by kind, above
- * the floating bar. Each row opens that request inside Solicitudes (back returns to the list).
+ * "Pendiente de ti": the cyclist's P0 decisions, most urgent first (at most three), above the
+ * floating bar. Each row opens that request inside Solicitudes (back returns to the list).
  */
 export function PendingPreview({ items, onClose }: { items: CyclistAttention[]; onClose: () => void }) {
   const navigate = useNavigate();
   const mechanics = useApp((s) => s.db.mechanics);
   const name = (id: string) => mechanics.find((m) => m.id === id)?.name.split(' ')[0] ?? 'El mecánico';
-  // Grouped by kind, keeping the urgency order of each kind's first item.
-  const groups: CyclistAttention[] = [];
-  for (const kind of [...new Set(items.map((i) => i.kind))]) groups.push(...items.filter((i) => i.kind === kind));
+  // Already in priority order (incidents, dates, quotes, information, completion): the first three.
+  const shown = items.slice(0, PREVIEW_MAX);
   const open = (to: string) => {
     onClose();
     // Through the list, so "back" from the request lands on Solicitudes (not where you were).
@@ -238,8 +236,8 @@ export function PendingPreview({ items, onClose }: { items: CyclistAttention[]; 
     <section id="pending-preview" aria-label="Pendiente de ti" className="pointer-events-auto rounded-[28px] bg-paper p-2 shadow-[0_0_0_1px_rgb(0_0_0/0.04),0_8px_24px_rgb(0_0_0/0.10),0_24px_48px_rgb(0_0_0/0.12)]" data-testid="pending-preview">
       <h2 className="px-3 pb-1 pt-3 font-display text-[17px] font-bold tracking-tight">Pendiente de ti</h2>
       <ul className="max-h-[min(52dvh,360px)] overflow-y-auto">
-        {groups.map((item) => {
-          const k = PENDING_KIND[item.kind as keyof typeof PENDING_KIND];
+        {shown.map((item) => {
+          const k = PENDING_KIND[item.kind]!;
           return (
             <li key={`${item.kind}-${item.request.id}`}>
               <button type="button" onClick={() => open(attentionHref(item))} className="flex w-full items-center gap-3 rounded-[20px] px-3 py-2.5 text-left hover:bg-canvas" data-testid="pending-item">
@@ -260,6 +258,11 @@ export function PendingPreview({ items, onClose }: { items: CyclistAttention[]; 
       </ul>
       <button type="button" onClick={() => open('/solicitudes')} className="mt-1 flex h-12 w-full items-center justify-center rounded-[20px] text-[15px] font-semibold hover:bg-canvas" data-testid="pending-all">
         Ver todas las solicitudes
+        {items.length > PREVIEW_MAX && (
+          <span className="ml-1.5 font-normal text-muted">
+            · {items.length - PREVIEW_MAX} {items.length - PREVIEW_MAX === 1 ? 'pendiente más' : 'pendientes más'}
+          </span>
+        )}
       </button>
     </section>
   );

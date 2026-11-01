@@ -498,6 +498,10 @@ test.describe('Navegación', () => {
     await page.goBack();
     await expect(page).toHaveURL(/#\/solicitudes$/);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Solicitudes');
+    // Opening the preview or the request resolves nothing: still pending outside Solicitudes.
+    await nav.getByRole('link', { name: 'Mecánicos' }).click();
+    await expect(toggle).toHaveAccessibleName('1 pendiente. Ver lo pendiente');
+    await page.goBack();
     // Inside Solicitudes: no Hub, Solicitudes selected.
     await expect(page.getByTestId('pending-pill')).toHaveCount(0);
     await expect(nav.getByRole('link', { name: 'Solicitudes' })).toHaveAttribute('aria-current', 'page');
@@ -526,6 +530,20 @@ test.describe('Navegación', () => {
     await expect(preview.getByTestId('pending-item').nth(0)).toContainText('Cita');
     await expect(preview.getByTestId('pending-item').nth(1)).toContainText('Presupuestos');
     await expect(preview.getByTestId('pending-item').nth(1)).toContainText('2 propuestas para comparar');
+    await page.keyboard.press('Escape');
+
+    // More than three: the count keeps them all, the preview shows the three most urgent.
+    await page.evaluate(() => {
+      const db = JSON.parse(localStorage.getItem('cromiqa:demo:db')!);
+      for (const r of db.requests) if (r.caseId === 'r-gema' || r.caseId === 'r-fran') r.ownerId = 'u-pablo';
+      localStorage.setItem('cromiqa:demo:db', JSON.stringify(db));
+    });
+    await page.reload();
+    await expect(toggle).toHaveAccessibleName('4 pendientes. Ver lo pendiente');
+    await toggle.click();
+    await expect(preview.getByTestId('pending-item')).toHaveCount(3);
+    for (const [i, title] of ['Incidencia', 'Cita', 'Presupuestos'].entries()) await expect(preview.getByTestId('pending-item').nth(i)).toContainText(title);
+    await expect(preview.getByTestId('pending-all')).toContainText('1 pendiente más');
     await page.keyboard.press('Escape');
 
     // Narrow phone: the pill and its chevron fit inside the screen.

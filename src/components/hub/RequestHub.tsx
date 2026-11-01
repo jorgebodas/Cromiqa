@@ -146,7 +146,8 @@ export const pendingLabel = (n: number) => `${n} ${n === 1 ? 'pendiente' : 'pend
 
 /**
  * The floating lime pill on the right of the dock (where the + sits when nothing is pending).
- * Two zones: "N pendientes" opens Solicitudes; the chevron opens or closes the preview.
+ * One tap target: it only opens and closes "Pendiente de ti"; each row there opens its request,
+ * and the Solicitudes tab is the way to the full list.
  */
 export function PendingPill({
   count,
@@ -161,47 +162,30 @@ export function PendingPill({
   onToggle: () => void;
   className?: string;
   style?: CSSProperties;
-  pillRef?: Ref<HTMLDivElement>;
+  pillRef?: Ref<HTMLButtonElement>;
 }) {
-  const navigate = useNavigate();
   return (
-    <div
+    <button
       ref={pillRef}
-      className={cx('float-pill pointer-events-auto flex h-16 items-center rounded-full text-ink', className)}
+      type="button"
+      onClick={onToggle}
+      aria-label={`${pendingLabel(count)}. ${open ? 'Ocultar' : 'Ver'} lo pendiente`}
+      aria-expanded={open}
+      aria-controls="pending-preview"
+      className={cx(
+        'float-pill pointer-events-auto flex h-16 items-center gap-1 rounded-full pl-5 pr-4 font-display text-[15px] font-bold tracking-[-0.01em] text-ink transition-transform active:scale-[0.97] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink max-[359px]:pl-4 max-[359px]:pr-3',
+        className,
+      )}
       style={{ backgroundColor: 'var(--color-lime)', ...style }}
       data-testid="pending-pill"
     >
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          navigate('/solicitudes');
-        }}
-        aria-label={`${pendingLabel(count)}. Abrir solicitudes`}
-        className="flex h-full min-w-0 items-center rounded-full pl-5 pr-1 font-display text-[15px] font-bold tracking-[-0.01em] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink max-[359px]:pl-4"
-        data-testid="pending-main"
-      >
-        <span className="whitespace-nowrap max-[359px]:hidden">{pendingLabel(count)}</span>
-        {/* Narrow phones: just the number (the full label is the accessible name). */}
-        <span className="hidden text-[17px] max-[359px]:inline" aria-hidden>
-          {count}
-        </span>
-      </button>
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          onToggle();
-        }}
-        aria-label={open ? 'Ocultar lo pendiente' : 'Ver lo pendiente'}
-        aria-expanded={open}
-        aria-controls="pending-preview"
-        className="flex h-full w-11 shrink-0 items-center justify-center rounded-full pr-1 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink"
-        data-testid="pending-toggle"
-      >
-        <ChevronDown className={cx('size-5 transition-transform duration-200', open && 'rotate-180')} strokeWidth={2.4} aria-hidden />
-      </button>
-    </div>
+      <span className="whitespace-nowrap max-[359px]:hidden">{pendingLabel(count)}</span>
+      {/* Narrow phones: just the number (the full label is the accessible name). */}
+      <span className="hidden text-[17px] max-[359px]:inline" aria-hidden>
+        {count}
+      </span>
+      <ChevronDown className={cx('size-5 shrink-0 transition-transform duration-200', open && 'rotate-180')} strokeWidth={2.4} aria-hidden />
+    </button>
   );
 }
 

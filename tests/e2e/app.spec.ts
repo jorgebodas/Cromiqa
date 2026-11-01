@@ -54,14 +54,15 @@ test.describe('Navegación', () => {
     await expect(page.getByTestId(mobile ? 'request-hub-chip' : 'header-hub-chip')).toHaveCount(0);
 
     // Ana has something pending: the three tabs stay and the Hub takes the place of the +.
-    const hubEntry = page.getByTestId(mobile ? 'pending-main' : 'header-hub-chip');
+    const hubEntry = page.getByTestId(mobile ? 'pending-pill' : 'header-hub-chip');
     await freshDemo(page, 'u-ana');
     await expect(links).toHaveCount(3);
     await expect(hubEntry).toBeVisible();
     await expect(page.getByTestId('new-request-fab')).toHaveCount(0);
     if (!mobile) await expect(page.getByRole('banner').getByRole('button', { name: 'Nueva solicitud' })).toHaveCount(0);
-    // The full Requests section (history included) is where the Hub leads.
-    await hubEntry.click();
+    // The full Requests section (history included): the tab on phones, the chip on desktop.
+    if (mobile) await nav.getByRole('link', { name: 'Solicitudes' }).click();
+    else await hubEntry.click();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Solicitudes');
     await page.getByRole('tab', { name: /Todas/ }).click();
     await expect(page.getByTestId('case-card').first()).toBeVisible();
@@ -255,11 +256,16 @@ test.describe('Navegación', () => {
   test('request hub: the lime pill points to the Requests section, where everything is managed', async ({ page }) => {
     await freshDemo(page, 'u-pablo');
     const mobile = isMobile(page);
-    const chip = page.getByTestId(mobile ? 'pending-main' : 'header-hub-chip');
-    if (mobile) await expect(chip).toHaveAccessibleName('1 pendiente. Abrir solicitudes');
-    else await expect(chip).toHaveAccessibleName(/^2 presupuestos para comparar · Inspección antes de comprar\. 1 solicitud activa más/);
-    // No management box: one tap goes to Solicitudes.
-    await chip.click();
+    const chip = page.getByTestId(mobile ? 'pending-pill' : 'header-hub-chip');
+    if (mobile) {
+      // Phones: the pill only opens the preview; its last row leads to Solicitudes.
+      await expect(chip).toHaveAccessibleName('1 pendiente. Ver lo pendiente');
+      await chip.click();
+      await page.getByTestId('pending-all').click();
+    } else {
+      await expect(chip).toHaveAccessibleName(/^2 presupuestos para comparar · Inspección antes de comprar\. 1 solicitud activa más/);
+      await chip.click();
+    }
     await expect(page).toHaveURL(/#\/solicitudes$/);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Solicitudes');
     await expect(page.getByTestId('request-hub')).toHaveCount(0);
@@ -464,8 +470,7 @@ test.describe('Navegación', () => {
   test('phone dock: "N pendientes" pill, chevron preview, request detail and back to the list', async ({ page }) => {
     test.skip(!isMobile(page), 'Phone dock');
     const nav = page.getByRole('navigation', { name: 'Principal (móvil)' });
-    const main = page.getByTestId('pending-main');
-    const toggle = page.getByTestId('pending-toggle');
+    const toggle = page.getByTestId('pending-pill');
     const preview = page.getByTestId('pending-preview');
 
     // Nothing to do: the tabs and the separate +.
@@ -475,9 +480,9 @@ test.describe('Navegación', () => {
 
     // One pending action: the lime pill floats where the + was.
     await freshDemo(page, 'u-ana');
-    await expect(main).toHaveAccessibleName('1 pendiente. Abrir solicitudes');
+    await expect(toggle).toHaveAccessibleName('1 pendiente. Ver lo pendiente');
     await expect(page.getByTestId('new-request-fab')).toHaveCount(0);
-    // The chevron opens the preview without navigating, and closes it again.
+    // The pill only opens the preview (no navigation), and closes it again.
     await toggle.click();
     await expect(preview).toBeVisible();
     await expect(preview.getByRole('heading', { name: 'Pendiente de ti' })).toBeVisible();
@@ -496,13 +501,10 @@ test.describe('Navegación', () => {
     // Inside Solicitudes: no Hub, Solicitudes selected.
     await expect(page.getByTestId('pending-pill')).toHaveCount(0);
     await expect(nav.getByRole('link', { name: 'Solicitudes' })).toHaveAttribute('aria-current', 'page');
-    // "Ver todas las solicitudes" and the main area both open the list.
+    // "Ver todas las solicitudes" opens the list.
     await nav.getByRole('link', { name: 'Inicio' }).click();
     await toggle.click();
     await preview.getByTestId('pending-all').click();
-    await expect(page).toHaveURL(/#\/solicitudes$/);
-    await nav.getByRole('link', { name: 'Mecánicos' }).click();
-    await main.click();
     await expect(page).toHaveURL(/#\/solicitudes$/);
     // Escape and navigation close the preview.
     await nav.getByRole('link', { name: 'Inicio' }).click();
@@ -518,7 +520,7 @@ test.describe('Navegación', () => {
       localStorage.setItem('cromiqa:demo:db', JSON.stringify(db));
     });
     await page.reload();
-    await expect(main).toHaveAccessibleName('2 pendientes. Abrir solicitudes');
+    await expect(toggle).toHaveAccessibleName('2 pendientes. Ver lo pendiente');
     await toggle.click();
     await expect(preview.getByTestId('pending-item')).toHaveCount(2);
     await expect(preview.getByTestId('pending-item').nth(0)).toContainText('Cita');

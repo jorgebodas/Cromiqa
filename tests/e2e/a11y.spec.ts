@@ -42,7 +42,7 @@ test('a11y new request box', async ({ page }) => {
 test('a11y phone dock: pending pill and "Pendiente de ti" preview', async ({ page }) => {
   test.skip(page.viewportSize()!.width >= 768, 'Phone dock');
   await freshDemo(page, 'u-ana');
-  await page.getByTestId('pending-toggle').click();
+  await page.getByTestId('pending-pill').click();
   await expect(page.getByTestId('pending-preview')).toBeVisible();
   await expectNoViolations(page);
 });

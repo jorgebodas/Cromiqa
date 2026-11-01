@@ -13,10 +13,6 @@ import { Feature, HeroWidget, Stat, Widget, WidgetGrid, heroButtonClass } from '
 import { cx } from '@/components/ui';
 import { ProfileAvatarButton } from '@/components/layout/QuickActions';
 
-function todayLabel() {
-  const text = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' }).replace('.', '');
-  return text.charAt(0).toUpperCase() + text.slice(1);
-}
 
 const ACTION: Record<MechanicAttention['kind'], { verb: string; cta: string }> = {
   respond: { verb: 'Nueva solicitud de', cta: 'Responder' },
@@ -70,7 +66,7 @@ function Inner() {
 
   return (
     <>
-      <ScreenHeader title="Inicio" description={todayLabel()} actions={<ProfileAvatarButton />} />
+      <ScreenHeader title="Inicio" actions={<ProfileAvatarButton />} />
       <div className="container-page pb-8">
         <WidgetGrid>
           {/* 1 · Where the day stands, with the one action that matters most. */}

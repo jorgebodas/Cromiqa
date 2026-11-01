@@ -135,7 +135,6 @@ export function DemoPanelPage() {
     <>
       <ScreenHeader
         title="Demo"
-        compactTitle="Demo"
         description="Herramienta interna para probar el prototipo: cambia de cuenta, inspecciona solicitudes y restablece los datos. Nada de esto existe en producción."
       />
       <div className="container-page pb-8 sm:pb-10">

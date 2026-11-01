@@ -17,11 +17,6 @@ import { CyclistHeaderActions } from '@/components/layout/QuickActions';
 import { Feature, HeroWidget, Stat, Widget, WidgetGrid, heroButtonClass } from '@/components/home/Widget';
 import { Avatar, DemoTag, cx } from '@/components/ui';
 
-/** "Sábado, 31 oct", locale-aware. */
-function todayLabel() {
-  const text = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' }).replace('.', '');
-  return text.charAt(0).toUpperCase() + text.slice(1);
-}
 
 /** One item that only the cyclist can move forward, as a row of the attention widget. */
 function AttentionRow({ item, mechanicName }: { item: CyclistAttention; mechanicName: string }) {
@@ -249,7 +244,7 @@ export function HomePage() {
   if (user && mode === 'mechanic') return <Navigate to="/pro" replace />;
   return (
     <>
-      <ScreenHeader title="Inicio" description={todayLabel()} actions={<CyclistHeaderActions />} />
+      <ScreenHeader title="Inicio" actions={<CyclistHeaderActions />} />
       <div className="container-page pb-8">
         <CyclistHome user={user} />
       </div>

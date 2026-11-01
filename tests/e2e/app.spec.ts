@@ -390,7 +390,12 @@ test.describe('Navegación', () => {
     await expect(condensed).toHaveAccessibleName(/Mecánicos/);
     await expect.poll(async () => (await condensed.boundingBox())?.width).toBeLessThanOrEqual(68); // one circle
     // The large title has shrunk into the pinned bar, which keeps its buttons.
-    await expect(page.getByTestId('screen-bar')).toContainText('Mecánicos');
+    const bar = page.getByTestId('screen-bar');
+    await expect(bar).toHaveAttribute('data-compact', 'true');
+    await expect.poll(async () => {
+      const [t, b] = [await page.getByTestId('screen-title').boundingBox(), await bar.boundingBox()];
+      return t && b ? Math.abs(t.y + t.height / 2 - (b.y + b.height / 2)) : 99;
+    }).toBeLessThan(3);
     await expect(page.getByTestId('account-link').filter({ visible: true })).toBeVisible();
     // Tapping the circle brings the full bar back.
     await page.mouse.wheel(0, 300);

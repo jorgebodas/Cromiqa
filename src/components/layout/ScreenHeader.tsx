@@ -33,8 +33,6 @@ function BackButton({ fallback }: { fallback: string }) {
 interface ScreenHeaderProps {
   /** Short screen name (two words at most). */
   title: ReactNode;
-  /** Plain-text title for the compact bar, when `title` isn't a string. */
-  compactTitle?: string;
   /** Detail screens: where "back" goes when there is no history to return to. */
   back?: string;
   /** Main screens: a round button on the left (the profile avatar). Detail screens use `back`. */
@@ -45,33 +43,52 @@ interface ScreenHeaderProps {
   description?: ReactNode;
 }
 
+/** Title size at rest and once it has settled in the top bar (px). */
+const BIG = 34;
+const SMALL = 20;
+
 /**
- * The one header pattern used by every screen of the app (Airbnb-style): a top row with
- * round buttons (back on the left on detail screens, actions on the right) and, on the line
- * below, the screen name as a large title. Scrolling pushes the title up into the top row,
- * where it settles in smaller type while the row turns into a white bar.
+ * The one header pattern used by every screen of the app: a top row with round buttons (back
+ * or avatar on the left, actions on the right) and, below it, the screen name as a large title.
+ *
+ * The title is one element tied to the scroll: as soon as the page moves it starts shrinking
+ * while it scrolls up, and when it reaches the top row it stops there at its small size (next
+ * to the back button, if any) while the row turns into a white bar. No second copy, no jump.
  *
  * Render it as the first child of a screen, outside the screen's own container, so the bar
  * can stay pinned for the whole page.
  */
-export function ScreenHeader({ title, compactTitle, back, leading, actions, description }: ScreenHeaderProps) {
+export function ScreenHeader({ title, back, leading, actions, description }: ScreenHeaderProps) {
   const bar = useRef<HTMLDivElement>(null);
+  const lead = useRef<HTMLDivElement>(null);
+  const slot = useRef<HTMLDivElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
-  // 0 = title fully on its own line, 1 = title has gone up into the top row.
-  const [progress, setProgress] = useState(0);
+  const [compact, setCompact] = useState(false);
 
   useEffect(() => {
     let frame = 0;
+    let start = 0; // distance from the title's resting centre to the bar's centre, at the top of the page
+    const update = () => {
+      const b = bar.current?.getBoundingClientRect();
+      const s = slot.current?.getBoundingClientRect();
+      const h = heading.current;
+      if (!b || !s || !h) return;
+      const target = b.top + b.height / 2;
+      const natural = s.top + s.height / 2; // where the title would be without any effect
+      if (window.scrollY <= 1 || !start) start = Math.max(natural - target, 1);
+      const p = Math.min(Math.max(1 - (natural - target) / start, 0), 1);
+      const scale = 1 - p * (1 - SMALL / BIG);
+      // Pinned once it reaches the bar: push it back down by what the page scrolled past.
+      const dy = Math.max(target - natural, 0);
+      const dx = p * (lead.current ? lead.current.offsetWidth + 12 : 0);
+      h.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(${scale})`;
+      setCompact(p >= 0.999);
+    };
     const check = () => {
       cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        if (!bar.current || !heading.current) return;
-        const h = heading.current.getBoundingClientRect();
-        const covered = bar.current.getBoundingClientRect().bottom - h.top;
-        setProgress(Math.min(Math.max(covered / h.height, 0), 1));
-      });
+      frame = requestAnimationFrame(update);
     };
-    check();
+    update();
     window.addEventListener('scroll', check, { passive: true });
     window.addEventListener('resize', check);
     return () => {
@@ -80,13 +97,6 @@ export function ScreenHeader({ title, compactTitle, back, leading, actions, desc
       window.removeEventListener('resize', check);
     };
   }, []);
-
-  const name = compactTitle ?? (typeof title === 'string' ? title : '');
-  const compact = progress >= 0.98;
-  // iOS-style: the large title keeps its size and simply scrolls up under the bar, fading as
-  // it goes; the small title appears in the bar (a short fade, not tied to the scroll) only
-  // once the large one is gone. Never two sizes of the title on screen at once.
-  const leave = Math.min(progress / 0.85, 1);
 
   return (
     <>
@@ -97,29 +107,28 @@ export function ScreenHeader({ title, compactTitle, back, leading, actions, desc
           compact ? 'bg-paper shadow-[0_1px_0_var(--color-line)]' : 'bg-transparent',
         )}
         data-testid="screen-bar"
+        data-compact={compact || undefined}
       >
         <div className="container-page relative flex h-16 items-center gap-3">
-          {back ? <BackButton fallback={back} /> : leading}
-          <p
-            aria-hidden
-            className={cx(
-              'pointer-events-none min-w-0 flex-1 truncate font-display text-[20px] font-bold tracking-tight transition-[opacity,transform] duration-200 ease-out',
-              compact ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0',
-            )}
-          >
-            {name}
-          </p>
+          {(back || leading) && (
+            <div ref={lead} className="flex shrink-0">
+              {back ? <BackButton fallback={back} /> : leading}
+            </div>
+          )}
+          <span className="flex-1" />
           {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
         </div>
       </div>
-      <div className="container-page pb-5">
-        <h1
-          ref={heading}
-          className="font-display text-[34px] font-bold leading-tight tracking-[-0.02em] sm:text-[40px]"
-          style={{ opacity: 1 - leave }}
-        >
-          {title}
-        </h1>
+      <div className="container-page pb-3">
+        <div ref={slot} className="relative z-40 h-[42px]">
+          <h1
+            ref={heading}
+            className="pointer-events-none max-w-full origin-left truncate font-display text-[34px] font-bold leading-[42px] tracking-[-0.02em] will-change-transform"
+            data-testid="screen-title"
+          >
+            {title}
+          </h1>
+        </div>
         {description && <p className="mt-1 max-w-2xl text-[15px] text-muted">{description}</p>}
       </div>
     </>

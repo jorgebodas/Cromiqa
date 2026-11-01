@@ -172,3 +172,73 @@ describe('PendingAction lifecycle: one request from start to finish', () => {
     expect(shape(migrated)).toEqual(shape(fresh));
   });
 });
+
+describe('cancelling a request supersedes its outstanding actions (incidents excepted)', () => {
+  const cancelAll = (db: DemoDatabase, caseId: string, by: 'owner' | 'mechanic' = 'owner') => {
+    // As "Retirar solicitud" does: every invitation of the request that can still be cancelled.
+    for (const r of db.requests.filter((x) => x.caseId === caseId && ['sent', 'awaiting_proposal', 'proposal_received', 'confirmed'].includes(x.status)))
+      db = applyRequestAction(db, r.id, by === 'owner' ? { type: 'cancel_by_owner', reason: 'Ya no lo necesito' } : { type: 'cancel_by_mechanic', reason: 'Baja por enfermedad' }, by, at(1)).db;
+    return db;
+  };
+  const superseded = (db: DemoDatabase, id: string) => db.pendingActions.find((x) => x.id === id);
+
+  it('1. a pending quote decision is superseded and leaves the Hub', () => {
+    let db = createSeed(now);
+    const quoteDecision = hub(db, 'u-carla')[0]!;
+    expect(quoteDecision.type).toBe('quote_decision');
+    db = cancelAll(db, quoteDecision.requestId);
+    expect(superseded(db, quoteDecision.id)).toMatchObject({ status: 'superseded', resolutionReason: 'request_cancelled' });
+    expect(hub(db, 'u-carla')).toEqual([]);
+    expect(db.pendingActions.length).toBe(createSeed(now).pendingActions.length); // nothing deleted
+  });
+
+  it('2. a pending appointment confirmation is superseded (by either party cancelling)', () => {
+    for (const by of ['owner', 'mechanic'] as const) {
+      let db = createSeed(now);
+      const date = hub(db, 'u-dani')[0]!;
+      expect(date.type).toBe('appointment_confirmation');
+      db = cancelAll(db, date.requestId, by);
+      expect(superseded(db, date.id)).toMatchObject({ status: 'superseded', resolutionReason: 'request_cancelled' });
+      expect(hub(db, 'u-dani')).toEqual([]);
+    }
+  });
+
+  it('3. several pending actions on one request are all superseded; other requests are untouched', () => {
+    let db = createSeed(now);
+    const [a, b] = db.requests.filter((r) => r.ownerId === 'u-bea').map((r) => r.id) as [string, string];
+    db = applyRequestAction(db, a, { type: 'send_open_proposal', message: '¿Es Shimano o SRAM el cambio?' }, 'mechanic', now).db;
+    db = applyRequestAction(db, b, { type: 'send_proposal', proposal: quote(45) }, 'mechanic', now).db;
+    const open = hub(db, 'u-bea');
+    expect(open.map((x) => x.type)).toEqual(['quote_decision', 'information_required']);
+    const carlaBefore = hub(db, 'u-carla');
+    db = cancelAll(db, 'r-bea-0');
+    for (const x of open) expect(superseded(db, x.id)).toMatchObject({ status: 'superseded', resolutionReason: 'request_cancelled' });
+    expect(hub(db, 'u-bea')).toEqual([]);
+    expect(hub(db, 'u-carla')).toEqual(carlaBefore);
+  });
+
+  it('4. an open incident stays owed whatever happens to the request, until it is formally resolved', () => {
+    let db = createSeed(now);
+    const incident = hub(db, 'u-gema')[0]!;
+    expect(incident.type).toBe('incident_response');
+    // The lifecycle doesn't allow cancelling finished work: the incident action is untouched.
+    expect(() => applyRequestAction(db, incident.threadId, { type: 'cancel_by_owner', reason: 'x' }, 'owner', now)).toThrow();
+    // Even if the request ended up cancelled (e.g. by an administrator), the incident remains.
+    db = { ...db, requests: db.requests.map((r) => (r.id === incident.threadId ? { ...r, status: 'cancelled' as const } : r)) };
+    db = syncPendingActions(db, [incident.requestId], { type: 'cancel_by_mechanic', by: 'mechanic' }, at(1));
+    expect(superseded(db, incident.id)).toMatchObject({ status: 'pending' });
+    expect(hub(db, 'u-gema')).toHaveLength(1);
+    // Formal resolution resolves it normally.
+    db = { ...db, requests: db.requests.map((r) => (r.id === incident.threadId ? { ...r, incidents: r.incidents!.map((i) => ({ ...i, resolvedAt: at(2).toISOString() })) } : r)) };
+    db = syncPendingActions(db, [incident.requestId], { type: 'resolve_incident', by: 'owner' }, at(2));
+    expect(superseded(db, incident.id)).toMatchObject({ status: 'resolved', resolutionReason: 'incident_resolved' });
+    expect(hub(db, 'u-gema')).toEqual([]);
+  });
+
+  it('5. cancelling the request with the last eligible action brings the + back', () => {
+    let db = createSeed(now);
+    expect(hub(db, 'u-pablo')).toHaveLength(1); // the inspection's quotes
+    db = cancelAll(db, hub(db, 'u-pablo')[0]!.requestId);
+    expect(hub(db, 'u-pablo')).toEqual([]); // 0 → the Hub shows the + again
+  });
+});

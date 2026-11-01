@@ -569,6 +569,21 @@ test.describe('Navegación', () => {
     await expect(page.getByTestId('new-request-fab')).toBeVisible();
   });
 
+  test('phone dock: cancelling the request with the last pending decision brings the + back', async ({ page }) => {
+    test.skip(!isMobile(page), 'Phone dock');
+    await freshDemo(page, 'u-dani');
+    await expect(page.getByTestId('pending-pill')).toHaveAccessibleName('1 pendiente. Ver lo pendiente');
+    await page.goto('./#/solicitudes/r-dani/mecanico/r-dani');
+    await page.getByRole('button', { name: 'Cancelar servicio' }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('textbox').fill('Al final lo arreglo yo.');
+    await dialog.getByRole('button', { name: 'Cancelar servicio' }).click();
+    await expect(dialog).toHaveCount(0);
+    await page.goto('./#/');
+    await expect(page.getByTestId('pending-pill')).toHaveCount(0);
+    await expect(page.getByTestId('new-request-fab')).toBeVisible();
+  });
+
   test('tabs remember their state, and back works from a direct link', async ({ page }) => {
     await freshDemo(page); // no active requests: the three tabs
     const nav = page.getByRole('navigation', { name: isMobile(page) ? 'Principal (móvil)' : 'Principal', exact: true });

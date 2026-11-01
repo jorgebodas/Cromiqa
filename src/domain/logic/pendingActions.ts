@@ -66,18 +66,19 @@ export function owedActions(db: Pick<DemoDatabase, 'users'>, threads: ServiceReq
     if (o && !lastBy(t, 'owner', 'message', o.createdAt))
       owed.push({ key: `information:${t.id}`, type: 'information_required', userId: ownerId, requestId: caseId, threadId: t.id, sourceEntityType: 'open_proposal', sourceEntityId: `${t.id}@${o.createdAt}`, createdAt: o.createdAt });
 
-    if (t.status !== 'awaiting_completion') continue;
+    // Incidents live on their own: whatever happens to the request (even a cancellation), the
+    // response is owed until the incident is formally resolved. Only the party who has to respond
+    // owes something: first the mechanic; once the mechanic has answered, the cyclist (who closes
+    // it formally when it's fixed).
     const incident = openIncident(t);
     if (incident) {
-      // Only the party who has to respond owes something: first the mechanic; once the mechanic
-      // has answered, the cyclist (who closes it formally when it's fixed).
       const answered = t.events.find((e) => e.by === 'mechanic' && e.type === 'message' && e.at > incident.openedAt);
       const mech = mechanicUser(t.mechanicId);
       if (!answered && mech)
         owed.push({ key: `incident:${t.id}@${incident.openedAt}:mechanic`, type: 'incident_response', userId: mech, requestId: caseId, threadId: t.id, sourceEntityType: 'incident', sourceEntityId: `${t.id}@${incident.openedAt}`, createdAt: incident.openedAt });
       if (answered)
         owed.push({ key: `incident:${t.id}@${incident.openedAt}:owner`, type: 'incident_response', userId: ownerId, requestId: caseId, threadId: t.id, sourceEntityType: 'incident', sourceEntityId: `${t.id}@${incident.openedAt}`, createdAt: answered.at });
-    } else {
+    } else if (t.status === 'awaiting_completion') {
       // Work marked finished (or an incident resolved since): the cyclist confirms or reports a problem.
       const anchor = [t.finishedAt ?? t.updatedAt, ...(t.incidents ?? []).map((i) => i.resolvedAt ?? '')].sort().pop()!;
       owed.push({ key: `service:${t.id}`, type: 'service_confirmation', userId: ownerId, requestId: caseId, threadId: t.id, sourceEntityType: 'completion', sourceEntityId: `${t.id}@${anchor}`, createdAt: anchor, dueAt: autoCloseAt(t)?.toISOString() });
@@ -85,6 +86,9 @@ export function owedActions(db: Pick<DemoDatabase, 'users'>, threads: ServiceReq
   }
   return owed;
 }
+
+/** Events that cancel the request (or an invitation of it). */
+const CANCELLATIONS: ReadonlySet<PendingCause['type']> = new Set(['cancel_by_owner', 'cancel_by_mechanic']);
 
 /** Why an action stopped being owed, from the event that ended it. Never "confirmed" by silence. */
 function resolutionReason(cause: PendingCause, a: PendingAction): string {
@@ -146,8 +150,14 @@ export function syncPendingActions(db: DemoDatabase, caseIds: Iterable<ID>, caus
       // A newer version of the same decision (revised quote, another date) supersedes the old one.
       if (current) updates.set(current.id, { ...current, status: 'superseded', resolvedAt: at, resolutionReason: 'superseded', supersededByActionId: fresh.id });
     }
-    for (const a of open)
-      if (!owed.some((o) => o.key === a.key)) updates.set(a.id, { ...a, status: 'resolved', resolvedAt: at, resolutionReason: resolutionReason(cause, a) });
+    for (const a of open) {
+      if (owed.some((o) => o.key === a.key)) continue;
+      // Cancelling the request makes its outstanding decisions moot: superseded (kept for history),
+      // not answered. Incident actions never end this way (they're still owed while it's open).
+      if (CANCELLATIONS.has(cause.type) && a.type !== 'incident_response')
+        updates.set(a.id, { ...a, status: 'superseded', resolvedAt: at, resolutionReason: 'request_cancelled' });
+      else updates.set(a.id, { ...a, status: 'resolved', resolvedAt: at, resolutionReason: resolutionReason(cause, a) });
+    }
     if (next.length || updates.size) {
       changed = true;
       actions = [...actions.map((a) => updates.get(a.id) ?? a), ...next];

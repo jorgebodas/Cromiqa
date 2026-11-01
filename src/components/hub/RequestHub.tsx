@@ -490,12 +490,7 @@ export function RequestHubOverlay() {
           </div>
         </HubActionContext.Provider>
 
-        {/* The main action, full width. Looks disabled until the required fields are filled; tapping it then says what's missing. */}
-        {meta?.missing && (
-          <p role="status" className="px-6 pb-2 text-center text-sm font-medium text-danger" data-testid="hub-missing">
-            {meta.missing}
-          </p>
-        )}
+        {/* The main action, full width. Looks disabled until the required fields are filled; tapping it then shows what's missing on the fields. */}
         <div className="flex items-center px-6 pb-6 pt-2">
           {meta && (
             <button
@@ -511,7 +506,7 @@ export function RequestHubOverlay() {
             >
               {meta.loading ? <Loader2 className="size-5 animate-spin" aria-hidden /> : meta.icon === 'plus' && <PrimaryIcon className="size-5" aria-hidden />}
               <span className={cx('truncate transition-opacity duration-300', entered ? 'opacity-100' : 'opacity-0')}>{meta.label}</span>
-              {!meta.loading && meta.icon !== 'plus' && <PrimaryIcon className="size-5" aria-hidden />}
+              {!meta.loading && meta.icon === 'send' && <PrimaryIcon className="size-5" aria-hidden />}
             </button>
           )}
         </div>

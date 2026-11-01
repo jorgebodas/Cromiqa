@@ -55,8 +55,8 @@ export function StepProblem({ draft, set, mechanic, errors }: StepProps) {
                 onSelect={() => set({ category: c.id })}
                 disabled={!offered}
                 icon={<Icon className="size-5" />}
-                title={c.label}
-                description={offered ? c.description : `${mechanic!.name.split(' ')[0]} no ofrece este servicio.`}
+                title={c.pick[0]}
+                description={offered ? c.pick[1] : `${mechanic!.name.split(' ')[0]} no lo ofrece`}
               />
             );
           })}
@@ -261,14 +261,14 @@ export function StepWhere({ draft, set, mechanic, errors }: StepProps) {
             title="A domicilio"
             description={
               !mechanic
-                ? 'El mecánico va a donde esté la bici, dentro de su zona.'
+                ? 'Va a donde esté tu bici'
                 : !mechanic.homeService
-                  ? 'No disponible con este mecánico.'
+                  ? 'No disponible'
                   : !homeCovers
-                    ? 'No se desplaza a la zona elegida.'
+                    ? 'No llega a tu zona'
                     : mechanic.homeServiceFee
                       ? `Desplazamiento: ${formatPrice(mechanic.homeServiceFee)}`
-                      : 'Desplazamiento incluido.'
+                      : 'Desplazamiento incluido'
             }
           />
           <ChoiceCard
@@ -279,7 +279,7 @@ export function StepWhere({ draft, set, mechanic, errors }: StepProps) {
             disabled={mechanic ? !mechanic.workshop : false}
             icon={<Store className="size-5" />}
             title="En taller"
-            description={!mechanic ? 'Llevas tú la bici a un taller cercano.' : mechanic.workshop ? mechanic.workshopArea ?? 'Llevas tú la bici.' : 'Solo trabaja a domicilio.'}
+            description={!mechanic ? 'Llevas tú la bici' : mechanic.workshop ? mechanic.workshopArea ?? 'Llevas tú la bici' : 'Solo a domicilio'}
           />
         </div>
         {errors.mode && <div className="mt-2"><FieldError>{errors.mode}</FieldError></div>}

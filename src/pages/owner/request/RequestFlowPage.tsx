@@ -18,27 +18,6 @@ import { StepBike, StepProblem, StepReview, StepWhen, StepWhere } from './Steps'
 import { StepPhotos } from './StepPhotos';
 import { useHubAction } from '@/components/hub/hubAction';
 
-const MISSING_LABELS: Partial<Record<keyof DraftErrors, string>> = {
-  category: 'el tipo de servicio',
-  description: 'describir el problema',
-  bikeId: 'elegir la bici',
-  type: 'el tipo de bici',
-  askingPrice: 'revisar el precio',
-  photos: 'quitar alguna foto',
-  location: 'la zona',
-  mode: 'domicilio o taller',
-  preferredDate: 'una fecha válida',
-  mechanicIds: 'elegir al menos un mecánico',
-  owner: 'elegir la cuenta',
-};
-
-/** "Falta: el tipo de servicio y describir el problema". */
-function missingText(keys: (keyof DraftErrors)[]) {
-  const parts = [...new Set(keys.map((k) => MISSING_LABELS[k] ?? 'completar un campo'))];
-  const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} y ${parts.at(-1)}` : parts[0];
-  return `Falta ${list}.`;
-}
-
 export interface RequestFormProps {
   /** `page`: the /solicitar screen. `overlay`: inside the Request Hub panel. */
   variant: 'page' | 'overlay';
@@ -85,8 +64,6 @@ export function RequestForm({ variant, originMechanicId, params = new URLSearchP
   const bikes = useOwnerBikes(owner ? owner.id : undefined);
 
   const [errors, setErrors] = useState<DraftErrors>({});
-  // Whether the cyclist already tried to go on with something missing (then we say what).
-  const [tried, setTried] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [pickedOwner, setPickedOwner] = useState<ID | null>(owner ? owner.id : null);
@@ -159,7 +136,6 @@ export function RequestForm({ variant, originMechanicId, params = new URLSearchP
   /** Shows what's missing: errors under the fields, scrolls to the first one, and a hint by the button. */
   const showMissing = (e: DraftErrors) => {
     setErrors(e);
-    setTried(true);
     // After the errors and the hint by the button render (two frames): go to the missing field
     // that comes first on screen, and flash it.
     requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -170,9 +146,15 @@ export function RequestForm({ variant, originMechanicId, params = new URLSearchP
       ].filter((x): x is HTMLElement => !!x);
       const el = found.sort((x, y) => x.getBoundingClientRect().top - y.getBoundingClientRect().top)[0];
       if (!el) return;
-      // In the panel, bring the field's whole card into view (its error line included).
+      // Centre the missing field on screen; in the panel, its whole card when it fits.
       const card = el.closest<HTMLElement>('.hub-steps > div > div > *, .hub-steps > div > #field-photos') ?? el;
-      (overlay ? card : el).scrollIntoView({ block: overlay ? 'nearest' : 'center', behavior: 'smooth' });
+      const box = overlay ? el.closest<HTMLElement>('[data-hub-scroll]') : null;
+      const target = box && card.offsetHeight < box.clientHeight * 0.8 ? card : el;
+      if (box) {
+        const r = target.getBoundingClientRect();
+        const b = box.getBoundingClientRect();
+        box.scrollTo({ top: box.scrollTop + r.top - b.top - (b.height - r.height) / 2, behavior: 'smooth' });
+      } else target.scrollIntoView({ block: 'center', behavior: 'smooth' });
       el.focus({ preventScroll: true });
       card.classList.remove('cq-attention');
       void card.offsetWidth; // restart the animation on every tap
@@ -263,13 +245,10 @@ export function RequestForm({ variant, originMechanicId, params = new URLSearchP
   const canBack = step > 0 || Boolean(onBackFromStart);
   // The primary action looks disabled until the step's required fields are filled.
   const pending = step < LAST_STEP ? validateStep(step, draft, mechanic, bikes) : (firstInvalidStep(draft, mechanic, bikes) === null && (owner || pickedOwner)) ? {} : { owner: 'x' };
-  const missingKeys = Object.keys(pending) as (keyof DraftErrors)[];
-  const ready = missingKeys.length === 0;
-  const missing = tried && !ready ? missingText(missingKeys) : undefined;
-  useEffect(() => setTried(false), [step]);
+  const ready = Object.keys(pending).length === 0;
   useEffect(() => {
-    hubAction?.setMeta({ label: step < LAST_STEP ? 'Continuar' : 'Enviar solicitud', icon: step < LAST_STEP ? 'arrow' : 'send', loading: submitting, canBack, disabled: !ready, missing });
-  }, [hubAction, step, submitting, canBack, ready, missing]);
+    hubAction?.setMeta({ label: step < LAST_STEP ? 'Continuar' : 'Enviar solicitud', icon: step < LAST_STEP ? 'arrow' : 'send', loading: submitting, canBack, disabled: !ready });
+  }, [hubAction, step, submitting, canBack, ready]);
   useEffect(() => () => hubAction?.setMeta(null), [hubAction]);
 
   // The progress bar lives up top, between back and close (hub header or the page's top row).

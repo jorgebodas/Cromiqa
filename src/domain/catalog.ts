@@ -11,30 +11,35 @@ import type {
   RequestUrgency,
 } from './types';
 
-export const CATEGORIES: { id: ServiceCategory; label: string; short: string; description: string }[] = [
+/** `pick` is the one-line title and hint used in the request form's cards. */
+export const CATEGORIES: { id: ServiceCategory; label: string; short: string; description: string; pick: [string, string] }[] = [
   {
     id: 'repair',
     label: 'Reparación',
     short: 'Reparar',
     description: 'Algo se ha roto o no funciona bien: cambios, frenos, pinchazos, ruidos.',
+    pick: ['Reparación', 'Algo no funciona'],
   },
   {
     id: 'maintenance',
     label: 'Mantenimiento',
     short: 'Mantener',
     description: 'Puesta a punto, revisión periódica o mantenimiento de suspensiones.',
+    pick: ['Mantenimiento', 'Puesta a punto'],
   },
   {
     id: 'inspection',
     label: 'Inspección antes de comprar',
     short: 'Inspeccionar',
     description: 'Revisa una bici de segunda mano antes de pagar por ella.',
+    pick: ['Inspección', 'Antes de comprarla'],
   },
   {
     id: 'diagnosis',
     label: 'No sé qué le pasa a mi bici',
     short: 'Diagnosticar',
     description: 'Cuéntanos qué notas y un mecánico te ayudará a encontrar el problema.',
+    pick: ['Diagnóstico', 'No sé qué le pasa'],
   },
 ];
 

@@ -9,14 +9,14 @@ import {
   type SelectHTMLAttributes,
   type TextareaHTMLAttributes,
 } from 'react';
-import { AlertCircle, Check, ChevronDown } from 'lucide-react';
+import { Check, ChevronDown } from 'lucide-react';
 import { cx } from './cx';
 
 const control =
-  'block w-full rounded-xl border bg-paper px-4 text-base text-ink sm:text-[15px] placeholder:text-subtle transition-colors ' +
-  'focus:outline-none focus-visible:outline-none focus:border-ink focus:ring-2 focus:ring-ink/10 disabled:bg-sand disabled:text-muted';
+  'cq-control block w-full rounded-xl border bg-paper px-4 text-base text-ink sm:text-[15px] placeholder:text-subtle transition-colors ' +
+  'focus:outline-none focus-visible:outline-none focus:ring-2 disabled:bg-sand disabled:text-muted';
 
-const borderFor = (invalid?: boolean) => (invalid ? 'border-danger' : 'border-line-strong hover:border-muted');
+const borderFor = (invalid?: boolean) => (invalid ? 'border-danger focus:ring-danger/15' : 'border-line-strong hover:border-muted focus:border-ink focus:ring-ink/10');
 
 interface FieldProps {
   label: ReactNode;
@@ -55,8 +55,7 @@ export function Field({ label, hint, error, optional, children, className }: Fie
 
 export function FieldError({ id, children }: { id?: string; children: ReactNode }) {
   return (
-    <p id={id} role="alert" className="flex items-center gap-1.5 text-sm text-danger">
-      <AlertCircle className="size-4 shrink-0" aria-hidden />
+    <p id={id} role="alert" className="text-sm font-medium text-danger">
       {children}
     </p>
   );
@@ -116,10 +115,12 @@ interface ChoiceCardProps {
 
 /** A large radio option. Native radio input for keyboard + screen reader support. */
 export function ChoiceCard({ selected, onSelect, title, description, icon, name, value, disabled, aside, className }: ChoiceCardProps) {
+  // Compact: icon tile on the left as tall as the text, title and description one line each,
+  // a round select on the right (grey when off, black with a white dot when on).
   return (
     <label
       className={cx(
-        'group relative flex cursor-pointer items-start gap-3 rounded-2xl border bg-paper p-4 transition-all',
+        'group relative flex cursor-pointer items-center gap-3 rounded-2xl border bg-paper p-3 transition-all',
         'has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ink',
         selected ? 'border-ink shadow-[inset_0_0_0_1px_var(--color-ink)]' : 'border-line hover:border-line-strong',
         disabled && 'cursor-not-allowed opacity-50',
@@ -138,7 +139,7 @@ export function ChoiceCard({ selected, onSelect, title, description, icon, name,
       {icon && (
         <span
           className={cx(
-            'flex size-10 shrink-0 items-center justify-center rounded-xl transition-colors',
+            'flex size-11 shrink-0 items-center justify-center rounded-xl transition-colors',
             selected ? 'bg-ink text-paper' : 'bg-sand text-ink',
           )}
           aria-hidden
@@ -147,18 +148,18 @@ export function ChoiceCard({ selected, onSelect, title, description, icon, name,
         </span>
       )}
       <span className="min-w-0 flex-1">
-        <span className="block font-semibold leading-snug text-ink">{title}</span>
-        {description && <span className="mt-0.5 block text-sm leading-snug text-muted">{description}</span>}
+        <span className="block truncate font-semibold leading-snug text-ink">{title}</span>
+        {description && <span className="mt-0.5 block truncate text-sm leading-snug text-muted">{description}</span>}
         {aside}
       </span>
       <span
         className={cx(
-          'mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border transition-colors',
-          selected ? 'border-ink bg-lime' : 'border-line-strong bg-paper',
+          'flex size-6 shrink-0 items-center justify-center rounded-full transition-colors',
+          selected ? 'bg-ink' : 'bg-line',
         )}
         aria-hidden
       >
-        {selected && <Check className="size-3.5 text-ink" strokeWidth={3} />}
+        <span className={cx('size-2.5 rounded-full bg-paper transition-transform', selected ? 'scale-100' : 'scale-0')} />
       </span>
     </label>
   );

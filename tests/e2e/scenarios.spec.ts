@@ -40,7 +40,6 @@ test.describe('Escenarios A, B y C: reparación de principio a fin', () => {
     // Continuar looks disabled until someone is picked; pressing it anyway says what's missing.
     await expect(hub.getByTestId('hub-primary')).toHaveAttribute('aria-disabled', 'true');
     await hub.getByRole('button', { name: 'Continuar' }).click({ force: true });
-    await expect(hub.getByTestId('hub-missing')).toHaveText('Falta elegir al menos un mecánico.');
     await expect(hub.getByText('Elige al menos un mecánico')).toBeVisible();
     const options = hub.getByTestId('provider-option');
     await options.filter({ hasText: 'Carlos Ortega' }).click();
@@ -58,7 +57,6 @@ test.describe('Escenarios A, B y C: reparación de principio a fin', () => {
     await expect(hub.getByTestId('hub-primary')).toHaveAttribute('aria-disabled', 'true');
     await hub.getByRole('button', { name: 'Enviar solicitud' }).click({ force: true });
     await expect(hub.getByText('Elige con qué cuenta de demostración')).toBeVisible();
-    await expect(hub.getByTestId('hub-missing')).toHaveText('Falta elegir la cuenta.');
     await hub.locator('label', { hasText: 'Ana López' }).click();
     await hub.getByRole('button', { name: 'Enviar solicitud' }).click();
 
@@ -338,14 +336,14 @@ test('Escenario D: especialistas en suspensión a domicilio', async ({ page }) =
   await expect(page.getByText('Ficticio').filter({ visible: true }).first()).toBeVisible();
   await page.getByRole('link', { name: /^Solicitar servicio/ }).filter({ visible: true }).first().click();
   await expect(page.getByText('Paso 1 de 7')).toBeVisible();
-  await expect(page.getByRole('radio', { name: /Inspección antes de comprar/ })).toBeEnabled();
+  await expect(page.getByRole('radio', { name: /^Inspección/ })).toBeEnabled();
 });
 
 test('Escenario E: inspección antes de comprar, empezando desde el perfil de Nerea', async ({ page }) => {
   await freshDemo(page, 'u-pablo');
   await page.goto('./#/mecanicos/m-nerea');
   await page.getByRole('link', { name: /^Solicitar servicio/ }).filter({ visible: true }).first().click();
-  await page.getByRole('radio', { name: /Inspección antes de comprar/ }).check({ force: true });
+  await page.getByRole('radio', { name: /^Inspección/ }).check({ force: true });
   await page.getByLabel('Describe el problema').fill('Quiero comprar una doble suspensión usada en Rivas.');
   await page.getByRole('button', { name: 'Continuar' }).click();
 

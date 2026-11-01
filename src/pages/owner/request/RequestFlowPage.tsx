@@ -146,7 +146,7 @@ export function RequestForm({ variant, originMechanicId, params = new URLSearchP
       ].filter((x): x is HTMLElement => !!x);
       const el = found.sort((x, y) => x.getBoundingClientRect().top - y.getBoundingClientRect().top)[0];
       if (!el) return;
-      // Centre the missing field on screen; in the panel, its whole card when it fits.
+      // Centre the missing field on screen; in the panel, its whole block (title and error) when it fits.
       const card = el.closest<HTMLElement>('.hub-steps > div > div > *, .hub-steps > div > #field-photos') ?? el;
       const box = overlay ? el.closest<HTMLElement>('[data-hub-scroll]') : null;
       const target = box && card.offsetHeight < box.clientHeight * 0.8 ? card : el;
@@ -156,9 +156,12 @@ export function RequestForm({ variant, originMechanicId, params = new URLSearchP
         box.scrollTo({ top: box.scrollTop + r.top - b.top - (b.height - r.height) / 2, behavior: 'smooth' });
       } else target.scrollIntoView({ block: 'center', behavior: 'smooth' });
       el.focus({ preventScroll: true });
-      card.classList.remove('cq-attention');
-      void card.offsetWidth; // restart the animation on every tap
-      card.classList.add('cq-attention');
+      // Typed fields get a short red pulse (they already show the warning icon and border).
+      if (el.matches('input, textarea, select')) {
+        el.classList.remove('cq-attention');
+        void el.offsetWidth; // restart the animation on every tap
+        el.classList.add('cq-attention');
+      }
     }));
   };
 

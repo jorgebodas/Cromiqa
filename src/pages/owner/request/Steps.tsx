@@ -163,7 +163,7 @@ export function StepBike({
       )}
 
       {showNewForm && (
-        <div className="surface space-y-5 p-4 sm:p-5">
+        <div className="surface cq-flat space-y-5 p-4 sm:p-5">
           <BikeTypePicker value={draft.bike.type} onChange={(type) => setBike({ type })} mechanic={mechanic} error={errors.type} />
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Marca" optional error={errors.brand}>
@@ -371,7 +371,7 @@ export function StepWhen({ draft, set, errors }: StepProps) {
 
 function ReviewBlock({ title, onEdit, children }: { title: string; onEdit: () => void; children: ReactNode }) {
   return (
-    <section className="surface p-4 sm:p-5">
+    <section className="surface cq-flat-row p-4 sm:p-5">
       <div className="mb-2 flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-muted">{title}</h3>
         <button type="button" onClick={onEdit} className="inline-flex items-center gap-1 rounded-full px-2 py-1 text-sm font-semibold hover:bg-sand" aria-label={`Editar: ${title}`}>
@@ -399,7 +399,7 @@ export function StepReview({
   const garageBike = draft.category !== 'inspection' && draft.bikeChoice === 'garage' ? bikes.find((b) => b.id === draft.bikeId) : undefined;
   const bike = garageBike ?? draft.bike;
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 [.hub-steps_&]:space-y-0">
       <ReviewBlock title={recipients.length === 1 ? 'Se enviará a' : `Se enviará a ${recipients.length} mecánicos`} onEdit={() => goTo(5)}>
         <ul className="space-y-2" data-testid="review-recipients">
           {recipients.map((m) => (

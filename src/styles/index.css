@@ -214,15 +214,8 @@ a.surface:active, button.surface:active { transform: scale(0.99); }
 @media (min-width: 768px) { .cq-sheet-up { animation-name: cq-panel-in; } }
 @media (prefers-reduced-motion: reduce) { .cq-sheet-up, .cq-fade-in { animation: none; } }
 
-/* Request Hub form: each block of a step sits in its own widget card, like the Home widgets,
-   with the block's legend or label as the card title. */
-.hub-steps > div > div > :is(fieldset, div):not(.surface),
-.hub-steps > div > #field-photos {
-  background-color: var(--color-paper);
-  border-radius: 22px;
-  box-shadow: var(--shadow-surface);
-  padding: 1rem 1rem 1.125rem;
-}
+/* Request Hub form: fields sit straight on the panel (no cards inside the card), so they use
+   its full width; each block's legend or label reads as a section title. */
 .hub-steps > div > div > fieldset > legend {
   float: left;
   width: 100%;
@@ -243,8 +236,8 @@ a.surface:active, button.surface:active { transform: scale(0.99); }
 
 /* A field the user still has to fill: a short ring pulse when they try to continue without it. */
 @keyframes cq-attention {
-  0%, 100% { box-shadow: var(--shadow-surface), 0 0 0 0 rgb(180 35 24 / 0); }
-  30% { box-shadow: var(--shadow-surface), 0 0 0 3px rgb(180 35 24 / 0.45); }
+  0%, 100% { box-shadow: 0 0 0 0 rgb(180 35 24 / 0); }
+  30% { box-shadow: 0 0 0 4px rgb(180 35 24 / 0.25); }
 }
 .cq-attention { animation: cq-attention 0.9s ease-out 2; }
 @media (prefers-reduced-motion: reduce) { .cq-attention { animation: none; outline: 2px solid var(--color-danger); outline-offset: 2px; } }
@@ -259,3 +252,9 @@ a.surface:active, button.surface:active { transform: scale(0.99); }
 }
 textarea.cq-control[aria-invalid='true'] { background-position: right 14px top 14px; }
 select.cq-control[aria-invalid='true'] { background-position: right 40px center; padding-right: 68px; }
+
+/* Inside the Request Hub panel, blocks that are cards on the full page sit flat on the panel;
+   review rows are split by hairlines instead. */
+.hub-steps .cq-flat { background: transparent; box-shadow: none; border-radius: 0; padding: 0; }
+.hub-steps .cq-flat-row { background: transparent; box-shadow: none; border-radius: 0; padding: 0.875rem 0; }
+.hub-steps .cq-flat-row + .cq-flat-row { border-top: 1px solid var(--color-line); }

@@ -235,21 +235,22 @@ function FloatingTabs({ tabs, className, hidden }: { hidden?: boolean; tabs: { k
   );
 }
 
-const DOCK_GAP = 8;
 const NAV_W = OWNER_TABS.length * TAB_W + PILL_PAD * 2;
+/** How far the lime tail tucks under the tab bar: the two read as one shape (Dynamic Island style). */
+const TUCK = 30;
 /** The dock's transitions: restrained, no bounce. */
-const MORPH_MS = 280;
+const MORPH_MS = 300;
 const MORPH_EASE = 'cubic-bezier(.4,0,.2,1)';
 
 type DockRight = 'hub' | 'new' | 'none';
 
 /**
- * The phone dock: the three tabs always, and on the right, depending on where you are:
- *  · Outside Solicitudes, no active requests: the round +.
+ * The phone dock: the tab bar, with a lime tail joined to its right side, Dynamic Island style:
+ * the tail tucks under the bar and extends out of it.
+ *  · Outside Solicitudes, no active requests: a short tail with the +.
  *  · Outside Solicitudes, active requests: the Request Hub (tapping it opens Solicitudes).
- *  · Inside Solicitudes: nothing; the selected tab says where you are and the page has it all.
- * The Hub grows out of the Solicitudes icon and collapses back into it (entering Solicitudes, or
- * when the last request ends). Reduced motion: instant.
+ *  · Inside Solicitudes: no tail; the selected tab says where you are.
+ * The tail slides out from behind the bar and back in when it changes. Reduced motion: instant.
  */
 function OwnerBottomNav({ tabHref, condensed, expand }: { tabHref: (t: OwnerTab) => string; condensed: boolean; expand: () => void }) {
   const { pathname } = useLocation();
@@ -257,84 +258,66 @@ function OwnerBottomNav({ tabHref, condensed, expand }: { tabHref: (t: OwnerTab)
   const reduced = useReducedMotion();
   const onRequests = OWNER_TABS.find((t) => t.id === 'solicitudes')!.owns(pathname);
   const target: DockRight = onRequests ? 'none' : items.length ? 'hub' : 'new';
-  // What the right side shows; it lags behind `target` while the Hub collapses.
+  // What the tail shows; it lags behind `target` while the old tail retracts.
   const [shown, setShown] = useState<DockRight>(target);
-  const [phase, setPhase] = useState<'idle' | 'entering' | 'leaving'>('idle');
+  const [phase, setPhase] = useState<'idle' | 'out' | 'in'>('idle');
   const lastItems = useRef<HubItem[]>(items);
   if (items.length) lastItems.current = items;
-  const hubRef = useRef<HTMLButtonElement>(null);
-  const newRef = useRef<HTMLButtonElement>(null);
-  const condensedRef = useRef(condensed);
-  condensedRef.current = condensed;
+  const tailRef = useRef<HTMLButtonElement>(null);
 
   useLayoutEffect(() => {
-    if (target === shown && phase === 'idle') return;
-    if (reduced) {
+    if (phase !== 'idle' || target === shown) return;
+    if (reduced) return setShown(target);
+    if (shown === 'none') {
       setShown(target);
-      setPhase('idle');
-      return;
-    }
-    if (shown === 'hub' && target !== 'hub') {
-      if (phase !== 'leaving') setPhase('leaving');
-    } else if (target === 'hub' && shown !== 'hub') {
-      setShown('hub');
-      setPhase('entering');
-    } else if (target !== shown) setShown(target);
+      setPhase('out');
+    } else setPhase('in');
   }, [target, shown, phase, reduced]);
 
-  // The morph: a circle on the Solicitudes icon, growing into the full Hub (or back).
+  // Out of the bar (clip grows from the tucked edge) or back into it.
   useLayoutEffect(() => {
-    const hub = hubRef.current;
-    if (phase === 'idle' || !hub || typeof hub.animate !== 'function') {
-      if (phase === 'leaving') setShown(target);
-      if (phase !== 'idle') setPhase('idle');
-      return;
-    }
-    // The Solicitudes cell (3rd tab) relative to the Hub's left edge. With the bar condensed to
-    // one circle there is no icon to aim at: it grows/shrinks in place.
-    const offset = condensedRef.current ? 0 : PILL_PAD + 2 * TAB_W - (NAV_W + DOCK_GAP);
-    const circle = { clipPath: `inset(${PILL_PAD}px calc(100% - ${TAB_W}px) ${PILL_PAD}px 0 round ${TAB_W / 2}px)`, transform: `translateX(${offset}px)`, opacity: 0.4 };
-    const pill = { clipPath: 'inset(0px 0px 0px 0px round 32px)', transform: 'translateX(0px)', opacity: 1 };
-    const content = hub.querySelector<HTMLElement>('[data-hub-content]');
-    const opts = { duration: MORPH_MS, easing: MORPH_EASE, fill: 'both' as const };
-    const anims: Animation[] = [];
-    if (phase === 'entering') {
-      anims.push(hub.animate([circle, pill], opts));
-      if (content) anims.push(content.animate([{ opacity: 0, transform: 'translateX(-8px)' }, { opacity: 0, transform: 'translateX(-8px)', offset: 0.35 }, { opacity: 1, transform: 'none' }], opts));
-      anims[0]!.onfinish = () => {
-        anims.forEach((a) => a.cancel());
-        setPhase('idle');
-      };
-    } else {
-      if (content) anims.push(content.animate([{ opacity: 1 }, { opacity: 0, offset: 0.4 }, { opacity: 0 }], opts));
-      const morph = hub.animate([pill, circle], opts);
-      anims.push(morph);
-      morph.onfinish = () => {
+    if (phase === 'idle') return;
+    const tail = tailRef.current;
+    const finish = () => {
+      if (phase === 'in') {
+        // Retracted: show the next tail (if any), sliding out again.
         setShown(target);
-        setPhase('idle');
-      };
-    }
-    return () => anims.forEach((a) => a.cancel());
+        setPhase(target === 'none' ? 'idle' : 'out');
+      } else setPhase('idle');
+    };
+    if (!tail || typeof tail.animate !== 'function') return finish();
+    const hidden = { clipPath: `inset(0px calc(100% - ${TUCK}px) 0px 0px round 32px)` };
+    const full = { clipPath: 'inset(0px 0px 0px 0px round 32px)' };
+    const content = tail.querySelector<HTMLElement>('[data-hub-content]') ?? tail.querySelector<HTMLElement>('svg');
+    const opts = { duration: MORPH_MS, easing: MORPH_EASE, fill: 'both' as const };
+    const anims: Animation[] = [tail.animate(phase === 'out' ? [hidden, full] : [full, hidden], opts)];
+    if (content)
+      anims.push(
+        content.animate(
+          phase === 'out' ? [{ opacity: 0 }, { opacity: 0, offset: 0.35 }, { opacity: 1 }] : [{ opacity: 1 }, { opacity: 0, offset: 0.45 }, { opacity: 0 }],
+          opts,
+        ),
+      );
+    anims[0]!.onfinish = () => {
+      anims.forEach((x) => x.cancel());
+      finish();
+    };
+    return () => anims.forEach((x) => x.cancel());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase]);
-
-  // The + fades in when it (re)appears.
-  useLayoutEffect(() => {
-    const pill = newRef.current;
-    if (shown !== 'new' || !pill || reduced || typeof pill.animate !== 'function') return;
-    const a = pill.animate([{ opacity: 0, transform: 'scale(.92)' }, { opacity: 1, transform: 'none' }], { duration: 220, easing: MORPH_EASE });
-    return () => a.cancel();
-  }, [shown, reduced]);
+  }, [phase, shown]);
 
   const navW = condensed ? 64 : NAV_W;
   const current = OWNER_TABS.find((t) => t.owns(pathname));
   const CurrentIcon = current?.icon ?? Menu;
+  // The tail starts under the bar's right end and takes the rest of the width (the + only what it needs).
+  const tailStyle = { left: navW - TUCK, paddingLeft: TUCK + 14, transitionDuration: `${MORPH_MS}ms` };
+  const tailClass = 'absolute top-0 z-0 transition-[left] ease-[cubic-bezier(.4,0,.2,1)] motion-reduce:transition-none';
 
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(12px,env(safe-area-inset-bottom))] md:hidden">
       <div className="relative mx-auto h-16 max-w-[380px]" data-testid="dock" data-state={shown}>
         <div
-          className="float-pill pointer-events-auto absolute left-0 top-0 h-16 overflow-hidden rounded-full transition-[width] ease-[cubic-bezier(.4,0,.2,1)] motion-reduce:transition-none"
+          className="float-pill pointer-events-auto absolute left-0 top-0 z-10 h-16 overflow-hidden rounded-full transition-[width] ease-[cubic-bezier(.4,0,.2,1)] motion-reduce:transition-none"
           style={{ width: navW, transitionDuration: `${MORPH_MS}ms` }}
         >
           <FloatingTabs
@@ -359,15 +342,9 @@ function OwnerBottomNav({ tabHref, condensed, expand }: { tabHref: (t: OwnerTab)
           </button>
         </div>
         {shown === 'hub' && (
-          <FloatingRequestHub
-            items={items.length ? items : lastItems.current}
-            hubRef={hubRef}
-            className="absolute right-0 top-0 transition-[width] ease-[cubic-bezier(.4,0,.2,1)] motion-reduce:transition-none"
-            // The Hub takes the rest of the width; the tabs are never squeezed.
-            style={{ width: `calc(100% - ${navW + DOCK_GAP}px)`, transitionDuration: `${MORPH_MS}ms` }}
-          />
+          <FloatingRequestHub items={items.length ? items : lastItems.current} hubRef={tailRef} className={cx(tailClass, 'right-0')} style={tailStyle} />
         )}
-        {shown === 'new' && <NewRequestPill pillRef={newRef} className="absolute right-0 top-0" />}
+        {shown === 'new' && <NewRequestPill pillRef={tailRef} className={tailClass} style={{ ...tailStyle, width: TUCK + 64, paddingLeft: TUCK }} />}
       </div>
     </div>
   );

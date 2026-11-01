@@ -425,14 +425,21 @@ test.describe('Navegación', () => {
     await expect(chip()).toHaveAccessibleName(/^Incidencia pendiente/);
     expect(await situation()).toBe('incident');
 
-    // Narrow phone: the chip stays tappable, inside the screen, next to (not over) the tab bar.
+    // Narrow phone: the tab bar starts as one circle so the message can be read whole; the chip
+    // stays tappable, inside the screen, next to (not over) it. Tapping the circle opens the bar.
     if (mobile) {
+      await page.keyboard.press('Escape'); // close the hub panel left open above
+      await expect(hub).toHaveCount(0);
       await page.setViewportSize({ width: 320, height: 640 });
-      const nav = await page.getByRole('navigation', { name: 'Principal (móvil)' }).boundingBox();
-      const box = await chip().boundingBox();
-      expect(box!.x).toBeGreaterThanOrEqual(nav!.x + nav!.width);
-      expect(box!.x + box!.width).toBeLessThanOrEqual(320);
-      expect(box!.height).toBeGreaterThanOrEqual(44);
+      const circle = page.getByTestId('nav-condensed');
+      await expect(circle).toBeVisible();
+      await expect(chip().getByTestId('marquee')).not.toHaveAttribute('data-moving', 'true');
+      await expect.poll(async () => {
+        const [n, c] = [await circle.boundingBox(), await chip().boundingBox()];
+        return n && c ? c.x >= n.x + n.width && c.x + c.width <= 320 && c.height >= 44 : false;
+      }).toBe(true);
+      await circle.click();
+      await expect(page.getByRole('navigation', { name: 'Principal (móvil)' })).toBeVisible();
     }
   });
 

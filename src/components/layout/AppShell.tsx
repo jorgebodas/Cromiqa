@@ -8,7 +8,7 @@ import { useOwnerActivity } from '@/state/activity';
 import { useNavUi } from '@/state/ui';
 import { Avatar, Toaster, cx } from '@/components/ui';
 import { AccountSwitcherDialog } from './AccountSwitcher';
-import { FloatingRequestHub, HeaderRequestChip, RequestHubOverlay } from '@/components/hub/RequestHub';
+import { FloatingRequestHub, HeaderRequestChip, RequestHubOverlay, useHubItems } from '@/components/hub/RequestHub';
 import { useMode, useModeStore } from '@/state/mode';
 import { modeOfPath, type AppMode } from '@/domain/logic/modes';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -128,6 +128,34 @@ function useCondensedChrome() {
   }, []);
   useEffect(() => setCondensed(false), [pathname]);
   return [condensed, () => setCondensed(false)] as const;
+}
+
+/** Whether a media query matches, live. */
+function useMedia(query: string): boolean {
+  const [match, setMatch] = useState(() => typeof window !== 'undefined' && !!window.matchMedia?.(query).matches);
+  useEffect(() => {
+    const m = window.matchMedia?.(query);
+    if (!m) return;
+    const on = () => setMatch(m.matches);
+    on();
+    m.addEventListener('change', on);
+    return () => m.removeEventListener('change', on);
+  }, [query]);
+  return match;
+}
+
+/**
+ * Narrow phones (under 360 px) with an active request: the tab bar starts as one circle so the
+ * Request Hub's message has room to be read. Tapping the circle opens the full bar until the
+ * next screen.
+ */
+function useNarrowCompact(): [boolean, () => void] {
+  const narrow = useMedia('(max-width: 359px)');
+  const busy = useHubItems().length > 0;
+  const { pathname } = useLocation();
+  const [opened, setOpened] = useState(false);
+  useEffect(() => setOpened(false), [pathname]);
+  return [narrow && busy && !opened, () => setOpened(true)];
 }
 
 /** Desktop only: logo · destinations · new request, activity, account. Phones use each screen's header. */
@@ -409,6 +437,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const { pathname } = useLocation();
   useScrollMemory();
   const [condensed, expand] = useCondensedChrome();
+  const [compact, openCompact] = useNarrowCompact();
 
   const focused = FOCUSED_ROUTES.some((r) => matchPath(r, pathname));
   const ownAction = OWN_ACTION_ROUTES.some((r) => matchPath(r, pathname));
@@ -429,7 +458,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
         <ErrorBoundary>{children ?? <Outlet />}</ErrorBoundary>
       </main>
       <Footer />
-      {isPro ? <MechanicBottomTabs items={mechanicItems} /> : showOwnerBar && <OwnerBottomNav tabHref={tabHref} condensed={condensed} expand={expand} />}
+      {isPro ? <MechanicBottomTabs items={mechanicItems} /> : showOwnerBar && <OwnerBottomNav tabHref={tabHref} condensed={condensed || compact} expand={() => (openCompact(), expand())} />}
       <Toaster />
       <AccountSwitcherDialog open={switcherOpen} onClose={() => setSwitcherOpen(false)} />
       {!isPro && (

@@ -200,7 +200,7 @@ function FloatingTabs({ tabs, className, hidden }: { hidden?: boolean; tabs: { k
   const index = tabs.findIndex((t) => t.active);
   return (
     <nav aria-label="Principal (móvil)" className={cx('h-full', className)} style={{ padding: PILL_PAD }} {...(hidden ? { inert: '' } : {})}>
-      <ul className="relative grid h-full" style={{ gridTemplateColumns: `repeat(${tabs.length}, ${TAB_W}px)` }}>
+      <ul className="relative grid h-full w-max" style={{ gridTemplateColumns: `repeat(${tabs.length}, ${TAB_W}px)` }}>
         {index >= 0 && (
           <li
             aria-hidden
@@ -236,95 +236,93 @@ function FloatingTabs({ tabs, className, hidden }: { hidden?: boolean; tabs: { k
 }
 
 const NAV_W = OWNER_TABS.length * TAB_W + PILL_PAD * 2;
-/** How far the lime tail tucks under the tab bar: the two read as one shape (Dynamic Island style). */
-const TUCK = 30;
 /** The dock's transitions: restrained, no bounce. */
 const MORPH_MS = 300;
 const MORPH_EASE = 'cubic-bezier(.4,0,.2,1)';
 
-type DockRight = 'hub' | 'new' | 'none';
-
 /**
- * The phone dock: the tab bar, with a lime tail joined to its right side, Dynamic Island style:
- * the tail tucks under the bar and extends out of it.
- *  · Outside Solicitudes, no active requests: a short tail with the +.
- *  · Outside Solicitudes, active requests: the Request Hub (tapping it opens Solicitudes).
- *  · Inside Solicitudes: no tail; the selected tab says where you are.
- * The tail slides out from behind the bar and back in when it changes. Reduced motion: instant.
+ * The phone dock: one white bar with the three tabs.
+ *  · Outside Solicitudes, active requests: the Solicitudes tab stretches into a lime capsule,
+ *    the Request Hub (its icon + message + "+N" + chevron), and the bar takes the full width.
+ *  · Outside Solicitudes, nothing active: the bar hugs its tabs and a separate round + sits right.
+ *  · Inside Solicitudes: just the tabs, Solicitudes selected.
+ * The capsule grows out of the Solicitudes circle and shrinks back into it. Reduced motion: instant.
  */
 function OwnerBottomNav({ tabHref, condensed, expand }: { tabHref: (t: OwnerTab) => string; condensed: boolean; expand: () => void }) {
   const { pathname } = useLocation();
   const items = useHubItems();
   const reduced = useReducedMotion();
   const onRequests = OWNER_TABS.find((t) => t.id === 'solicitudes')!.owns(pathname);
-  const target: DockRight = onRequests ? 'none' : items.length ? 'hub' : 'new';
-  // What the tail shows; it lags behind `target` while the old tail retracts.
-  const [shown, setShown] = useState<DockRight>(target);
-  const [phase, setPhase] = useState<'idle' | 'out' | 'in'>('idle');
+  const wantHub = !onRequests && items.length > 0 && !condensed;
+  // The capsule stays mounted while it shrinks back into the tab.
+  const [hubMounted, setHubMounted] = useState(wantHub);
   const lastItems = useRef<HubItem[]>(items);
   if (items.length) lastItems.current = items;
-  const tailRef = useRef<HTMLButtonElement>(null);
+  const hubRef = useRef<HTMLButtonElement>(null);
+  const plusRef = useRef<HTMLButtonElement>(null);
+  const showPlus = !onRequests && !items.length;
 
   useLayoutEffect(() => {
-    if (phase !== 'idle' || target === shown) return;
-    if (reduced) return setShown(target);
-    if (shown === 'none') {
-      setShown(target);
-      setPhase('out');
-    } else setPhase('in');
-  }, [target, shown, phase, reduced]);
+    if (wantHub) setHubMounted(true);
+  }, [wantHub]);
 
-  // Out of the bar (clip grows from the tucked edge) or back into it.
+  // The bar's width does the stretching (CSS); the capsule fades its lime and text in/out.
   useLayoutEffect(() => {
-    if (phase === 'idle') return;
-    const tail = tailRef.current;
-    const finish = () => {
-      if (phase === 'in') {
-        // Retracted: show the next tail (if any), sliding out again.
-        setShown(target);
-        setPhase(target === 'none' ? 'idle' : 'out');
-      } else setPhase('idle');
-    };
-    if (!tail || typeof tail.animate !== 'function') return finish();
-    const hidden = { clipPath: `inset(0px calc(100% - ${TUCK}px) 0px 0px round 32px)` };
-    const full = { clipPath: 'inset(0px 0px 0px 0px round 32px)' };
-    const content = tail.querySelector<HTMLElement>('[data-hub-content]') ?? tail.querySelector<HTMLElement>('svg');
+    const hub = hubRef.current;
+    if (!hubMounted || !hub) return;
+    const content = hub.querySelector<HTMLElement>('[data-hub-content]');
+    if (reduced || typeof hub.animate !== 'function') {
+      if (!wantHub) setHubMounted(false);
+      return;
+    }
     const opts = { duration: MORPH_MS, easing: MORPH_EASE, fill: 'both' as const };
-    const anims: Animation[] = [tail.animate(phase === 'out' ? [hidden, full] : [full, hidden], opts)];
-    if (content)
-      anims.push(
-        content.animate(
-          phase === 'out' ? [{ opacity: 0 }, { opacity: 0, offset: 0.35 }, { opacity: 1 }] : [{ opacity: 1 }, { opacity: 0, offset: 0.45 }, { opacity: 0 }],
-          opts,
-        ),
-      );
-    anims[0]!.onfinish = () => {
-      anims.forEach((x) => x.cancel());
-      finish();
-    };
+    const anims: Animation[] = [];
+    if (wantHub) {
+      anims.push(hub.animate([{ backgroundColor: 'rgb(200 255 46 / 0)' }, { backgroundColor: 'rgb(200 255 46 / 1)', offset: 0.4 }, { backgroundColor: 'rgb(200 255 46 / 1)' }], opts));
+      if (content) anims.push(content.animate([{ opacity: 0 }, { opacity: 0, offset: 0.4 }, { opacity: 1 }], opts));
+      anims[0]!.onfinish = () => anims.forEach((x) => x.cancel());
+    } else {
+      if (content) anims.push(content.animate([{ opacity: 1 }, { opacity: 0, offset: 0.4 }, { opacity: 0 }], opts));
+      const fade = hub.animate([{ backgroundColor: 'rgb(200 255 46 / 1)' }, { backgroundColor: 'rgb(200 255 46 / 1)', offset: 0.6 }, { backgroundColor: 'rgb(200 255 46 / 0)' }], opts);
+      anims.push(fade);
+      fade.onfinish = () => setHubMounted(false);
+    }
     return () => anims.forEach((x) => x.cancel());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, shown]);
+  }, [wantHub, hubMounted, reduced]);
 
-  const navW = condensed ? 64 : NAV_W;
+  // The + fades in when it appears.
+  useLayoutEffect(() => {
+    const plus = plusRef.current;
+    if (!showPlus || !plus || reduced || typeof plus.animate !== 'function') return;
+    const a = plus.animate([{ opacity: 0, transform: 'scale(.92)' }, { opacity: 1, transform: 'none' }], { duration: 220, easing: MORPH_EASE });
+    return () => a.cancel();
+  }, [showPlus, reduced]);
+
+  const width = condensed ? '64px' : wantHub ? '100%' : `${NAV_W}px`;
   const current = OWNER_TABS.find((t) => t.owns(pathname));
   const CurrentIcon = current?.icon ?? Menu;
-  // The tail starts under the bar's right end and takes the rest of the width (the + only what it needs).
-  const tailStyle = { left: navW - TUCK, paddingLeft: TUCK + 14, transitionDuration: `${MORPH_MS}ms` };
-  const tailClass = 'absolute top-0 z-0 transition-[left] ease-[cubic-bezier(.4,0,.2,1)] motion-reduce:transition-none';
 
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(12px,env(safe-area-inset-bottom))] md:hidden">
-      <div className="relative mx-auto h-16 max-w-[380px]" data-testid="dock" data-state={shown}>
+      <div className="relative mx-auto h-16 max-w-[380px]" data-testid="dock" data-state={wantHub ? 'hub' : showPlus ? 'new' : 'none'}>
         <div
-          className="float-pill pointer-events-auto absolute left-0 top-0 z-10 h-16 overflow-hidden rounded-full transition-[width] ease-[cubic-bezier(.4,0,.2,1)] motion-reduce:transition-none"
-          style={{ width: navW, transitionDuration: `${MORPH_MS}ms` }}
+          className="float-pill pointer-events-auto absolute left-0 top-0 h-16 overflow-hidden rounded-full transition-[width] ease-[cubic-bezier(.4,0,.2,1)] motion-reduce:transition-none"
+          style={{ width, maxWidth: '100%', transitionDuration: `${MORPH_MS}ms` }}
         >
           <FloatingTabs
             className={cx('transition-opacity duration-200', condensed ? 'opacity-0' : 'opacity-100')}
             tabs={OWNER_TABS.map((t) => ({ key: t.id, to: tabHref(t), label: t.label, icon: t.icon, active: t.owns(pathname), state: { tab: true } }))}
             hidden={condensed}
           />
+          {/* The Request Hub: the Solicitudes tab, stretched (it covers that tab, from its circle to the bar's end). */}
+          {hubMounted && (
+            <FloatingRequestHub
+              items={items.length ? items : lastItems.current}
+              hubRef={hubRef}
+              className="absolute bottom-1 right-1 top-1"
+              style={{ left: PILL_PAD + 2 * TAB_W }}
+            />
+          )}
           {/* Condensed: one circle with the current section; tapping it opens the bar again. */}
           <button
             type="button"
@@ -341,10 +339,7 @@ function OwnerBottomNav({ tabHref, condensed, expand }: { tabHref: (t: OwnerTab)
             <CurrentIcon className="size-[26px] text-[#3b3b3b]" strokeWidth={2} aria-hidden />
           </button>
         </div>
-        {shown === 'hub' && (
-          <FloatingRequestHub items={items.length ? items : lastItems.current} hubRef={tailRef} className={cx(tailClass, 'right-0')} style={tailStyle} />
-        )}
-        {shown === 'new' && <NewRequestPill pillRef={tailRef} className={tailClass} style={{ ...tailStyle, width: TUCK + 64, paddingLeft: TUCK }} />}
+        {showPlus && <NewRequestPill pillRef={plusRef} className="absolute right-0 top-0" />}
       </div>
     </div>
   );

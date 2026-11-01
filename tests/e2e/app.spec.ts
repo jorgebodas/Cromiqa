@@ -364,13 +364,12 @@ test.describe('Navegación', () => {
     await expect(chip()).toHaveAccessibleName(/^Incidencia pendiente/);
     expect(await situation()).toBe('incident');
 
-    // Narrow phone: the three tabs keep their size; the Hub takes the rest, joined to the bar.
+    // Narrow phone: the three tabs keep their size; the Hub is the Solicitudes tab stretched to the bar's end.
     if (mobile) {
       await page.setViewportSize({ width: 320, height: 640 });
       await expect.poll(async () => {
-        // The tail tucks under the bar (one joined shape), but its text starts after the bar ends.
-        const [n, c, t] = [await page.getByRole('navigation', { name: 'Principal (móvil)' }).boundingBox(), await chip().boundingBox(), await chip().getByTestId('marquee').boundingBox()];
-        return n && c && t ? c.x < n.x + n.width && t.x >= n.x + n.width && c.x + c.width <= 320 && c.height >= 44 : false;
+        const [n, c] = [await page.getByRole('navigation', { name: 'Principal (móvil)' }).getByRole('link', { name: 'Mecánicos' }).boundingBox(), await chip().boundingBox()];
+        return n && c ? c.x >= n.x + n.width && c.x + c.width <= 320 && c.height >= 44 : false;
       }).toBe(true);
     }
   });

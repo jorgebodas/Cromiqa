@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type Ref } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ArrowRight, ChevronLeft, ChevronRight, Loader2, Plus, Send, X } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, ClipboardList, Loader2, Plus, Send, X } from 'lucide-react';
 import { HubActionContext, type HubActionApi, type HubPrimaryMeta } from './hubAction';
 import { categoryLabel } from '@/domain/catalog';
 import { hubItems, type HubItem } from '@/domain/logic/hub';
@@ -130,27 +130,11 @@ function useOpenChip() {
 }
 
 /**
- * The Request Hub pill, right of the floating navigation while requests are active: one
- * message for the most important request, "+N" for the other active requests, and a chevron.
- * One message, one priority, one destination. (With nothing active the dock shows "+ Nueva".)
+ * The Request Hub, inside the floating bar: the Solicitudes tab stretched into a lime capsule
+ * with its icon, one message for the most important request, "+N" for the other active
+ * requests, and a chevron. Tapping it opens Solicitudes. (With nothing active: a separate +.)
  */
-export function FloatingRequestHub({
-  items,
-  className,
-  style,
-  hubRef,
-  current,
-  contentClassName,
-}: {
-  items: HubItem[];
-  className?: string;
-  style?: CSSProperties;
-  hubRef?: Ref<HTMLButtonElement>;
-  /** On the Requests screens: the hub stands for that section. */
-  current?: boolean;
-  /** For the dock's transition: the text, counter and chevron fade in/out together. */
-  contentClassName?: string;
-}) {
+export function FloatingRequestHub({ items, className, style, hubRef }: { items: HubItem[]; className?: string; style?: CSSProperties; hubRef?: Ref<HTMLButtonElement> }) {
   const open = useOpenChip();
   const { top, others, spoken } = chipText(items);
   return (
@@ -159,19 +143,17 @@ export function FloatingRequestHub({
       type="button"
       onClick={open}
       aria-label={spoken}
-      aria-current={current ? 'page' : undefined}
-      className={cx(
-        'pointer-events-auto flex h-16 min-w-0 items-center gap-1.5 rounded-full pl-4 pr-3 text-left transition-transform active:scale-[0.97]',
-        pillSurface,
-        current && 'shadow-[0_0_0_1.5px_rgb(23_23_23/0.22),0_8px_24px_rgb(0_0_0/0.12)]',
-        className,
-      )}
+      className={cx('pointer-events-auto flex min-w-0 items-center gap-1.5 overflow-hidden rounded-full bg-lime pr-3 text-left text-ink', className)}
       style={style}
       data-testid="request-hub-chip"
       data-state={items.length > 1 ? 'multiple' : 'single'}
       data-situation={top.quick.situation}
     >
-      <span className={cx('relative flex min-w-0 flex-1 items-center gap-1.5', contentClassName)} data-hub-content>
+      {/* The Solicitudes icon, in the same place as the tab it grew out of. */}
+      <span className="flex size-14 shrink-0 items-center justify-center" aria-hidden>
+        <ClipboardList className="size-[26px]" strokeWidth={2} />
+      </span>
+      <span className="flex min-w-0 flex-1 items-center gap-1.5" data-hub-content>
         <Marquee
           text={top.label}
           className={cx('flex-1 font-display text-[15px] leading-tight tracking-[-0.01em]', top.pending ? 'font-bold text-ink' : 'font-semibold text-ink/75')}
@@ -182,7 +164,7 @@ export function FloatingRequestHub({
             +{others}
           </span>
         )}
-        <ChevronRight className="size-[18px] shrink-0 text-ink/40" strokeWidth={2.4} aria-hidden />
+        <ChevronRight className="size-[18px] shrink-0 text-ink/45" strokeWidth={2.4} aria-hidden />
       </span>
     </button>
   );

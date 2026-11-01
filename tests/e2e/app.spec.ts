@@ -244,8 +244,9 @@ test.describe('Navegación', () => {
     const mobile = isMobile(page);
     const chip = mobile ? page.getByTestId('request-hub-chip') : page.getByTestId('header-hub-chip');
     // Light pill: one circle per request and one word; the full status is its accessible name.
-    await expect(chip).toHaveAccessibleName(/2 solicitudes, 1 pendiente/);
-    await expect(chip).toContainText('Revisar');
+    // One message for the most important request, and a counter for the other active one.
+    await expect(chip).toHaveAccessibleName(/^2 presupuestos para comparar · Inspección antes de comprar\. 1 solicitud activa más/);
+    await expect(chip).toContainText('+1');
     await chip.click();
     const hub = page.getByTestId('request-hub');
     // Pending actions first: the inspection with two quotes.
@@ -291,7 +292,7 @@ test.describe('Navegación', () => {
     await chip().click();
     await expect(hub.getByRole('heading', { name: 'Presupuestos', exact: true })).toBeVisible();
     await expect(hub.getByTestId('quick-quote')).toHaveCount(2);
-    await expect(chip()).toContainText('Elegir'); // still pending: nothing was accepted
+    await expect(chip()).toHaveAccessibleName(/^2 presupuestos para comparar/); // still pending: nothing was accepted
     // Back to the overview, and a new request is one tap away.
     await hub.getByRole('button', { name: 'Volver a tus solicitudes' }).click();
     await expect(hub.getByTestId('hub-overview')).toBeVisible();
@@ -300,13 +301,13 @@ test.describe('Navegación', () => {
     await hub.getByTestId('hub-item').first().click();
     await hub.getByTestId('quick-quote').first().getByRole('button', { name: 'Aceptar presupuesto' }).click();
     await expect(hub.getByTestId('quick-appointment')).toBeVisible();
-    await expect(chip()).toHaveAccessibleName(/Confirmar cita/);
+    await expect(chip()).toHaveAccessibleName(/^Confirma tu cita/);
 
     // A date proposed by the mechanic → appointment confirmation, still pending.
     await freshDemo(page, 'u-diego');
     await keepOnly('u-diego', 'r-04');
     await page.reload();
-    await expect(chip()).toHaveAccessibleName(/Confirmar cita/);
+    await expect(chip()).toHaveAccessibleName(/^Confirma tu cita/);
     await chip().click();
     await expect(hub.getByTestId('quick-appointment')).toBeVisible();
     await expect(hub.getByTestId('appointment-pending')).toContainText('Javier propone');
@@ -316,8 +317,7 @@ test.describe('Navegación', () => {
     await freshDemo(page, 'u-irene');
     await keepOnly('u-irene', 'r-09');
     await page.reload();
-    await expect(chip()).toHaveAccessibleName(/En curso/);
-    await expect(chip()).toContainText('Trabajando');
+    await expect(chip()).toHaveAccessibleName(/en curso ·/);
     await chip().click();
     await expect(hub.getByRole('heading', { name: 'Seguimiento' })).toBeVisible();
     await expect(hub.getByTestId('appointment-confirmed')).toBeVisible();
@@ -359,11 +359,81 @@ test.describe('Navegación', () => {
     await expect(hub).toHaveCount(0);
     // The + became the request's status.
     const chip = mobile ? page.getByTestId('request-hub-chip') : page.getByTestId('header-hub-chip');
-    await expect(chip).toHaveAccessibleName(/Mantenimiento: Esperando respuesta/);
-    await expect(chip).toContainText('Esperando');
+    await expect(chip).toHaveAccessibleName(/^Buscando mecánicos · Mantenimiento\. Abrir$/);
     await chip.click();
     await expect(hub.getByTestId('hub-detail')).toBeVisible();
     await expect(hub.getByTestId('request-photos').getByRole('img')).toHaveCount(1);
+  });
+
+  test('floating hub v3: one message, a counter, marquee only when needed, and the right destination', async ({ page }) => {
+    const mobile = isMobile(page);
+    const chip = () => page.getByTestId(mobile ? 'request-hub-chip' : 'header-hub-chip');
+    const hub = page.getByTestId('request-hub');
+    const situation = () => chip().getAttribute('data-situation');
+
+    // Zero active requests: the + (mobile) / no chip (desktop).
+    await freshDemo(page);
+    await expect(chip()).toHaveCount(0);
+    if (mobile) await expect(page.getByTestId('new-request-fab')).toBeVisible();
+
+    // Multiple requests with different priorities: the confirmation wins; the counter shows the rest.
+    await freshDemo(page, 'u-diego');
+    await expect(chip()).toHaveAccessibleName(/^Confirma tu cita · Mantenimiento\. 2 solicitudes activas más\. Abrir tus solicitudes$/);
+    await expect(chip()).toContainText('+2');
+    // Several requests open the overview, with that request first and highlighted.
+    await chip().click();
+    await expect(hub.getByTestId('hub-item').first()).toHaveAttribute('data-primary', 'true');
+    await expect(hub.getByTestId('hub-item').first()).toContainText('Confirma tu cita');
+    await page.keyboard.press('Escape');
+
+    // One request needing action: no counter; short message stays still; the tap goes straight to its action.
+    await freshDemo(page, 'u-dani');
+    await expect(chip()).toHaveAccessibleName(/^Confirma tu cita · Mantenimiento\. Abrir$/);
+    await expect(chip()).not.toContainText('+');
+    if (mobile) await expect(chip().getByTestId('marquee')).not.toHaveAttribute('data-moving', 'true');
+    await chip().click();
+    await expect(hub.getByTestId('quick-appointment')).toBeVisible();
+    await page.keyboard.press('Escape');
+
+    // One request waiting on someone else: calm (not bold), informational.
+    await freshDemo(page, 'u-bea');
+    expect(await situation()).toBe('searching');
+    await expect(chip().getByTestId('marquee')).toHaveClass(/font-semibold/);
+
+    // Long message: it slides (only the text; the counter and chevron stay put and never overlap it).
+    await freshDemo(page, 'u-pablo');
+    const marquee = chip().getByTestId('marquee');
+    // Desktop has room for the whole message: it stays still.
+    if (mobile) await expect(marquee).toHaveAttribute('data-moving', 'true');
+    else await expect(marquee).not.toHaveAttribute('data-moving', 'true');
+    const [m, c] = [await marquee.boundingBox(), await chip().getByText('+1').boundingBox()];
+    expect(m!.x + m!.width).toBeLessThanOrEqual(c!.x + 1);
+    // Reduced motion: no movement, the whole message still readable and in the accessible name.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await expect(marquee).not.toHaveAttribute('data-moving', 'true');
+    await expect(chip()).toHaveAccessibleName(/^2 presupuestos para comparar/);
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+
+    // From a lower to a higher priority: reporting a problem turns "terminada" into an incident.
+    await freshDemo(page, 'u-fran');
+    expect(await situation()).toBe('work_finished');
+    await expect(chip()).toHaveAccessibleName(/^Reparación terminada/);
+    await chip().click();
+    await hub.getByRole('button', { name: 'Reportar un problema' }).click();
+    await page.getByLabel('Qué ha pasado').fill('El cambio sigue saltando.');
+    await page.getByRole('button', { name: 'Reportar problema' }).click();
+    await expect(chip()).toHaveAccessibleName(/^Incidencia pendiente/);
+    expect(await situation()).toBe('incident');
+
+    // Narrow phone: the chip stays tappable, inside the screen, next to (not over) the tab bar.
+    if (mobile) {
+      await page.setViewportSize({ width: 320, height: 640 });
+      const nav = await page.getByRole('navigation', { name: 'Principal (móvil)' }).boundingBox();
+      const box = await chip().boundingBox();
+      expect(box!.x).toBeGreaterThanOrEqual(nav!.x + nav!.width);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(320);
+      expect(box!.height).toBeGreaterThanOrEqual(44);
+    }
   });
 
   test('tabs remember their state, and back works from a direct link', async ({ page }) => {

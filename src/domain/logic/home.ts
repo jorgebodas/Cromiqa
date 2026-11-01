@@ -3,6 +3,7 @@
 import type { Mechanic, Review, ServiceRequest } from '../types';
 import { toISODate } from '../utils';
 import { autoCloseReminderDue, currentProposal, openIncident } from './requests';
+import { compareRanked, declinedRecently, type Ranked } from './hub';
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -19,43 +20,48 @@ export interface CyclistAttention {
   closingSoon?: boolean;
 }
 
-const isLive = (r: ServiceRequest) => ['sent', 'awaiting_proposal', 'proposal_received', 'confirmed', 'in_progress', 'awaiting_completion', 'completed'].includes(r.status);
-
 /**
  * Things only the cyclist can move forward, one per request: quotes to compare, a mechanic
  * who needs a clarification (open proposal), a request every invited mechanic declined
  * (recently), a finished service still to review. Most urgent first.
  */
 export function cyclistAttention(requests: ServiceRequest[], reviews: Review[], now = new Date()): CyclistAttention[] {
-  const items: (CyclistAttention & { rank: number; at: string })[] = [];
+  // Same ranking as the floating Request Hub (incidents, confirmations, quotes, messages…), so
+  // the two never disagree about what matters most.
+  const items: (CyclistAttention & Ranked)[] = [];
   const byCase = new Map<string, ServiceRequest[]>();
   for (const r of requests) byCase.set(r.caseId, [...(byCase.get(r.caseId) ?? []), r]);
   for (const threads of byCase.values()) {
     const quotes = threads.filter((r) => r.status === 'proposal_received' && currentProposal(r)?.status === 'pending');
     if (quotes.length) {
       const first = [...quotes].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0]!;
-      items.push({ kind: 'proposal', request: first, count: quotes.length, rank: 0, at: first.updatedAt });
+      const at = quotes.map((r) => currentProposal(r)?.createdAt ?? r.updatedAt).sort()[0]!;
+      items.push({ kind: 'proposal', request: first, count: quotes.length, priority: 3, at });
     }
     for (const r of threads) {
       const last = r.events[r.events.length - 1];
       if (r.status === 'awaiting_proposal' && r.openProposal && last && last.by === 'mechanic' && (last.type === 'open_proposal_sent' || last.type === 'message'))
-        items.push({ kind: 'clarify', request: r, rank: 1, at: last.at });
+        items.push({ kind: 'clarify', request: r, priority: 4, at: last.at });
       // After hiring: a date proposed by the mechanic (or none yet), the work to confirm, an open problem.
       if (r.status === 'confirmed' && (r.appointment?.pending ? r.appointment.pending.by === 'mechanic' : !r.appointment?.confirmed))
-        items.push({ kind: 'appointment', request: r, rank: 1, at: r.appointment?.pending?.at ?? r.updatedAt });
-      if (r.status === 'awaiting_completion' && openIncident(r)) items.push({ kind: 'incident', request: r, rank: 1, at: r.updatedAt });
-      else if (r.status === 'awaiting_completion')
-        items.push({ kind: 'confirm', request: r, rank: autoCloseReminderDue(r, now) ? 0 : 1, at: r.finishedAt ?? r.updatedAt, closingSoon: autoCloseReminderDue(r, now) });
+        items.push({ kind: 'appointment', request: r, priority: 2, at: r.appointment?.pending?.at ?? r.updatedAt });
+      const incident = r.status === 'awaiting_completion' ? openIncident(r) : undefined;
+      if (incident) items.push({ kind: 'incident', request: r, priority: 1, at: incident.openedAt });
+      else if (r.status === 'awaiting_completion') {
+        const closingSoon = autoCloseReminderDue(r, now);
+        items.push({ kind: 'confirm', request: r, priority: 2, deadline: closingSoon, at: r.finishedAt ?? r.updatedAt, closingSoon });
+      }
       if (r.status === 'completed' && !reviews.some((v) => v.requestId === r.id) && now.getTime() - new Date(r.updatedAt).getTime() < 30 * DAY)
-        items.push({ kind: 'review', request: r, rank: 3, at: r.updatedAt });
+        items.push({ kind: 'review', request: r, priority: 6, at: r.updatedAt });
     }
     // Declines only need the cyclist once no invitation of the request is still alive.
-    const declines = threads.filter((r) => r.status === 'cancelled' && r.events[r.events.length - 1]?.type === 'rejected_by_mechanic');
-    const lastDecline = declines.map((r) => r.events[r.events.length - 1]!.at).sort().pop();
-    if (lastDecline && !threads.some(isLive) && now.getTime() - new Date(lastDecline).getTime() < 7 * DAY)
-      items.push({ kind: 'declined', request: declines[0]!, rank: 2, at: lastDecline });
+    const declinedAt = declinedRecently(threads, now);
+    if (declinedAt) {
+      const declined = threads.find((r) => r.status === 'cancelled' && r.events[r.events.length - 1]?.type === 'rejected_by_mechanic')!;
+      items.push({ kind: 'declined', request: declined, priority: 3, at: declinedAt });
+    }
   }
-  return items.sort((a, b) => a.rank - b.rank || b.at.localeCompare(a.at)).map(({ kind, request, count, closingSoon }) => ({ kind, request, count, closingSoon }));
+  return items.sort(compareRanked).map(({ kind, request, count, closingSoon }) => ({ kind, request, count, closingSoon }));
 }
 
 /**

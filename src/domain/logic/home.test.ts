@@ -18,7 +18,8 @@ describe('cyclist home', () => {
         expect(p.request.status).toBe('proposal_received');
         expect(currentProposal(p.request)?.status).toBe('pending');
       }
-      if (proposals.length) expect(items[0]!.kind).toBe('proposal');
+      // Quotes come first unless something more pressing (incident, confirmation, date) is waiting.
+      if (proposals.length) expect(['incident', 'confirm', 'appointment', 'proposal']).toContain(items[0]!.kind);
     }
   });
 

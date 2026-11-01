@@ -7,14 +7,13 @@ import type { ID, ServiceRequest } from '@/domain/types';
 import { bikeLabel, categoryLabel } from '@/domain/catalog';
 import { DomainError, currentProposal } from '@/domain/logic/requests';
 import { caseHref, threadHref } from '@/domain/logic/cases';
-import { hubItems, hubState, type HubItem, type QuickScreen } from '@/domain/logic/hub';
+import { hubItems, type HubItem, type QuickScreen } from '@/domain/logic/hub';
 import { formatDate, formatPrice } from '@/domain/utils';
 import { useApp } from '@/state/store';
 import { useCurrentUser, useRequestsFor } from '@/state/selectors';
 import { useMode } from '@/state/mode';
 import { useNavUi, type HubView } from '@/state/ui';
 import { RequestForm } from '@/pages/owner/request/RequestFlowPage';
-import { CATEGORY_ICONS } from '@/pages/owner/startRequest';
 import { PhotoStrip, RequestTimeline } from '@/components/domain/RequestParts';
 import { AppointmentCard, CompletionCard } from '@/components/domain/ServiceParts';
 import { Avatar, Button, Dialog, cx } from '@/components/ui';
@@ -27,82 +26,129 @@ export function useHubItems(): HubItem[] {
   return useMemo(() => hubItems(requests), [requests]);
 }
 
-/** How many request circles the pill shows before "+N". */
-const MAX_CIRCLES = 3;
+/** Whether the person asked the system for less motion (live: follows the setting). */
+function useReducedMotion(): boolean {
+  const query = '(prefers-reduced-motion: reduce)';
+  const [reduced, setReduced] = useState(() => typeof window !== 'undefined' && !!window.matchMedia?.(query).matches);
+  useEffect(() => {
+    const m = window.matchMedia?.(query);
+    if (!m) return;
+    const on = () => setReduced(m.matches);
+    m.addEventListener('change', on);
+    return () => m.removeEventListener('change', on);
+  }, []);
+  return reduced;
+}
 
 /**
- * One request as a circle: its service icon, ringed by how far along it is. The ring is ink
- * when the request needs the cyclist, soft grey while it waits on someone else.
+ * One line of text that slowly slides to reveal its end when it doesn't fit, then slides back:
+ * pause 1.5 s, scroll (5–7 s, by length), pause 1 s, return (1.2 s). Static when it fits or when
+ * the system asks for reduced motion (then it wraps to two lines). Paused while hovered/pressed.
+ * Restarts only when the text or the available width change.
  */
-function RequestCircle({ item, size }: { item: HubItem; size: 'lg' | 'sm' }) {
-  const Icon = CATEGORY_ICONS[item.lead.category];
-  const px = size === 'lg' ? 32 : 28;
-  const stroke = size === 'lg' ? 3 : 2.5;
-  const r = (px - stroke) / 2;
-  const c = 2 * Math.PI * r;
+export function Marquee({ text, className, wrapClassName }: { text: string; className?: string; wrapClassName?: string }) {
+  const box = useRef<HTMLSpanElement>(null);
+  const probe = useRef<HTMLSpanElement>(null);
+  const line = useRef<HTMLSpanElement>(null);
+  const anim = useRef<Animation | null>(null);
+  const [overflow, setOverflow] = useState(0);
+  const reduced = useReducedMotion();
+
+  useEffect(() => {
+    const measure = () => {
+      if (!box.current || !probe.current) return;
+      setOverflow(Math.max(0, Math.ceil(probe.current.scrollWidth - box.current.clientWidth)));
+    };
+    measure();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    if (box.current) ro?.observe(box.current);
+    return () => ro?.disconnect();
+  }, [text]);
+
+  useEffect(() => {
+    const el = line.current;
+    if (!el || overflow < 2 || reduced || typeof el.animate !== 'function') return;
+    const travel = overflow + 14; // past the fade on the right edge
+    const [hold, scroll, rest, back] = [1500, Math.min(7000, Math.max(5000, travel * 45)), 1000, 1200];
+    const total = hold + scroll + rest + back;
+    const at = (t: number) => t / total;
+    anim.current = el.animate(
+      [
+        { transform: 'translateX(0)', offset: 0 },
+        { transform: 'translateX(0)', offset: at(hold), easing: 'cubic-bezier(.45,0,.55,1)' },
+        { transform: `translateX(${-travel}px)`, offset: at(hold + scroll) },
+        { transform: `translateX(${-travel}px)`, offset: at(hold + scroll + rest), easing: 'cubic-bezier(.45,0,.55,1)' },
+        { transform: 'translateX(0)', offset: 1 },
+      ],
+      { duration: total, iterations: Infinity },
+    );
+    return () => {
+      anim.current?.cancel();
+      anim.current = null;
+    };
+  }, [overflow, reduced, text]);
+
+  const moving = overflow >= 2 && !reduced;
+  const wraps = overflow >= 2 && reduced;
   return (
-    <span className="relative flex shrink-0 items-center justify-center rounded-full bg-paper shadow-[0_0_0_2px_rgb(255_255_255/0.9)]" style={{ width: px, height: px }}>
-      <svg className="absolute inset-0 -rotate-90" width={px} height={px} aria-hidden>
-        <circle cx={px / 2} cy={px / 2} r={r} fill="none" stroke="rgb(23 23 23 / 0.08)" strokeWidth={stroke} />
-        <circle
-          cx={px / 2}
-          cy={px / 2}
-          r={r}
-          fill="none"
-          stroke={item.pending ? 'var(--color-ink)' : 'rgb(23 23 23 / 0.3)'}
-          strokeWidth={stroke}
-          strokeLinecap="round"
-          strokeDasharray={`${c * item.quick.progress} ${c}`}
-        />
-      </svg>
-      <Icon className={size === 'lg' ? 'size-[15px]' : 'size-3.5'} strokeWidth={2.2} aria-hidden />
+    <span
+      ref={box}
+      className={cx('relative block min-w-0 overflow-hidden', className)}
+      style={moving ? { maskImage: 'linear-gradient(to right, transparent 0, #000 6px, #000 calc(100% - 18px), transparent)', WebkitMaskImage: 'linear-gradient(to right, transparent 0, #000 6px, #000 calc(100% - 18px), transparent)' } : undefined}
+      onPointerEnter={() => anim.current?.pause()}
+      onPointerDown={() => anim.current?.pause()}
+      onPointerLeave={() => anim.current?.play()}
+      onPointerCancel={() => anim.current?.play()}
+      data-testid="marquee"
+      data-moving={moving || undefined}
+      aria-hidden
+    >
+      {/* Invisible copy on one line, only to measure whether the text fits. */}
+      <span ref={probe} className="pointer-events-none invisible absolute left-0 top-0 whitespace-nowrap">
+        {text}
+      </span>
+      <span ref={line} className={cx(wraps ? cx('line-clamp-2 whitespace-normal break-words', wrapClassName) : 'block whitespace-nowrap', moving && 'pl-[6px] will-change-transform')}>
+        {text}
+      </span>
     </span>
   );
 }
 
-/** What the pill says: one word for the most urgent request, and a full sentence for screen readers. */
-function pillText(items: HubItem[]) {
+/** What the chip says (one message for the most important request) and the full sentence for screen readers. */
+function chipText(items: HubItem[]) {
   const top = items[0]!;
-  const pending = items.filter((i) => i.pending).length;
-  const spoken =
-    items.length === 1
-      ? `Tu solicitud de ${categoryLabel(top.lead.category)}: ${top.label}. Abrir`
-      : `${items.length} solicitudes, ${pending ? `${pending} ${pending === 1 ? 'pendiente' : 'pendientes'}` : 'nada pendiente'}. Abrir tus solicitudes`;
-  // One request: its own word. Several: whether any needs you (the dark rings say which).
-  const word = items.length === 1 ? top.quick.word : pending ? 'Revisar' : 'Activas';
-  return { word, spoken };
+  const others = items.length - 1;
+  const spoken = `${top.label} · ${categoryLabel(top.lead.category)}.${others ? ` ${others} ${others === 1 ? 'solicitud activa más' : 'solicitudes activas más'}.` : ''} ${others ? 'Abrir tus solicitudes' : 'Abrir'}`;
+  return { top, others, spoken };
 }
 
-/** The circles (up to three, most urgent first) and "+N" for the rest. */
-function Circles({ items, size }: { items: HubItem[]; size: 'lg' | 'sm' }) {
-  const extra = items.length - MAX_CIRCLES;
-  return (
-    <span className="flex shrink-0 items-center" aria-hidden>
-      {items.slice(0, MAX_CIRCLES).map((item, i) => (
-        <span key={item.caseId} className={cx(i > 0 && (size === 'lg' ? '-ml-5' : '-ml-3'))} style={{ zIndex: MAX_CIRCLES - i }}>
-          <RequestCircle item={item} size={size} />
-        </span>
-      ))}
-      {extra > 0 && <span className={cx('font-display font-bold tracking-tight', size === 'lg' ? 'ml-1.5 text-[15px]' : 'ml-1 text-xs')}>+{extra}</span>}
-    </span>
-  );
-}
-
-/** Light yellow-to-lilac glow with a hairline: the pill's background. */
+/** Light yellow-to-lilac glow with a hairline: the chip's background. */
 const pillSurface =
   'bg-[radial-gradient(130%_160%_at_0%_0%,#efffa8_0%,rgb(239_255_168/0)_55%),radial-gradient(120%_160%_at_100%_100%,#e6e9ff_0%,rgb(230_233_255/0)_60%),linear-gradient(#fffdf0,#fffdf0)] text-ink shadow-[0_0_0_1px_rgb(23_23_23/0.06),0_8px_24px_rgb(0_0_0/0.12)]';
 
+/** Where a tap goes: one request → its next action (a screen in the hub, or the chat/page); several → the overview. */
+function useOpenChip() {
+  const openHub = useNavUi((s) => s.openHub);
+  const navigate = useNavigate();
+  return (items: HubItem[]) => {
+    if (items.length > 1) return openHub({ kind: 'overview' });
+    const { quick, caseId } = items[0]!;
+    if (quick.href) return navigate(quick.href);
+    openHub({ kind: 'detail', caseId, screen: quick.screen });
+  };
+}
+
 /**
  * The collapsed Request Hub, right of the floating navigation: a + when there's nothing
- * active; otherwise a light pill with one circle per request (up to three, then "+N") and one
- * word for the most urgent one.
+ * active; otherwise one message for the most important request, "+N" for the other active
+ * requests, and a chevron. One message, one priority, one destination.
  */
 export function FloatingRequestHub({ className }: { className?: string }) {
   const items = useHubItems();
   const openHub = useNavUi((s) => s.openHub);
-  const state = hubState(items);
+  const open = useOpenChip();
 
-  if (state.kind === 'empty') {
+  if (!items.length) {
     return (
       <button
         type="button"
@@ -116,52 +162,57 @@ export function FloatingRequestHub({ className }: { className?: string }) {
       </button>
     );
   }
-  const single = state.kind === 'single';
-  const { word, spoken } = pillText(items);
+  const { top, others, spoken } = chipText(items);
   return (
     <button
       type="button"
-      onClick={() => openHub(single ? { kind: 'detail', caseId: state.item.caseId, screen: state.item.quick.screen } : { kind: 'overview' })}
+      onClick={() => open(items)}
       aria-label={spoken}
-      className={cx(
-        'pointer-events-auto flex h-16 min-w-0 shrink items-center gap-1.5 rounded-full pl-2.5 pr-3.5 text-left transition-transform active:scale-[0.97]',
-        pillSurface,
-        className,
-      )}
+      className={cx('pointer-events-auto flex h-16 min-w-0 flex-1 items-center gap-1.5 rounded-full pl-4 pr-3 text-left transition-transform active:scale-[0.97] max-[359px]:gap-0.5 max-[359px]:pl-3 max-[359px]:pr-1.5', pillSurface, className)}
       data-testid="request-hub-chip"
-      data-state={state.kind}
+      data-state={items.length > 1 ? 'multiple' : 'single'}
+      data-situation={top.quick.situation}
     >
-      <Circles items={items} size="lg" />
-      <span className="min-w-0 truncate font-display text-[14px] font-bold tracking-[-0.02em]">{word}</span>
+      <Marquee
+        text={top.label}
+        className={cx('flex-1 font-display text-[15px] leading-tight tracking-[-0.01em] max-[359px]:text-[14px]', top.pending ? 'font-bold text-ink' : 'font-semibold text-ink/75')}
+        wrapClassName="text-[12px] leading-[1.2]"
+      />
+      {others > 0 && (
+        <span className="shrink-0 pl-1 text-[13px] font-semibold tabular-nums text-ink/50 max-[359px]:pl-0.5 max-[359px]:text-xs" data-testid="hub-counter">
+          +{others}
+        </span>
+      )}
+      <ChevronRight className="size-[18px] shrink-0 text-ink/40 max-[359px]:size-3.5" strokeWidth={2.4} aria-hidden />
     </button>
   );
 }
 
-/** Desktop header: the same pill, smaller, next to "Nueva solicitud". */
+/** Desktop header: the same message and counter, smaller, next to "Nueva solicitud". */
 export function HeaderRequestChip() {
   const items = useHubItems();
-  const openHub = useNavUi((s) => s.openHub);
-  const state = hubState(items);
-  if (state.kind === 'empty') return null;
-  const single = state.kind === 'single';
-  const { word, spoken } = pillText(items);
+  const open = useOpenChip();
+  if (!items.length) return null;
+  const { top, others, spoken } = chipText(items);
   return (
     <button
       type="button"
-      onClick={() => openHub(single ? { kind: 'detail', caseId: state.item.caseId, screen: state.item.quick.screen } : { kind: 'overview' })}
+      onClick={() => open(items)}
       aria-label={spoken}
-      className={cx('inline-flex h-10 items-center gap-2 rounded-full pl-1.5 pr-4 text-sm transition-opacity hover:opacity-90', pillSurface)}
+      className={cx('inline-flex h-10 w-[min(300px,28vw)] min-w-[180px] items-center gap-1.5 rounded-full pl-4 pr-2.5 text-left text-sm transition-opacity hover:opacity-90', pillSurface)}
       data-testid="header-hub-chip"
+      data-situation={top.quick.situation}
     >
-      <Circles items={items} size="sm" />
-      <span className="font-display font-bold tracking-tight">{word}</span>
+      <Marquee text={top.label} className={cx('flex-1 font-display tracking-[-0.01em]', top.pending ? 'font-bold' : 'font-semibold text-ink/75')} wrapClassName="text-xs leading-tight" />
+      {others > 0 && <span className="shrink-0 text-xs font-semibold tabular-nums text-ink/50">+{others}</span>}
+      <ChevronRight className="size-4 shrink-0 text-ink/40" strokeWidth={2.4} aria-hidden />
     </button>
   );
 }
 
 function StatusChip({ item }: { item: HubItem }) {
   return (
-    <span className={cx('inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-xs font-semibold', item.pending ? 'bg-lime text-ink' : 'bg-canvas text-ink')}>{item.label}</span>
+    <span className={cx('inline-flex max-w-full items-center truncate rounded-full px-2.5 py-1 text-xs font-semibold', item.pending ? 'bg-lime text-ink' : 'bg-canvas text-ink')}>{item.label}</span>
   );
 }
 
@@ -205,8 +256,10 @@ function Overview({ items, onOpen }: { items: HubItem[]; onOpen: (item: HubItem)
   }
   return (
     <ul className="space-y-3" data-testid="hub-overview">
-      {items.map((item) => {
+      {items.map((item, i) => {
         const quotes = item.threads.filter((r) => r.status === 'proposal_received');
+        // The one the floating chip talks about: first, and gently highlighted.
+        const primary = i === 0 && items.length > 1;
         const info =
           quotes.length > 1
             ? `Desde ${formatPrice(Math.min(...quotes.map((r) => currentProposal(r)?.price ?? 0)))}`
@@ -215,7 +268,13 @@ function Overview({ items, onOpen }: { items: HubItem[]; onOpen: (item: HubItem)
               : `${item.threads.length} mecánicos invitados`;
         return (
           <li key={item.caseId}>
-            <button type="button" onClick={() => onOpen(item)} className="surface block w-full rounded-[22px] p-4 text-left sm:p-5" data-testid="hub-item">
+            <button
+              type="button"
+              onClick={() => onOpen(item)}
+              className={cx('surface block w-full rounded-[22px] p-4 text-left sm:p-5', primary && 'shadow-[0_0_0_2px_#d8f560,var(--shadow-surface)]')}
+              data-testid="hub-item"
+              data-primary={primary || undefined}
+            >
               <span className="flex items-start justify-between gap-3">
                 <span className="font-display text-[17px] font-semibold leading-tight tracking-tight">{categoryLabel(item.lead.category)}</span>
                 <ArrowUpRight className="size-[18px] shrink-0 text-muted" aria-hidden />
@@ -474,7 +533,7 @@ export function RequestHubOverlay() {
   let primary: HubPrimaryMeta | null = null;
   let run: () => void = () => {};
   if (shown.kind === 'overview') {
-    body = <Overview items={items} onOpen={(item) => openHub({ kind: 'detail', caseId: item.caseId, screen: item.quick.screen })} />;
+    body = <Overview items={items} onOpen={(item) => (item.quick.href ? go(item.quick.href) : openHub({ kind: 'detail', caseId: item.caseId, screen: item.quick.screen }))} />;
     primary = { label: 'Nueva solicitud', icon: 'plus', canBack: false };
     run = toNew;
   } else if (shown.kind === 'detail' && detailItem) {

@@ -5,7 +5,7 @@ import { ArrowRight, CalendarClock, ChevronDown, ChevronLeft, ChevronRight, Circ
 import { HubActionContext, type HubActionApi, type HubPrimaryMeta } from './hubAction';
 import { categoryLabel } from '@/domain/catalog';
 import { hubItems, type HubItem } from '@/domain/logic/hub';
-import { attentionHref, cyclistPendingActions, type CyclistAttention } from '@/domain/logic/home';
+import { attentionFromActions, attentionHref, type CyclistAttention } from '@/domain/logic/home';
 import { useApp } from '@/state/store';
 import { useCurrentUser, useRequestsFor } from '@/state/selectors';
 import { useMode } from '@/state/mode';
@@ -131,14 +131,16 @@ function useOpenChip() {
 }
 
 /**
- * The cyclist's unresolved P0 decisions (see `REQUIRES_USER_ACTION`): derived from the stored
- * requests, so resolving one updates the count at once; opening anything never resolves it.
+ * The current cyclist's unresolved PendingActions, in order: what the Request Hub counts and
+ * previews. Read from the stored action records only (never request statuses or messages).
  */
 export function usePendingActions(): CyclistAttention[] {
   const user = useCurrentUser();
   const mode = useMode();
-  const requests = useRequestsFor({ ownerId: user && mode === 'cyclist' ? user.id : '__none__' });
-  return useMemo(() => cyclistPendingActions(requests), [requests]);
+  const actions = useApp((s) => s.db.pendingActions);
+  const requests = useApp((s) => s.db.requests);
+  const userId = user && mode === 'cyclist' ? user.id : undefined;
+  return useMemo(() => attentionFromActions({ requests, pendingActions: actions }, userId), [requests, actions, userId]);
 }
 
 export const pendingLabel = (n: number) => `${n} ${n === 1 ? 'pendiente' : 'pendientes'}`;

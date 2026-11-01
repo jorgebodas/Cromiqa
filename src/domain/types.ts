@@ -305,8 +305,43 @@ export interface ServiceRequest {
   updatedAt: ISODateTime;
 }
 
+/** A decision or answer one person owes on a request (only the cyclist's feed the Request Hub). */
+export type PendingActionType = 'quote_decision' | 'appointment_confirmation' | 'information_required' | 'incident_response' | 'service_confirmation';
+export type PendingActionStatus = 'pending' | 'resolved' | 'superseded';
+
+/**
+ * Its own lifecycle, next to the request's: created by a domain event, resolved only by the
+ * matching explicit action (or a valid transition), superseded when a newer version replaces it.
+ * Resolved and superseded records stay, for history.
+ */
+export interface PendingAction {
+  id: ID;
+  /** The cyclist's request (case) it belongs to. */
+  requestId: ID;
+  /** The invitation (one mechanic) it is about: where the action is taken. */
+  threadId: ID;
+  /** Who owes it. */
+  userId: ID;
+  type: PendingActionType;
+  status: PendingActionStatus;
+  /** 1 incident · 2 appointment · 3 quote · 4 information · 5 completion (lower = first). */
+  priority: 1 | 2 | 3 | 4 | 5;
+  sourceEntityType: 'proposal' | 'appointment' | 'open_proposal' | 'incident' | 'completion';
+  sourceEntityId: string;
+  /** One active action per decision: the same key never has two pending records. */
+  key: string;
+  createdAt: ISODateTime;
+  /** A real deadline (the 72 h administrative closure), if any. */
+  dueAt?: ISODateTime;
+  resolvedAt?: ISODateTime;
+  resolutionReason?: string;
+  supersededByActionId?: ID;
+}
+
 export interface DemoDatabase {
   version: number;
+  /** Decisions owed by cyclists and mechanics (pending, resolved and superseded). */
+  pendingActions: PendingAction[];
   users: User[];
   mechanics: Mechanic[];
   reviews: Review[];

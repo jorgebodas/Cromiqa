@@ -16,6 +16,7 @@ import type {
 } from '../types';
 import { categoryLabel } from '../catalog';
 import { toISODate, uid } from '../utils';
+import { syncPendingActions } from './pendingActions';
 
 export class DomainError extends Error {
   constructor(message: string) {
@@ -206,7 +207,10 @@ export function runScheduledTransitions(db: DemoDatabase, now = new Date()): Dem
     maintenance = completeService({ ...db, maintenance }, closed, at);
     return closed;
   });
-  return changed ? { ...db, requests, maintenance } : db;
+  if (!changed) return db;
+  // The closure ends the cyclist's confirmation as an administrative closure, never as their acceptance.
+  const closedCases = requests.filter((r, i) => r !== db.requests[i]).map((r) => r.caseId);
+  return syncPendingActions({ ...db, requests, maintenance }, closedCases, { type: 'administrative_closure' }, now);
 }
 
 /** All invitations of the same cyclist request. */
@@ -322,7 +326,8 @@ export function createRequest(
     photos: input.photos?.length ? input.photos : undefined,
   };
   const requests = invitationsFor(db, base, [...new Set(input.mechanicIds)], now);
-  return { db: { ...db, bikes, requests: [...requests, ...db.requests] }, requests };
+  // A new request owes nobody anything yet (waiting is not a decision); synced for consistency.
+  return { db: syncPendingActions({ ...db, bikes, requests: [...requests, ...db.requests] }, requests.map((r) => r.caseId), { type: 'request_created' }, now), requests };
 }
 
 type CaseFields = Omit<ServiceRequest, 'id' | 'code' | 'mechanicId' | 'status' | 'proposals' | 'openProposal' | 'events' | 'createdAt' | 'updatedAt' | 'completionSummary'>;
@@ -368,7 +373,7 @@ export function inviteToCase(
   }
   const { id: _i, code: _c, mechanicId: _m, status: _s, proposals: _p, openProposal: _o, events: _e, createdAt: _ca, updatedAt: _u, completionSummary: _cs, ...base } = first;
   const requests = invitationsFor(db, base, fresh, now);
-  return { db: { ...db, requests: [...requests, ...db.requests] }, requests };
+  return { db: syncPendingActions({ ...db, requests: [...requests, ...db.requests] }, requests.map((r) => r.caseId), { type: 'invited' }, now), requests };
 }
 
 export function validateProposal(p: ProposalInput, now = new Date()): Record<string, string> {
@@ -520,7 +525,9 @@ export function applyRequestAction(
         : r,
     );
   }
-  return { db: { ...db, maintenance, requests }, request: req };
+  // Every domain event updates the decisions people owe on this request (PendingActions).
+  const next = syncPendingActions({ ...db, maintenance, requests }, [req.caseId], { type: action.type, by: actor }, now);
+  return { db: next, request: req };
 }
 
 export function currentProposal(req: ServiceRequest) {

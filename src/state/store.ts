@@ -93,7 +93,7 @@ interface AppState {
   dismissToast(id: number): void;
 }
 
-const emptyDb: DemoDatabase = { version: 0, users: [], mechanics: [], reviews: [], bikes: [], maintenance: [], requests: [] };
+const emptyDb: DemoDatabase = { version: 0, pendingActions: [], users: [], mechanics: [], reviews: [], bikes: [], maintenance: [], requests: [] };
 let toastSeq = 1;
 
 export const useApp = create<AppState>((set, get) => {

@@ -6,7 +6,7 @@ import { bikeTypeLabel, categoryLabel, locationShort, specializationLabel } from
 import { currentProposal } from '@/domain/logic/requests';
 import { searchMechanics, type MechanicResult } from '@/domain/logic/search';
 import { caseHref, caseStatus, groupCases, threadHref } from '@/domain/logic/cases';
-import { attentionHref, cyclistAttention, upcomingAppointments, type CyclistAttention } from '@/domain/logic/home';
+import { attentionHref, homeAttention, upcomingAppointments, type CyclistAttention } from '@/domain/logic/home';
 import { formatDate, formatPrice, toISODate } from '@/domain/utils';
 import { useApp } from '@/state/store';
 import { useCurrentUser, useOwnerBikes, useRequestsFor } from '@/state/selectors';
@@ -165,7 +165,10 @@ function CyclistHome({ user }: { user: User | null }) {
   const openNewRequest = useNavUi((s) => s.openNewRequest);
   const name = (id: string) => mechanics.find((m) => m.id === id)?.name ?? 'El mecánico';
   const first = (id: string) => name(id).split(' ')[0];
-  const attention = useMemo(() => cyclistAttention(requests, reviews), [requests, reviews]);
+  const allRequests = useApp((s) => s.db.requests);
+  const actions = useApp((s) => s.db.pendingActions);
+  // The cyclist's PendingActions (same as the Request Hub), then Home-only nudges.
+  const attention = useMemo(() => homeAttention({ requests: allRequests, pendingActions: actions, reviews }, user?.id), [allRequests, actions, reviews, user?.id]);
   const statuses = useMemo(() => groupCases(requests).map((c) => caseStatus(c.threads)), [requests]);
   const active = statuses.filter((c) => c === 'searching' || c === 'proposals_received' || c === 'booked').length;
   const quotes = attention.filter((a) => a.kind === 'proposal').reduce((n, a) => n + (a.count ?? 1), 0);

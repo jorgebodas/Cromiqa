@@ -1,6 +1,7 @@
 // What each Home shows: items that need the person now, derived from the stored requests
 // (nothing invented). Pure functions, so both Homes and the tests use the same rules.
-import type { Mechanic, Review, ServiceRequest } from '../types';
+import type { DemoDatabase, Mechanic, PendingActionType, Review, ServiceRequest } from '../types';
+import { openActionsFor } from './pendingActions';
 import { toISODate } from '../utils';
 import { autoCloseReminderDue, currentProposal, openIncident } from './requests';
 import { compareRanked, declinedRecently, type Ranked } from './hub';
@@ -75,24 +76,37 @@ export function cyclistAttention(requests: ServiceRequest[], reviews: Review[], 
   return items.sort(compareRanked).map(({ kind, request, count, closingSoon }) => ({ kind, request, count, closingSoon }));
 }
 
-/**
- * P0 — requires the cyclist's action: an explicit decision, confirmation or answer that the
- * request can't move past without them. Only these replace the + with "N pendientes".
- *  · proposal: quotes to review, compare or accept (one decision per request)
- *  · appointment: a date the mechanic proposed or changed, or none agreed yet after hiring
- *  · clarify: a mechanic needs information before quoting (open proposal)
- *  · incident: an open incident on finished work
- *  · confirm: work marked finished, to confirm or report a problem
- * Not P0 (never in the Hub): reviews of finished services and requests every mechanic declined
- * (Home still lists them), plain chat messages, mechanics preparing a quote, sent/waiting
- * requests, completed or cancelled ones.
- */
-export const REQUIRES_USER_ACTION: ReadonlySet<CyclistAttentionKind> = new Set(['incident', 'appointment', 'proposal', 'clarify', 'confirm']);
-export const requiresUserAction = (item: CyclistAttention) => REQUIRES_USER_ACTION.has(item.kind);
+const ATTENTION_KIND: Record<PendingActionType, CyclistAttentionKind> = {
+  incident_response: 'incident',
+  appointment_confirmation: 'appointment',
+  quote_decision: 'proposal',
+  information_required: 'clarify',
+  service_confirmation: 'confirm',
+};
 
-/** The cyclist's unresolved P0 decisions, most urgent first: the Request Hub's count and preview. */
-export function cyclistPendingActions(requests: ServiceRequest[], now = new Date()): CyclistAttention[] {
-  return cyclistAttention(requests, [], now).filter(requiresUserAction);
+/**
+ * The cyclist's unresolved PendingActions (see `pendingActions.ts`) as rows for the Request Hub
+ * and Home: in their order, with the live details each row shows (how many quotes, deadline).
+ */
+export function attentionFromActions(db: Pick<DemoDatabase, 'requests' | 'pendingActions'>, userId: string | undefined, now = new Date()): CyclistAttention[] {
+  return openActionsFor(db.pendingActions ?? [], userId).flatMap((a) => {
+    const request = db.requests.find((r) => r.id === a.threadId);
+    if (!request) return [];
+    const count = a.type === 'quote_decision' ? db.requests.filter((r) => r.caseId === a.requestId && r.status === 'proposal_received' && currentProposal(r)?.status === 'pending').length : undefined;
+    const closingSoon = !!a.dueAt && now.getTime() >= new Date(a.dueAt).getTime() - 24 * 60 * 60 * 1000;
+    return [{ kind: ATTENTION_KIND[a.type], request, count, closingSoon: a.type === 'service_confirmation' ? closingSoon : undefined }];
+  });
+}
+
+/**
+ * Home's "Requiere tu atención": the cyclist's PendingActions first (the same ones the Request
+ * Hub counts), then two Home-only nudges that are not decisions: invite others when every
+ * mechanic declined, and review a finished service.
+ */
+export function homeAttention(db: Pick<DemoDatabase, 'requests' | 'pendingActions' | 'reviews'>, userId: string | undefined, now = new Date()): CyclistAttention[] {
+  if (!userId) return [];
+  const extras = cyclistAttention(db.requests.filter((r) => r.ownerId === userId), db.reviews, now).filter((i) => i.kind === 'declined' || i.kind === 'review');
+  return [...attentionFromActions(db, userId, now), ...extras];
 }
 
 /** Where a pending item opens: the request (to compare quotes or invite others) or the conversation with that mechanic. */

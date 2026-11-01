@@ -1,5 +1,6 @@
 // Fictional demo dataset. Every person, business, review and price here is invented.
 // Dates are generated relative to "now" so the demo always looks current after a reset.
+import { backfillPendingActions } from '@/domain/logic/pendingActions';
 import type {
   Bike,
   DemoDatabase,
@@ -16,7 +17,8 @@ import type {
 import { addDays, toISODate } from '@/domain/utils';
 import { stateProfiles, testWorkshops } from './testWorkshops';
 
-export const SEED_VERSION = 9;
+/** v10: PendingActions (migrated from v9 by backfilling them from the stored requests). */
+export const SEED_VERSION = 10;
 
 const weekdays = (slots: WeeklyAvailability['slots'], days: number[]): WeeklyAvailability[] =>
   days.map((d) => ({ day: d as WeeklyAvailability['day'], slots }));
@@ -553,14 +555,15 @@ export function createSeed(now: Date = new Date()): DemoDatabase {
   const clean = testWorkshops();
   // And one cyclist per Request Hub state, to check each one by switching account.
   const states = stateProfiles(now);
-  return {
+  return backfillPendingActions({
     version: SEED_VERSION,
+    pendingActions: [],
     users: [...users, ...clean.users, ...states.users],
     mechanics: [...mechanics, ...clean.mechanics].map((m) => ({ ...m, listing: 'active' as const })),
     reviews,
     bikes,
     maintenance,
     requests: [...requests, ...states.requests],
-  };
+  }, now);
 }
 

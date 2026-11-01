@@ -226,7 +226,7 @@ export function stateProfiles(now: Date): { users: User[]; requests: ServiceRequ
       ],
       createdAt: iso(44),
     }),
-    // Gema: Sergio finished, she reported a problem (incident open).
+    // Gema: Sergio finished, she reported a problem (incident open) and Sergio answered.
     done({
       ...base('r-gema', 2008, 'u-gema', 'm-t3'),
       category: 'repair',
@@ -246,6 +246,8 @@ export function stateProfiles(now: Date): { users: User[]; requests: ServiceRequ
         ev('e-gema-e', 'started', 'mechanic', 32),
         ev('e-gema-f', 'work_finished', 'mechanic', 30, 'Pedalier desmontado, limpio y engrasado.'),
         ev('e-gema-g', 'incident_opened', 'owner', 4, 'El ruido ha vuelto a los dos días.'),
+        // Sergio answered: now it's Gema's turn (check it and close the incident when it's fixed).
+        ev('e-gema-h', 'message', 'mechanic', 3, 'Lo siento. Paso mañana a revisarlo sin coste: ¿te va bien a las 18:00?'),
       ],
       createdAt: iso(72),
     }),

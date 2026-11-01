@@ -520,7 +520,9 @@ test.describe('Navegación', () => {
     await freshDemo(page, 'u-pablo');
     await page.evaluate(() => {
       const db = JSON.parse(localStorage.getItem('cromiqa:demo:db')!);
-      for (const r of db.requests) if (r.caseId === 'r-04') r.ownerId = 'u-pablo'; // Diego's date proposal, now Pablo's
+      // Diego's date proposal, now Pablo's (the request and the decision he owes on it).
+      for (const r of db.requests) if (r.caseId === 'r-04') r.ownerId = 'u-pablo';
+      for (const x of db.pendingActions) if (x.requestId === 'r-04' && x.userId === 'u-diego') x.userId = 'u-pablo';
       localStorage.setItem('cromiqa:demo:db', JSON.stringify(db));
     });
     await page.reload();
@@ -536,6 +538,7 @@ test.describe('Navegación', () => {
     await page.evaluate(() => {
       const db = JSON.parse(localStorage.getItem('cromiqa:demo:db')!);
       for (const r of db.requests) if (r.caseId === 'r-gema' || r.caseId === 'r-fran') r.ownerId = 'u-pablo';
+      for (const x of db.pendingActions) if ((x.requestId === 'r-gema' && x.userId === 'u-gema') || (x.requestId === 'r-fran' && x.userId === 'u-fran')) x.userId = 'u-pablo';
       localStorage.setItem('cromiqa:demo:db', JSON.stringify(db));
     });
     await page.reload();

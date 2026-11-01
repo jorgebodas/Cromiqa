@@ -243,8 +243,9 @@ test.describe('Navegación', () => {
     await freshDemo(page, 'u-pablo');
     const mobile = isMobile(page);
     const chip = mobile ? page.getByTestId('request-hub-chip') : page.getByTestId('header-hub-chip');
-    await expect(chip).toContainText('2 solicitudes');
-    await expect(chip).toContainText('1 pendiente');
+    // Light pill: one circle per request and one word; the full status is its accessible name.
+    await expect(chip).toHaveAccessibleName(/2 solicitudes, 1 pendiente/);
+    await expect(chip).toContainText('Revisar');
     await chip.click();
     const hub = page.getByTestId('request-hub');
     // Pending actions first: the inspection with two quotes.
@@ -286,11 +287,11 @@ test.describe('Navegación', () => {
     await freshDemo(page, 'u-pablo');
     await keepOnly('u-pablo', 'r-03');
     await page.reload();
-    await expect(chip()).toContainText('2 presupuestos');
+    await expect(chip()).toHaveAccessibleName(/2 presupuestos/);
     await chip().click();
     await expect(hub.getByRole('heading', { name: 'Presupuestos', exact: true })).toBeVisible();
     await expect(hub.getByTestId('quick-quote')).toHaveCount(2);
-    await expect(chip()).toContainText('2 presupuestos'); // still pending: nothing was accepted
+    await expect(chip()).toContainText('Elegir'); // still pending: nothing was accepted
     // Back to the overview, and a new request is one tap away.
     await hub.getByRole('button', { name: 'Volver a tus solicitudes' }).click();
     await expect(hub.getByTestId('hub-overview')).toBeVisible();
@@ -299,13 +300,13 @@ test.describe('Navegación', () => {
     await hub.getByTestId('hub-item').first().click();
     await hub.getByTestId('quick-quote').first().getByRole('button', { name: 'Aceptar presupuesto' }).click();
     await expect(hub.getByTestId('quick-appointment')).toBeVisible();
-    await expect(chip()).toContainText('Confirmar cita');
+    await expect(chip()).toHaveAccessibleName(/Confirmar cita/);
 
     // A date proposed by the mechanic → appointment confirmation, still pending.
     await freshDemo(page, 'u-diego');
     await keepOnly('u-diego', 'r-04');
     await page.reload();
-    await expect(chip()).toContainText('Confirmar cita');
+    await expect(chip()).toHaveAccessibleName(/Confirmar cita/);
     await chip().click();
     await expect(hub.getByTestId('quick-appointment')).toBeVisible();
     await expect(hub.getByTestId('appointment-pending')).toContainText('Javier propone');
@@ -315,7 +316,8 @@ test.describe('Navegación', () => {
     await freshDemo(page, 'u-irene');
     await keepOnly('u-irene', 'r-09');
     await page.reload();
-    await expect(chip()).toContainText('En curso');
+    await expect(chip()).toHaveAccessibleName(/En curso/);
+    await expect(chip()).toContainText('Trabajando');
     await chip().click();
     await expect(hub.getByRole('heading', { name: 'Seguimiento' })).toBeVisible();
     await expect(hub.getByTestId('appointment-confirmed')).toBeVisible();
@@ -357,8 +359,8 @@ test.describe('Navegación', () => {
     await expect(hub).toHaveCount(0);
     // The + became the request's status.
     const chip = mobile ? page.getByTestId('request-hub-chip') : page.getByTestId('header-hub-chip');
-    await expect(chip).toContainText('Esperando respuesta');
-    await expect(chip).toContainText('Mantenimiento');
+    await expect(chip).toHaveAccessibleName(/Mantenimiento: Esperando respuesta/);
+    await expect(chip).toContainText('Esperando');
     await chip.click();
     await expect(hub.getByTestId('hub-detail')).toBeVisible();
     await expect(hub.getByTestId('request-photos').getByRole('img')).toHaveCount(1);

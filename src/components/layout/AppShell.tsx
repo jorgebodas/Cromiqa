@@ -176,7 +176,7 @@ function OwnerHeader({ tabHref, onNewRequest }: { tabHref: (t: OwnerTab) => stri
   );
 }
 
-const TAB_W = 60; // px per tab: the pill hugs its icons
+const TAB_W = 56; // px per tab: the pill hugs its icons
 const PILL_PAD = 4; // px around the tabs: the highlight sits close to the pill's edge
 
 /**
@@ -228,9 +228,9 @@ function OwnerBottomNav({ tabHref, condensed, expand }: { tabHref: (t: OwnerTab)
   const CurrentIcon = current?.icon ?? Menu;
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(12px,env(safe-area-inset-bottom))] md:hidden">
-      <div className="mx-auto flex max-w-[380px] items-center justify-between gap-3">
+      <div className="mx-auto flex max-w-[380px] items-center justify-between gap-2">
         <div
-          className="float-pill pointer-events-auto relative h-16 overflow-hidden rounded-full transition-[width] duration-300 ease-out"
+          className="float-pill pointer-events-auto relative h-16 shrink-0 overflow-hidden rounded-full transition-[width] duration-300 ease-out"
           style={{ width: condensed ? 64 : OWNER_TABS.length * TAB_W + PILL_PAD * 2 }}
         >
           <FloatingTabs

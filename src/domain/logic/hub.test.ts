@@ -28,7 +28,7 @@ describe('request hub', () => {
     const db = createSeed(now);
     const pablo = hubItems(forOwner(db, 'u-pablo'));
     // Pablo: the inspection with 2 quotes comes first (needs him), then the request still waiting.
-    expect(pablo[0]).toMatchObject({ label: '2 presupuestos', pending: true, priority: 2, quick: { screen: 'compare', requiresAction: true } });
+    expect(pablo[0]).toMatchObject({ label: '2 presupuestos', pending: true, priority: 2, quick: { screen: 'compare', requiresAction: true, word: 'Elegir' } });
     expect(pablo.at(-1)).toMatchObject({ label: 'Esperando respuesta', pending: false, priority: 6, quick: { screen: 'status', requiresAction: false } });
     const state = hubState(pablo);
     expect(state).toMatchObject({ kind: 'multiple', count: pablo.length, pending: 1 });

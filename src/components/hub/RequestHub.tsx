@@ -14,6 +14,7 @@ import { useCurrentUser, useRequestsFor } from '@/state/selectors';
 import { useMode } from '@/state/mode';
 import { useNavUi, type HubView } from '@/state/ui';
 import { RequestForm } from '@/pages/owner/request/RequestFlowPage';
+import { CATEGORY_ICONS } from '@/pages/owner/startRequest';
 import { PhotoStrip, RequestTimeline } from '@/components/domain/RequestParts';
 import { AppointmentCard, CompletionCard } from '@/components/domain/ServiceParts';
 import { Avatar, Button, Dialog, cx } from '@/components/ui';
@@ -26,11 +27,75 @@ export function useHubItems(): HubItem[] {
   return useMemo(() => hubItems(requests), [requests]);
 }
 
-const dot = (pending: boolean) => <span className={cx('size-2 shrink-0 rounded-full', pending ? 'bg-lime' : 'bg-paper/40')} aria-hidden />;
+/** How many request circles the pill shows before "+N". */
+const MAX_CIRCLES = 3;
+
+/**
+ * One request as a circle: its service icon, ringed by how far along it is. The ring is ink
+ * when the request needs the cyclist, soft grey while it waits on someone else.
+ */
+function RequestCircle({ item, size }: { item: HubItem; size: 'lg' | 'sm' }) {
+  const Icon = CATEGORY_ICONS[item.lead.category];
+  const px = size === 'lg' ? 32 : 28;
+  const stroke = size === 'lg' ? 3 : 2.5;
+  const r = (px - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  return (
+    <span className="relative flex shrink-0 items-center justify-center rounded-full bg-paper shadow-[0_0_0_2px_rgb(255_255_255/0.9)]" style={{ width: px, height: px }}>
+      <svg className="absolute inset-0 -rotate-90" width={px} height={px} aria-hidden>
+        <circle cx={px / 2} cy={px / 2} r={r} fill="none" stroke="rgb(23 23 23 / 0.08)" strokeWidth={stroke} />
+        <circle
+          cx={px / 2}
+          cy={px / 2}
+          r={r}
+          fill="none"
+          stroke={item.pending ? 'var(--color-ink)' : 'rgb(23 23 23 / 0.3)'}
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={`${c * item.quick.progress} ${c}`}
+        />
+      </svg>
+      <Icon className={size === 'lg' ? 'size-[15px]' : 'size-3.5'} strokeWidth={2.2} aria-hidden />
+    </span>
+  );
+}
+
+/** What the pill says: one word for the most urgent request, and a full sentence for screen readers. */
+function pillText(items: HubItem[]) {
+  const top = items[0]!;
+  const pending = items.filter((i) => i.pending).length;
+  const spoken =
+    items.length === 1
+      ? `Tu solicitud de ${categoryLabel(top.lead.category)}: ${top.label}. Abrir`
+      : `${items.length} solicitudes, ${pending ? `${pending} ${pending === 1 ? 'pendiente' : 'pendientes'}` : 'nada pendiente'}. Abrir tus solicitudes`;
+  // One request: its own word. Several: whether any needs you (the dark rings say which).
+  const word = items.length === 1 ? top.quick.word : pending ? 'Revisar' : 'Activas';
+  return { word, spoken };
+}
+
+/** The circles (up to three, most urgent first) and "+N" for the rest. */
+function Circles({ items, size }: { items: HubItem[]; size: 'lg' | 'sm' }) {
+  const extra = items.length - MAX_CIRCLES;
+  return (
+    <span className="flex shrink-0 items-center" aria-hidden>
+      {items.slice(0, MAX_CIRCLES).map((item, i) => (
+        <span key={item.caseId} className={cx(i > 0 && (size === 'lg' ? '-ml-5' : '-ml-3'))} style={{ zIndex: MAX_CIRCLES - i }}>
+          <RequestCircle item={item} size={size} />
+        </span>
+      ))}
+      {extra > 0 && <span className={cx('font-display font-bold tracking-tight', size === 'lg' ? 'ml-1.5 text-[15px]' : 'ml-1 text-xs')}>+{extra}</span>}
+    </span>
+  );
+}
+
+/** Light yellow-to-lilac glow with a hairline: the pill's background. */
+const pillSurface =
+  'bg-[radial-gradient(130%_160%_at_0%_0%,#efffa8_0%,rgb(239_255_168/0)_55%),radial-gradient(120%_160%_at_100%_100%,#e6e9ff_0%,rgb(230_233_255/0)_60%),linear-gradient(#fffdf0,#fffdf0)] text-ink shadow-[0_0_0_1px_rgb(23_23_23/0.06),0_8px_24px_rgb(0_0_0/0.12)]';
 
 /**
  * The collapsed Request Hub, right of the floating navigation: a + when there's nothing
- * active, one request's status, or a count of active requests and how many need you.
+ * active; otherwise a light pill with one circle per request (up to three, then "+N") and one
+ * word for the most urgent one.
  */
 export function FloatingRequestHub({ className }: { className?: string }) {
   const items = useHubItems();
@@ -52,47 +117,44 @@ export function FloatingRequestHub({ className }: { className?: string }) {
     );
   }
   const single = state.kind === 'single';
-  const line1 = single ? state.item.label : `${state.count} solicitudes`;
-  const line2 = single ? categoryLabel(state.item.lead.category) : state.pending ? `${state.pending} ${state.pending === 1 ? 'pendiente' : 'pendientes'}` : 'Nada pendiente';
-  const pending = single ? state.item.pending : state.pending > 0;
+  const { word, spoken } = pillText(items);
   return (
     <button
       type="button"
       onClick={() => openHub(single ? { kind: 'detail', caseId: state.item.caseId, screen: state.item.quick.screen } : { kind: 'overview' })}
-      aria-label={single ? `Tu solicitud: ${line1}. ${line2}. Abrir` : `${line1}, ${line2}. Abrir tus solicitudes`}
+      aria-label={spoken}
       className={cx(
-        'pointer-events-auto flex h-16 min-w-0 max-w-[220px] flex-1 items-center gap-2 rounded-full bg-ink pl-3.5 pr-4 text-left text-paper shadow-[0_8px_24px_rgb(0_0_0/0.22)] transition-transform active:scale-[0.97]',
+        'pointer-events-auto flex h-16 min-w-0 shrink items-center gap-1.5 rounded-full pl-2.5 pr-3.5 text-left transition-transform active:scale-[0.97]',
+        pillSurface,
         className,
       )}
       data-testid="request-hub-chip"
       data-state={state.kind}
     >
-      {dot(pending)}
-      <span className="min-w-0">
-        <span className="block truncate text-[14px] font-semibold leading-tight">{line1}</span>
-        <span className="block truncate text-xs leading-tight text-paper/60">{line2}</span>
-      </span>
+      <Circles items={items} size="lg" />
+      <span className="min-w-0 truncate font-display text-[14px] font-bold tracking-[-0.02em]">{word}</span>
     </button>
   );
 }
 
-/** Desktop header: the same status as a compact chip next to "Nueva solicitud". */
+/** Desktop header: the same pill, smaller, next to "Nueva solicitud". */
 export function HeaderRequestChip() {
   const items = useHubItems();
   const openHub = useNavUi((s) => s.openHub);
   const state = hubState(items);
   if (state.kind === 'empty') return null;
   const single = state.kind === 'single';
-  const pending = single ? state.item.pending : state.pending > 0;
+  const { word, spoken } = pillText(items);
   return (
     <button
       type="button"
       onClick={() => openHub(single ? { kind: 'detail', caseId: state.item.caseId, screen: state.item.quick.screen } : { kind: 'overview' })}
-      className="inline-flex h-10 items-center gap-2 rounded-full bg-ink px-4 text-sm font-semibold text-paper transition-opacity hover:opacity-90"
+      aria-label={spoken}
+      className={cx('inline-flex h-10 items-center gap-2 rounded-full pl-1.5 pr-4 text-sm transition-opacity hover:opacity-90', pillSurface)}
       data-testid="header-hub-chip"
     >
-      {dot(pending)}
-      {single ? `${state.item.label} · ${categoryLabel(state.item.lead.category)}` : `${state.count} solicitudes${state.pending ? ` · ${state.pending} ${state.pending === 1 ? 'pendiente' : 'pendientes'}` : ''}`}
+      <Circles items={items} size="sm" />
+      <span className="font-display font-bold tracking-tight">{word}</span>
     </button>
   );
 }

@@ -53,10 +53,9 @@ test.describe('Navegación', () => {
     else await expect(page.getByRole('button', { name: 'Nueva solicitud' }).first()).toBeVisible();
     await expect(page.getByTestId(mobile ? 'request-hub-chip' : 'header-hub-chip')).toHaveCount(0);
 
-    // Ana has active requests: Solicitudes leaves the bar and the Hub stands in its place (no "+ Nueva").
+    // Ana has active requests: the three tabs stay and the Hub takes the place of the +.
     await freshDemo(page, 'u-ana');
-    await expect(links).toHaveCount(2);
-    for (const [i, name] of ['Inicio', 'Mecánicos'].entries()) await expect(links.nth(i)).toHaveAccessibleName(name);
+    await expect(links).toHaveCount(3);
     await expect(page.getByTestId(mobile ? 'request-hub-chip' : 'header-hub-chip')).toBeVisible();
     await expect(page.getByTestId('new-request-fab')).toHaveCount(0);
     if (!mobile) await expect(page.getByRole('banner').getByRole('button', { name: 'Nueva solicitud' })).toHaveCount(0);
@@ -65,8 +64,12 @@ test.describe('Navegación', () => {
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Solicitudes');
     await page.getByRole('tab', { name: /Todas/ }).click();
     await expect(page.getByTestId('case-card').first()).toBeVisible();
-    // On the Requests screens the Hub is the current section.
-    if (mobile) await expect(page.getByTestId('request-hub-chip')).toHaveAttribute('aria-current', 'page');
+    // Inside Requests the Hub hides: the selected tab says where you are.
+    await expect(page.getByTestId(mobile ? 'request-hub-chip' : 'header-hub-chip')).toHaveCount(0);
+    await expect(nav.getByRole('link', { name: 'Solicitudes' })).toHaveAttribute('aria-current', 'page');
+    // Leaving brings it back.
+    await nav.getByRole('link', { name: 'Inicio' }).click();
+    await expect(page.getByTestId(mobile ? 'request-hub-chip' : 'header-hub-chip')).toBeVisible();
 
     // No general search: searching lives in Mecánicos.
     await page.goto('./#/');
@@ -356,10 +359,12 @@ test.describe('Navegación', () => {
     await page.getByRole('button', { name: 'Reportar un problema' }).click();
     await page.getByLabel('Qué ha pasado').fill('El cambio sigue saltando.');
     await page.getByRole('button', { name: 'Reportar problema' }).click();
+    await expect(chip()).toHaveCount(0); // inside Requests: no Hub
+    await page.goto('./#/mecanicos');
     await expect(chip()).toHaveAccessibleName(/^Incidencia pendiente/);
     expect(await situation()).toBe('incident');
 
-    // Narrow phone: with two tabs the Hub has room; it sits next to (not over) the bar, with its counter and chevron.
+    // Narrow phone: the three tabs keep their size; the Hub takes the rest, next to (not over) the bar.
     if (mobile) {
       await page.setViewportSize({ width: 320, height: 640 });
       await expect.poll(async () => {
@@ -380,7 +385,7 @@ test.describe('Navegación', () => {
       if (mobile) await expect(page.getByTestId('new-request-fab')).toBeVisible();
     };
     const stateB = async (message: RegExp) => {
-      await expect(nav.getByRole('link')).toHaveCount(2);
+      await expect(nav.getByRole('link')).toHaveCount(3);
       await expect(chip).toHaveAccessibleName(message);
       await expect(page.getByTestId('new-request-fab')).toHaveCount(0);
     };
@@ -412,8 +417,12 @@ test.describe('Navegación', () => {
     // A second one from the Requests section (where the Hub leads): the counter appears.
     await chip.click();
     await expect(page).toHaveURL(/#\/solicitudes$/);
+    // Inside Requests: navigation only, Solicitudes selected.
+    await expect(chip).toHaveCount(0);
+    await expect(nav.getByRole('link', { name: 'Solicitudes' })).toHaveAttribute('aria-current', 'page');
     await page.getByTestId('requests-new').click();
     await send();
+    await nav.getByRole('link', { name: 'Inicio' }).click();
     await stateB(/1 solicitud activa más/);
 
     // The Hub works from any section.
@@ -439,6 +448,7 @@ test.describe('Navegación', () => {
     await stateB(/^Reparación terminada/);
     await page.goto('./#/solicitudes/r-fran/mecanico/r-fran');
     await page.getByRole('button', { name: 'Confirmar que está terminado' }).click();
+    await page.goto('./#/');
     await stateA();
   });
 

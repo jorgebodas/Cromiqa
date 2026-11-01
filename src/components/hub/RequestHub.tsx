@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type Ref } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ArrowRight, ChevronLeft, ChevronRight, ClipboardList, Loader2, Plus, Send, X } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, Loader2, Plus, Send, X } from 'lucide-react';
 import { HubActionContext, type HubActionApi, type HubPrimaryMeta } from './hubAction';
 import { categoryLabel } from '@/domain/catalog';
 import { hubItems, type HubItem } from '@/domain/logic/hub';
@@ -171,12 +171,6 @@ export function FloatingRequestHub({
       data-state={items.length > 1 ? 'multiple' : 'single'}
       data-situation={top.quick.situation}
     >
-      {/* For the dock's morph only (hidden otherwise): a white veil matching the nav pill, and the
-          Solicitudes icon the Hub grows out of and shrinks back into. */}
-      <span className="pointer-events-none absolute inset-0 rounded-[inherit] bg-paper opacity-0" data-hub-veil aria-hidden />
-      <span className="pointer-events-none absolute inset-y-0 left-0 flex w-14 items-center justify-center text-[#7a7a7a] opacity-0" data-hub-icon aria-hidden>
-        <ClipboardList className="size-[26px]" strokeWidth={2} />
-      </span>
       <span className={cx('relative flex min-w-0 flex-1 items-center gap-1.5', contentClassName)} data-hub-content>
         <Marquee
           text={top.label}

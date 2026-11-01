@@ -271,7 +271,9 @@ test.describe('Navegación', () => {
     await expect(page.getByTestId('request-hub')).toHaveCount(0);
     await expect(page.getByTestId('case-card').first()).toBeVisible();
     // From there, a new request is one tap away.
-    await page.getByTestId('requests-new').click();
+    // Inside Solicitudes: the + (phones) or the header button (desktop) starts another request.
+    if (isMobile(page)) await page.getByTestId('new-request-fab').click();
+    else await page.getByRole('banner').getByRole('button', { name: 'Nueva solicitud' }).click();
     await expect(page.getByTestId('request-hub').getByText('Paso 1 de 7')).toBeVisible();
   });
 
@@ -435,7 +437,9 @@ test.describe('Navegación', () => {
     // Inside Requests: navigation only, Solicitudes selected.
     await expect(chip).toHaveCount(0);
     await expect(nav.getByRole('link', { name: 'Solicitudes' })).toHaveAttribute('aria-current', 'page');
-    await page.getByTestId('requests-new').click();
+    // Inside Solicitudes: the + (phones) or the header button (desktop) starts another request.
+    if (isMobile(page)) await page.getByTestId('new-request-fab').click();
+    else await page.getByRole('banner').getByRole('button', { name: 'Nueva solicitud' }).click();
     await send();
     await nav.getByRole('link', { name: 'Inicio' }).click();
     await stateB(/1 solicitud activa más/);
@@ -502,8 +506,9 @@ test.describe('Navegación', () => {
     await nav.getByRole('link', { name: 'Mecánicos' }).click();
     await expect(toggle).toHaveAccessibleName('1 pendiente. Ver lo pendiente');
     await page.goBack();
-    // Inside Solicitudes: no Hub, Solicitudes selected.
+    // Inside Solicitudes: no Hub but the +, Solicitudes selected.
     await expect(page.getByTestId('pending-pill')).toHaveCount(0);
+    await expect(page.getByTestId('new-request-fab')).toBeVisible();
     await expect(nav.getByRole('link', { name: 'Solicitudes' })).toHaveAttribute('aria-current', 'page');
     // "Ver todas las solicitudes" opens the list.
     await nav.getByRole('link', { name: 'Inicio' }).click();

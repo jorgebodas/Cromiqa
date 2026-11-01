@@ -135,8 +135,8 @@ function OwnerHeader({ tabHref, onNewRequest }: { tabHref: (t: OwnerTab) => stri
   const user = useCurrentUser();
   const { unread } = useOwnerActivity(user?.id);
   const { pathname } = useLocation();
-  // Same rule as the phone dock: with active requests the Request Hub takes the place of
-  // "Nueva solicitud", except inside Solicitudes, where the selected tab already says it all.
+  // With active requests the Request Hub takes the place of "Nueva solicitud", except inside
+  // Solicitudes, where the page shows what's pending and "Nueva solicitud" comes back.
   const active = useHubItems().length > 0;
   const onRequests = OWNER_TABS.find((t) => t.id === 'solicitudes')!.owns(pathname);
   const tabs = OWNER_TABS;
@@ -166,12 +166,10 @@ function OwnerHeader({ tabHref, onNewRequest }: { tabHref: (t: OwnerTab) => stri
           </ul>
         </nav>
         <div className="flex items-center gap-1">
-          {active ? (
-            !onRequests && (
-              <span className="mr-2">
-                <HeaderRequestChip />
-              </span>
-            )
+          {active && !onRequests ? (
+            <span className="mr-2">
+              <HeaderRequestChip />
+            </span>
           ) : (
             <button
               type="button"
@@ -244,14 +242,15 @@ const MORPH_EASE = 'cubic-bezier(.4,0,.2,1)';
  *  · nothing pending: the round + (new request);
  *  · something pending: the lime "N pendientes" pill; its chevron opens "Pendiente de ti"
  *    above the dock, each row going straight to that pending action.
- * Inside Solicitudes only the tabs show (Solicitudes selected): the page has it all.
+ * Inside Solicitudes: the + (the page itself shows what's pending, request by request).
  */
 function OwnerBottomNav({ tabHref, condensed, expand }: { tabHref: (t: OwnerTab) => string; condensed: boolean; expand: () => void }) {
   const { pathname } = useLocation();
   const pending = usePendingActions();
   const reduced = useReducedMotion();
   const onRequests = OWNER_TABS.find((t) => t.id === 'solicitudes')!.owns(pathname);
-  const right: 'pending' | 'new' | 'none' = onRequests ? 'none' : pending.length ? 'pending' : 'new';
+  // Inside Solicitudes the page shows what's pending; the dock offers the + to start another.
+  const right: 'pending' | 'new' = onRequests || !pending.length ? 'new' : 'pending';
   const [previewOpen, setPreviewOpen] = useState(false);
   const rightRef = useRef<HTMLElement | null>(null);
   const dockRef = useRef<HTMLDivElement>(null);
@@ -276,7 +275,7 @@ function OwnerBottomNav({ tabHref, condensed, expand }: { tabHref: (t: OwnerTab)
   // Whatever appears on the right (the + or the pill) fades and scales in, restrained.
   useLayoutEffect(() => {
     const el = rightRef.current;
-    if (right === 'none' || !el || reduced || typeof el.animate !== 'function') return;
+    if (!el || reduced || typeof el.animate !== 'function') return;
     const a = el.animate([{ opacity: 0, transform: 'scale(.92)' }, { opacity: 1, transform: 'none' }], { duration: 240, easing: MORPH_EASE });
     return () => a.cancel();
   }, [right, reduced]);

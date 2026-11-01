@@ -34,7 +34,9 @@ for (const path of MECHANIC) {
 test('a11y new request box', async ({ page }) => {
   await freshDemo(page, 'u-pablo');
   await page.goto('./#/solicitudes');
-  await page.getByTestId('requests-new').click();
+  // The + on phones, the header button on desktop.
+  if (page.viewportSize()!.width < 768) await page.getByTestId('new-request-fab').click();
+  else await page.getByRole('banner').getByRole('button', { name: 'Nueva solicitud' }).click();
   await expect(page.getByTestId('request-hub').getByText('Paso 1 de 7')).toBeVisible();
   await expectNoViolations(page);
 });

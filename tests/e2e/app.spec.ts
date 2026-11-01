@@ -256,7 +256,7 @@ test.describe('Navegación', () => {
     const mobile = isMobile(page);
     const chip = page.getByTestId(mobile ? 'request-hub-chip' : 'header-hub-chip');
     await expect(chip).toHaveAccessibleName(/^2 presupuestos para comparar · Inspección antes de comprar\. 1 solicitud activa más/);
-    await expect(chip).toContainText('+1');
+    await expect(chip).not.toContainText('+1'); // just the message: no counter, no chevron
     // No management box: one tap goes to Solicitudes (one or several requests alike).
     await chip.click();
     await expect(page).toHaveURL(/#\/solicitudes$/);
@@ -321,7 +321,7 @@ test.describe('Navegación', () => {
     // Multiple requests with different priorities: the confirmation wins; the counter shows the rest.
     await freshDemo(page, 'u-diego');
     await expect(chip()).toHaveAccessibleName(/^Confirma tu cita · Mantenimiento\. 2 solicitudes activas más\. Abrir tus solicitudes$/);
-    await expect(chip()).toContainText('+2');
+    await expect(chip()).not.toContainText('+2');
     // The tap goes to the Requests section.
     await chip().click();
     await expect(page).toHaveURL(/#\/solicitudes$/);
@@ -343,8 +343,8 @@ test.describe('Navegación', () => {
     // Desktop has room for the whole message: it stays still.
     if (mobile) await expect(marquee).toHaveAttribute('data-moving', 'true');
     else await expect(marquee).not.toHaveAttribute('data-moving', 'true');
-    const [m, c] = [await marquee.boundingBox(), await chip().getByText('+1').boundingBox()];
-    expect(m!.x + m!.width).toBeLessThanOrEqual(c!.x + 1);
+    const [m, c] = [await marquee.boundingBox(), await chip().boundingBox()];
+    expect(m!.x + m!.width).toBeLessThanOrEqual(c!.x + c!.width); // the text never spills out of the capsule
     // Reduced motion: no movement, the whole message still readable and in the accessible name.
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await expect(marquee).not.toHaveAttribute('data-moving', 'true');

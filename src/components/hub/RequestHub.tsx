@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type Ref } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ArrowRight, ChevronLeft, ChevronRight, ClipboardList, Loader2, Plus, Send, X } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ClipboardList, Loader2, Plus, Send, X } from 'lucide-react';
 import { HubActionContext, type HubActionApi, type HubPrimaryMeta } from './hubAction';
 import { categoryLabel } from '@/domain/catalog';
 import { hubItems, type HubItem } from '@/domain/logic/hub';
@@ -131,12 +131,11 @@ function useOpenChip() {
 
 /**
  * The Request Hub, inside the floating bar: the Solicitudes tab stretched into a lime capsule
- * with its icon, one message for the most important request, "+N" for the other active
- * requests, and a chevron. Tapping it opens Solicitudes. (With nothing active: a separate +.)
+ * with its icon and one message for the most important request. Tapping it opens Solicitudes. (With nothing active: a separate +.)
  */
 export function FloatingRequestHub({ items, className, style, hubRef }: { items: HubItem[]; className?: string; style?: CSSProperties; hubRef?: Ref<HTMLButtonElement> }) {
   const open = useOpenChip();
-  const { top, others, spoken } = chipText(items);
+  const { top, spoken } = chipText(items);
   return (
     <button
       ref={hubRef}
@@ -153,18 +152,13 @@ export function FloatingRequestHub({ items, className, style, hubRef }: { items:
       <span className="flex size-14 shrink-0 items-center justify-center" aria-hidden>
         <ClipboardList className="size-[26px]" strokeWidth={2} />
       </span>
-      <span className="flex min-w-0 flex-1 items-center gap-1.5" data-hub-content>
+      {/* Just the message: the other active requests are in the accessible name and in Solicitudes. */}
+      <span className="flex min-w-0 flex-1 items-center gap-1.5 pr-2" data-hub-content>
         <Marquee
           text={top.label}
           className={cx('flex-1 font-display text-[15px] leading-tight tracking-[-0.01em]', top.pending ? 'font-bold text-ink' : 'font-semibold text-ink/75')}
           wrapClassName="text-[12px] leading-[1.2]"
         />
-        {others > 0 && (
-          <span className="shrink-0 pl-1 text-[13px] font-semibold tabular-nums text-ink/70" data-testid="hub-counter">
-            +{others}
-          </span>
-        )}
-        <ChevronRight className="size-[18px] shrink-0 text-ink/45" strokeWidth={2.4} aria-hidden />
       </span>
     </button>
   );
@@ -193,7 +187,7 @@ export function HeaderRequestChip() {
   const items = useHubItems();
   const open = useOpenChip();
   if (!items.length) return null;
-  const { top, others, spoken } = chipText(items);
+  const { top, spoken } = chipText(items);
   return (
     <button
       type="button"
@@ -204,8 +198,6 @@ export function HeaderRequestChip() {
       data-situation={top.quick.situation}
     >
       <Marquee text={top.label} className={cx('flex-1 font-display tracking-[-0.01em]', top.pending ? 'font-bold' : 'font-semibold text-ink/75')} wrapClassName="text-xs leading-tight" />
-      {others > 0 && <span className="shrink-0 text-xs font-semibold tabular-nums text-ink/70">+{others}</span>}
-      <ChevronRight className="size-4 shrink-0 text-ink/40" strokeWidth={2.4} aria-hidden />
     </button>
   );
 }

@@ -68,7 +68,7 @@ export function ScreenHeader({ title, back, leading, actions, description }: Scr
   useEffect(() => {
     let frame = 0;
     let start = 0; // distance from the title's resting centre to the bar's centre, at the top of the page
-    const update = () => {
+    const update = (force = false) => {
       const b = bar.current?.getBoundingClientRect();
       const s = slot.current?.getBoundingClientRect();
       const h = heading.current;
@@ -76,25 +76,43 @@ export function ScreenHeader({ title, back, leading, actions, description }: Scr
       const target = b.top + b.height / 2;
       const natural = s.top + s.height / 2; // where the title would be without any effect
       if (window.scrollY <= 1 || !start) start = Math.max(natural - target, 1);
+      const dxEnd = lead.current ? lead.current.offsetWidth + 12 : 0;
+      if (natural <= target) {
+        // Settled in the bar: pin it there once (fixed, like the bar) so further scrolling
+        // doesn't touch it at all, until the page comes back down to where it left.
+        if (h.dataset.pinned && !force) return;
+        h.dataset.pinned = '1';
+        Object.assign(h.style, {
+          position: 'fixed',
+          top: `${target - s.height / 2}px`,
+          left: `${s.left}px`,
+          width: `${s.width}px`,
+          transform: `translate3d(${dxEnd}px, 0, 0) scale(${SMALL / BIG})`,
+        });
+        setCompact(true);
+        return;
+      }
+      if (h.dataset.pinned) {
+        delete h.dataset.pinned;
+        Object.assign(h.style, { position: '', top: '', left: '', width: '' });
+      }
       const p = Math.min(Math.max(1 - (natural - target) / start, 0), 1);
       const scale = 1 - p * (1 - SMALL / BIG);
-      // Pinned once it reaches the bar: push it back down by what the page scrolled past.
-      const dy = Math.max(target - natural, 0);
-      const dx = p * (lead.current ? lead.current.offsetWidth + 12 : 0);
-      h.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(${scale})`;
-      setCompact(p >= 0.999);
+      h.style.transform = `translate3d(${p * dxEnd}px, 0, 0) scale(${scale})`;
+      setCompact(false);
     };
+    const onResize = () => update(true);
     const check = () => {
       cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(update);
+      frame = requestAnimationFrame(() => update());
     };
     update();
     window.addEventListener('scroll', check, { passive: true });
-    window.addEventListener('resize', check);
+    window.addEventListener('resize', onResize);
     return () => {
       cancelAnimationFrame(frame);
       window.removeEventListener('scroll', check);
-      window.removeEventListener('resize', check);
+      window.removeEventListener('resize', onResize);
     };
   }, []);
 

@@ -4,6 +4,8 @@ import { MAX_PHOTOS, MAX_RECIPIENTS_PER_SEND } from '@/domain/logic/requests';
 import type { RequestDraft } from '@/state/store';
 
 export const STEP_TITLES = ['¿Qué le pasa?', 'Tu bici', 'Fotos', '¿Dónde?', '¿Cuándo?', 'Mecánicos', 'Revisión'] as const;
+/** The heading of each step: says what to do there, always in one line (short labels above are for the progress bar). */
+export const STEP_HEADINGS = ['¿Qué le pasa a tu bici?', 'Cuéntanos qué bici es', 'Fotos del problema', '¿Dónde te va mejor?', '¿Cuándo te viene bien?', 'Elige tus mecánicos', 'Revisa antes de enviar'] as const;
 /** Step indexes, so screens don't hard-code positions. */
 export const STEP = { need: 0, bike: 1, photos: 2, where: 3, when: 4, providers: 5, review: 6 } as const;
 export const LAST_STEP = STEP_TITLES.length - 1;

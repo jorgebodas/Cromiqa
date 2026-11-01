@@ -343,7 +343,8 @@ export function RequestHubOverlay() {
   const runRef = useRef<() => void>(() => {});
   const backRef = useRef<() => void>(() => {});
   const [formMeta, setFormMeta] = useState<HubPrimaryMeta | null>(null);
-  const api = useMemo<HubActionApi>(() => ({ runRef, backRef, setMeta: setFormMeta }), []);
+  const [headerSlot, setHeaderSlot] = useState<HTMLElement | null>(null);
+  const api = useMemo<HubActionApi>(() => ({ runRef, backRef, setMeta: setFormMeta, headerSlot }), [headerSlot]);
   // The primary action's label fades in right after opening.
   const [entered, setEntered] = useState(false);
   useEffect(() => {
@@ -453,14 +454,27 @@ export function RequestHubOverlay() {
       >
         {/* Back and close up top, quiet; the bottom is only for the main action. */}
         <header className="flex items-center gap-2 px-6 pb-3 pt-7">
-          {meta?.canBack && (
+          {meta?.canBack ? (
             <button type="button" onClick={onBack} aria-label={shown.kind === 'new' ? 'Atrás' : 'Volver a tus solicitudes'} className={plainBackClass}>
               <ChevronLeft className="size-6" strokeWidth={2.2} aria-hidden />
             </button>
+          ) : (
+            // Forms keep their progress bar centred even without a back button.
+            shown.kind === 'new' && <span className="-ml-2 size-10 shrink-0" aria-hidden />
           )}
-          <h2 id="hub-title" tabIndex={-1} data-autofocus className="min-w-0 flex-1 truncate font-display text-xl font-extrabold leading-tight tracking-tight outline-none">
+          <h2
+            id="hub-title"
+            tabIndex={-1}
+            data-autofocus
+            className={cx(
+              'min-w-0 flex-1 truncate font-display text-xl font-extrabold leading-tight tracking-tight outline-none',
+              // Forms show their progress up here instead of a title.
+              shown.kind === 'new' && 'sr-only',
+            )}
+          >
             {screen ? SCREEN_TITLES[screen] : shown.kind === 'detail' && detailItem ? categoryLabel(detailItem.lead.category) : TITLES[shown.kind]}
           </h2>
+          {shown.kind === 'new' && <div ref={setHeaderSlot} className="min-w-0 flex-1 px-2" data-testid="hub-progress" />}
           {shown.kind === 'detail' && (
             <button type="button" onClick={toNew} aria-label="Nueva solicitud" className={softCircleClass}>
               <Plus className="size-[18px]" aria-hidden />

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Info, Send, X } from 'lucide-react';
 import type { ID, ServiceRequest } from '@/domain/types';
@@ -11,7 +12,7 @@ import { useSwitchAccount } from '@/components/layout/AccountSwitcher';
 import { Avatar, Button, ChoiceCard, FieldError, IconButton, cx } from '@/components/ui';
 import { BackLink } from '@/components/layout/BackLink';
 import { parseSearchParams } from '../searchParams';
-import { LAST_STEP, STEP, STEP_TITLES, draftBikeType, draftToInput, firstInvalidStep, validateStep, type DraftErrors } from './draftValidation';
+import { LAST_STEP, STEP, STEP_HEADINGS, STEP_TITLES, draftBikeType, draftToInput, firstInvalidStep, validateStep, type DraftErrors } from './draftValidation';
 import { StepProviders } from './StepProviders';
 import { StepBike, StepProblem, StepReview, StepWhen, StepWhere } from './Steps';
 import { StepPhotos } from './StepPhotos';
@@ -19,7 +20,7 @@ import { useHubAction } from '@/components/hub/hubAction';
 
 const MISSING_LABELS: Partial<Record<keyof DraftErrors, string>> = {
   category: 'el tipo de servicio',
-  description: 'describir el problema (10 caracteres o más)',
+  description: 'describir el problema',
   bikeId: 'elegir la bici',
   type: 'el tipo de bici',
   askingPrice: 'revisar el precio',
@@ -49,13 +50,15 @@ export interface RequestFormProps {
   onSent: (sent: ServiceRequest[]) => void;
   /** Overlay only: leave the form from its first step (back to the hub overview). */
   onBackFromStart?: () => void;
+  /** Page only: where the progress bar goes (the top row, between back and close). */
+  progressSlot?: HTMLElement | null;
 }
 
 /**
  * The request flow: need → bike → photos → where → when → mechanics → review. Shared by the
  * /solicitar page and the Request Hub overlay; the draft lives in the store either way.
  */
-export function RequestForm({ variant, originMechanicId, params = new URLSearchParams(), onSent, onBackFromStart }: RequestFormProps) {
+export function RequestForm({ variant, originMechanicId, params = new URLSearchParams(), onSent, onBackFromStart, progressSlot }: RequestFormProps) {
   const overlay = variant === 'overlay';
   // Inside the Request Hub, the hub's own bottom row (the + stretched) is this form's primary action.
   const hubAction = useHubAction();
@@ -88,6 +91,7 @@ export function RequestForm({ variant, originMechanicId, params = new URLSearchP
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [pickedOwner, setPickedOwner] = useState<ID | null>(owner ? owner.id : null);
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const formRef = useRef<HTMLDivElement>(null);
   const initialised = useRef(false);
 
   // Entering the flow from a (new) provider's profile: preselect it and prefill from the search filters.
@@ -156,12 +160,24 @@ export function RequestForm({ variant, originMechanicId, params = new URLSearchP
   const showMissing = (e: DraftErrors) => {
     setErrors(e);
     setTried(true);
-    const firstKey = Object.keys(e)[0];
-    requestAnimationFrame(() => {
-      const el = document.getElementById(`field-${firstKey}`) ?? document.querySelector<HTMLElement>(`[name="${firstKey}"]`) ?? document.querySelector<HTMLElement>('[aria-invalid="true"]');
-      el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      el?.focus({ preventScroll: true });
-    });
+    // After the errors and the hint by the button render (two frames): go to the missing field
+    // that comes first on screen, and flash it.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const root = formRef.current ?? document;
+      const found = [
+        ...Object.keys(e).map((k) => root.querySelector<HTMLElement>(`#field-${k}, [name="${k}"]`)),
+        ...root.querySelectorAll<HTMLElement>('[aria-invalid="true"]'),
+      ].filter((x): x is HTMLElement => !!x);
+      const el = found.sort((x, y) => x.getBoundingClientRect().top - y.getBoundingClientRect().top)[0];
+      if (!el) return;
+      // In the panel, bring the field's whole card into view (its error line included).
+      const card = el.closest<HTMLElement>('.hub-steps > div > div > *, .hub-steps > div > #field-photos') ?? el;
+      (overlay ? card : el).scrollIntoView({ block: overlay ? 'nearest' : 'center', behavior: 'smooth' });
+      el.focus({ preventScroll: true });
+      card.classList.remove('cq-attention');
+      void card.offsetWidth; // restart the animation on every tap
+      card.classList.add('cq-attention');
+    }));
   };
 
   const next = () => {
@@ -256,33 +272,36 @@ export function RequestForm({ variant, originMechanicId, params = new URLSearchP
   }, [hubAction, step, submitting, canBack, ready, missing]);
   useEffect(() => () => hubAction?.setMeta(null), [hubAction]);
 
+  // The progress bar lives up top, between back and close (hub header or the page's top row).
+  const slot = overlay ? hubAction?.headerSlot : progressSlot;
+  const progress = (
+    <nav aria-label="Pasos de la solicitud">
+      <ol className={cx('grid', overlay ? 'gap-1' : 'gap-1.5')} style={{ gridTemplateColumns: `repeat(${STEP_TITLES.length}, minmax(0, 1fr))` }}>
+        {STEP_TITLES.map((title, i) => (
+          <li key={title}>
+            <button
+              type="button"
+              onClick={() => i < step && goTo(i)}
+              disabled={i >= step}
+              aria-current={i === step ? 'step' : undefined}
+              aria-label={`Paso ${i + 1}: ${title}`}
+              className="group block w-full py-2 text-left disabled:cursor-default"
+            >
+              <span className={cx('block h-1.5 rounded-full transition-colors', i <= step ? 'bg-[#3b3b3b]' : 'bg-line')} />
+            </button>
+          </li>
+        ))}
+      </ol>
+    </nav>
+  );
+
   const body = (
     <>
-          <nav aria-label="Pasos de la solicitud">
-            <ol className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${STEP_TITLES.length}, minmax(0, 1fr))` }}>
-              {STEP_TITLES.map((title, i) => (
-                <li key={title}>
-                  <button
-                    type="button"
-                    onClick={() => i < step && goTo(i)}
-                    disabled={i >= step}
-                    aria-current={i === step ? 'step' : undefined}
-                    aria-label={`Paso ${i + 1}: ${title}`}
-                    className="group w-full text-left disabled:cursor-default"
-                  >
-                    <span className={cx('block h-1.5 rounded-full transition-colors', i <= step ? 'bg-[#3b3b3b]' : 'bg-line')} />
-                    <span className={cx('mt-2 hidden text-xs', !overlay && 'lg:block', i <= step ? 'font-medium text-ink' : 'text-muted', i < step && 'group-hover:underline')}>
-                      {title}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ol>
-          </nav>
+          {slot ? createPortal(progress, slot) : progress}
 
-          <p className={overlay ? 'sr-only' : 'eyebrow mt-8'}>Paso {step + 1} de {STEP_TITLES.length}</p>
-          <h1 ref={headingRef} tabIndex={-1} className={cx('scroll-mt-4 font-extrabold outline-none', overlay ? 'mt-6 text-2xl' : 'mt-1 text-3xl sm:text-4xl')}>
-            {step === STEP.bike && draft.category === 'inspection' ? 'La bici que quieres comprar' : STEP_TITLES[step]}
+          <p className="sr-only">Paso {step + 1} de {STEP_TITLES.length}</p>
+          <h1 ref={headingRef} tabIndex={-1} className={cx('scroll-mt-4 font-extrabold outline-none', overlay ? 'mt-1 text-[22px] leading-tight' : 'mt-2 text-3xl sm:text-4xl')}>
+            {step === STEP.bike && draft.category === 'inspection' ? 'La bici a inspeccionar' : STEP_HEADINGS[step]}
           </h1>
 
           <div className={cx(overlay ? 'hub-steps mt-5' : 'mt-8')} key={step}>
@@ -357,9 +376,9 @@ export function RequestForm({ variant, originMechanicId, params = new URLSearchP
   );
 
   // In the panel the primary action stays pinned to the bottom, even on short steps.
-  if (overlay) return <div className="flex min-h-full flex-col pb-2">{body}</div>;
+  if (overlay) return <div ref={formRef} className="flex min-h-full flex-col pb-2">{body}</div>;
   return (
-    <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1fr_320px]">
+    <div ref={formRef} className="grid grid-cols-1 gap-10 lg:grid-cols-[1fr_320px]">
       <div className="min-w-0 max-w-2xl">{body}</div>
         <aside className="hidden lg:block">
           <div className="surface sticky top-24 p-5">
@@ -395,11 +414,13 @@ export function RequestFlowPage() {
   const toast = useApp((s) => s.toast);
   const draft = useApp((s) => s.draft);
   const mechanic = useMechanic(params.get('mecanico') ?? draft.originMechanicId);
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
   return (
     <div className="container-page py-6 sm:py-10">
       {/* Focused flow: no tab bar here, just back, close and progress. The draft is kept either way. */}
       <div className="mb-6 flex max-w-2xl items-center justify-between gap-3">
         <BackLink fallback={mechanic ? `/mecanicos/${mechanic.id}` : '/'}>{mechanic ? `Perfil de ${mechanic.name.split(' ')[0]}` : 'Volver'}</BackLink>
+        <div ref={setSlot} className="min-w-0 max-w-sm flex-1" />
         <IconButton
           label="Salir de la solicitud"
           onClick={() => {
@@ -415,6 +436,7 @@ export function RequestFlowPage() {
         variant="page"
         originMechanicId={params.get('mecanico') ?? undefined}
         params={params}
+        progressSlot={slot}
         onSent={(sent) => navigate(`/solicitudes/${sent[0]!.caseId}/enviada`, { replace: true })}
       />
     </div>

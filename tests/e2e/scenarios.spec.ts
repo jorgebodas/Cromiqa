@@ -349,7 +349,7 @@ test('Escenario E: inspección antes de comprar, empezando desde el perfil de Ne
   await page.getByLabel('Describe el problema').fill('Quiero comprar una doble suspensión usada en Rivas.');
   await page.getByRole('button', { name: 'Continuar' }).click();
 
-  await expect(page.getByRole('heading', { name: 'La bici que quieres comprar' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'La bici a inspeccionar' })).toBeVisible();
   await page.locator('label', { hasText: 'Montaña (MTB)' }).click();
   await page.getByLabel('Marca').fill('Specialized');
   await page.getByLabel('Modelo').fill('Stumpjumper Comp');

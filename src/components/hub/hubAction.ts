@@ -22,6 +22,8 @@ export interface HubActionApi {
   runRef: MutableRefObject<() => void>;
   backRef: MutableRefObject<() => void>;
   setMeta(meta: HubPrimaryMeta | null): void;
+  /** A spot in the hub header (between back and close) where a form puts its progress bar. */
+  headerSlot: HTMLElement | null;
 }
 
 export const HubActionContext = createContext<HubActionApi | null>(null);

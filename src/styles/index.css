@@ -240,3 +240,11 @@ a.surface:active, button.surface:active { transform: scale(0.99); }
   font-weight: 600;
   letter-spacing: -0.01em;
 }
+
+/* A field the user still has to fill: a short ring pulse when they try to continue without it. */
+@keyframes cq-attention {
+  0%, 100% { box-shadow: var(--shadow-surface), 0 0 0 0 rgb(180 35 24 / 0); }
+  30% { box-shadow: var(--shadow-surface), 0 0 0 3px rgb(180 35 24 / 0.45); }
+}
+.cq-attention { animation: cq-attention 0.9s ease-out 2; }
+@media (prefers-reduced-motion: reduce) { .cq-attention { animation: none; outline: 2px solid var(--color-danger); outline-offset: 2px; } }

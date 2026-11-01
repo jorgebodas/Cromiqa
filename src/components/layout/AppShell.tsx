@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, Outlet, matchPath, useLocation, useNavigationType } from 'react-router-dom';
 import { ClipboardList, FlaskConical, Hammer, House, Inbox, Menu, Plus, RefreshCw, UserRound, Wrench } from 'lucide-react';
 import { Wordmark } from '@/brand/Wordmark';
@@ -8,7 +8,8 @@ import { useOwnerActivity } from '@/state/activity';
 import { useNavUi } from '@/state/ui';
 import { Avatar, Toaster, cx } from '@/components/ui';
 import { AccountSwitcherDialog } from './AccountSwitcher';
-import { FloatingRequestHub, HeaderRequestChip, RequestHubOverlay, useHubItems } from '@/components/hub/RequestHub';
+import { FloatingRequestHub, HeaderRequestChip, NewRequestPill, RequestHubOverlay, useHubItems, useReducedMotion } from '@/components/hub/RequestHub';
+import type { HubItem } from '@/domain/logic/hub';
 import { useMode, useModeStore } from '@/state/mode';
 import { modeOfPath, type AppMode } from '@/domain/logic/modes';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -130,39 +131,15 @@ function useCondensedChrome() {
   return [condensed, () => setCondensed(false)] as const;
 }
 
-/** Whether a media query matches, live. */
-function useMedia(query: string): boolean {
-  const [match, setMatch] = useState(() => typeof window !== 'undefined' && !!window.matchMedia?.(query).matches);
-  useEffect(() => {
-    const m = window.matchMedia?.(query);
-    if (!m) return;
-    const on = () => setMatch(m.matches);
-    on();
-    m.addEventListener('change', on);
-    return () => m.removeEventListener('change', on);
-  }, [query]);
-  return match;
-}
-
-/**
- * Narrow phones (under 360 px) with an active request: the tab bar starts as one circle so the
- * Request Hub's message has room to be read. Tapping the circle opens the full bar until the
- * next screen.
- */
-function useNarrowCompact(): [boolean, () => void] {
-  const narrow = useMedia('(max-width: 359px)');
-  const busy = useHubItems().length > 0;
-  const { pathname } = useLocation();
-  const [opened, setOpened] = useState(false);
-  useEffect(() => setOpened(false), [pathname]);
-  return [narrow && busy && !opened, () => setOpened(true)];
-}
-
 /** Desktop only: logo · destinations · new request, activity, account. Phones use each screen's header. */
 function OwnerHeader({ tabHref, onNewRequest }: { tabHref: (t: OwnerTab) => string; onNewRequest: () => void }) {
   const user = useCurrentUser();
   const { unread } = useOwnerActivity(user?.id);
   const { pathname } = useLocation();
+  // Same adaptive rule as the phone dock: with active requests, "Solicitudes" and "Nueva
+  // solicitud" give way to the Request Hub (which opens all of them).
+  const active = useHubItems().length > 0;
+  const tabs = active ? OWNER_TABS.filter((t) => t.id !== 'solicitudes') : OWNER_TABS;
   return (
     <header className="sticky top-0 z-40 hidden border-b border-line bg-paper/90 backdrop-blur md:block">
       <div className="container-page flex h-16 items-center justify-between gap-6">
@@ -171,7 +148,7 @@ function OwnerHeader({ tabHref, onNewRequest }: { tabHref: (t: OwnerTab) => stri
         </Link>
         <nav aria-label="Principal">
           <ul className="flex items-center gap-1">
-            {OWNER_TABS.map((t) => (
+            {tabs.map((t) => (
               <li key={t.id}>
                 <Link
                   to={tabHref(t)}
@@ -189,14 +166,19 @@ function OwnerHeader({ tabHref, onNewRequest }: { tabHref: (t: OwnerTab) => stri
           </ul>
         </nav>
         <div className="flex items-center gap-1">
-          <HeaderRequestChip />
-          <button
-            type="button"
-            onClick={onNewRequest}
-            className="ml-2 mr-2 flex h-10 items-center gap-1.5 rounded-full bg-lime px-4 text-sm font-semibold text-ink transition-colors hover:bg-lime-deep"
-          >
-            <Plus className="size-4" aria-hidden /> Nueva solicitud
-          </button>
+          {active ? (
+            <span className="mr-2">
+              <HeaderRequestChip />
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={onNewRequest}
+              className="ml-2 mr-2 flex h-10 items-center gap-1.5 rounded-full bg-lime px-4 text-sm font-semibold text-ink transition-colors hover:bg-lime-deep"
+            >
+              <Plus className="size-4" aria-hidden /> Nueva solicitud
+            </button>
+          )}
           <AccountLink unread={unread} />
         </div>
       </div>
@@ -211,7 +193,7 @@ const PILL_PAD = 4; // px around the tabs: the highlight sits close to the pill'
  * The floating pill of the phone navigation: icons only, a white pill with a soft halo, and a
  * round highlight that slides to the active tab. Labels stay as accessible names.
  */
-function FloatingTabs({ tabs, className, hidden }: { hidden?: boolean; tabs: { key: string; to: string; label: string; icon: typeof House; active: boolean; badge?: number; state?: unknown }[]; className?: string }) {
+function FloatingTabs({ tabs, className, hidden }: { hidden?: boolean; tabs: { key: string; to: string; label: string; icon: typeof House; active: boolean; badge?: number; state?: unknown; appear?: boolean }[]; className?: string }) {
   const index = tabs.findIndex((t) => t.active);
   return (
     <nav aria-label="Principal (móvil)" className={cx('h-full', className)} style={{ padding: PILL_PAD }} {...(hidden ? { inert: '' } : {})}>
@@ -226,7 +208,7 @@ function FloatingTabs({ tabs, className, hidden }: { hidden?: boolean; tabs: { k
           </li>
         )}
         {tabs.map((t) => (
-          <li key={t.key} className="relative">
+          <li key={t.key} className={cx('relative', t.appear && 'opacity-0')}>
             <Link
               to={t.to}
               state={t.state}
@@ -250,20 +232,123 @@ function FloatingTabs({ tabs, className, hidden }: { hidden?: boolean; tabs: { k
   );
 }
 
+const DOCK_GAP = 8;
+const navWidth = (tabs: number, condensed: boolean) => (condensed ? 64 : tabs * TAB_W + PILL_PAD * 2);
+/** The dock's transition: restrained, no bounce. */
+const MORPH_MS = 320;
+const MORPH_EASE = 'cubic-bezier(.4,0,.2,1)';
+
+/**
+ * The phone dock: one floating system with two states.
+ *  · No active requests: [ Inicio | Mecánicos | Solicitudes ]  [ + Nueva ]
+ *  · Active requests:    [ Inicio | Mecánicos ]  [ Request Hub ]
+ * The Solicitudes icon doesn't vanish: it leaves the pill, moves right and grows into the Hub
+ * (and shrinks back into the pill when the last request is done). Reduced motion: instant.
+ */
 function OwnerBottomNav({ tabHref, condensed, expand }: { tabHref: (t: OwnerTab) => string; condensed: boolean; expand: () => void }) {
   const { pathname } = useLocation();
+  const items = useHubItems();
+  const reduced = useReducedMotion();
+  const active = items.length > 0;
+  // What the right side shows, which can lag behind `active` while a transition plays.
+  const [shown, setShown] = useState<'hub' | 'new'>(active ? 'hub' : 'new');
+  const [phase, setPhase] = useState<'idle' | 'entering' | 'leaving'>('idle');
+  const lastItems = useRef<HubItem[]>(items);
+  if (active) lastItems.current = items;
+  const prev = useRef(active);
+  const hubRef = useRef<HTMLButtonElement>(null);
+  const newRef = useRef<HTMLButtonElement>(null);
+  const condensedRef = useRef(condensed);
+  condensedRef.current = condensed;
+
+  useLayoutEffect(() => {
+    if (prev.current === active) return;
+    prev.current = active;
+    if (reduced) {
+      setShown(active ? 'hub' : 'new');
+      setPhase('idle');
+      return;
+    }
+    if (active) {
+      setShown('hub');
+      setPhase('entering');
+    } else setPhase('leaving');
+  }, [active, reduced]);
+
+  // The morph itself: a circle where the Solicitudes icon sits, growing into the full pill.
+  useLayoutEffect(() => {
+    const hub = hubRef.current;
+    if (phase === 'idle' || !hub || typeof hub.animate !== 'function') return;
+    // The Solicitudes cell (3rd tab) relative to the hub's left edge.
+    // (With the bar condensed to one circle there is no icon to aim at: it grows/shrinks in place.)
+    const offset = condensedRef.current ? 0 : PILL_PAD + 2 * TAB_W - (navWidth(2, false) + DOCK_GAP);
+    const circle = { clipPath: `inset(${PILL_PAD}px calc(100% - ${TAB_W}px) ${PILL_PAD}px 0 round ${TAB_W / 2}px)`, transform: `translateX(${offset}px)` };
+    const pill = { clipPath: 'inset(0px 0px 0px 0px round 32px)', transform: 'translateX(0px)' };
+    const content = hub.querySelector<HTMLElement>('[data-hub-content]');
+    const icon = hub.querySelector<HTMLElement>('[data-hub-icon]');
+    const veil = hub.querySelector<HTMLElement>('[data-hub-veil]');
+    const opts = { duration: MORPH_MS, easing: MORPH_EASE, fill: 'both' as const };
+    const anims: Animation[] = [];
+    if (phase === 'entering') {
+      anims.push(hub.animate([circle, pill], opts));
+      if (icon) anims.push(icon.animate([{ opacity: 1 }, { opacity: 0 }], { ...opts, duration: MORPH_MS * 0.45 }));
+      if (veil) anims.push(veil.animate([{ opacity: 1 }, { opacity: 0 }], opts));
+      if (content) anims.push(content.animate([{ opacity: 0, transform: 'translateX(-8px)' }, { opacity: 0, transform: 'translateX(-8px)', offset: 0.35 }, { opacity: 1, transform: 'none' }], opts));
+      const done = anims[0]!;
+      done.onfinish = () => {
+        anims.forEach((a) => a.cancel());
+        setPhase('idle');
+      };
+    } else {
+      if (content) anims.push(content.animate([{ opacity: 1 }, { opacity: 0, offset: 0.4 }, { opacity: 0 }], opts));
+      if (veil) anims.push(veil.animate([{ opacity: 0 }, { opacity: 1 }], opts));
+      if (icon) anims.push(icon.animate([{ opacity: 0 }, { opacity: 0, offset: 0.5 }, { opacity: 1 }], opts));
+      const morph = hub.animate([pill, circle], opts);
+      anims.push(morph);
+      morph.onfinish = () => {
+        setShown('new');
+        setPhase('idle');
+      };
+    }
+    return () => anims.forEach((a) => a.cancel());
+  }, [phase]);
+
+  // "+ Nueva" fades in once the Hub has gone back into the pill.
+  useLayoutEffect(() => {
+    const pill = newRef.current;
+    if (shown !== 'new' || !pill || reduced || typeof pill.animate !== 'function' || !lastItems.current.length) return;
+    const a = pill.animate([{ opacity: 0, transform: 'scale(.92)' }, { opacity: 1, transform: 'none' }], { duration: 220, easing: MORPH_EASE });
+    return () => a.cancel();
+  }, [shown, reduced]);
+
+  const hubShown = shown === 'hub';
+  // The nav pill: two tabs while the Hub stands for Solicitudes; three again as soon as it leaves.
+  const twoTabs = hubShown && phase !== 'leaving';
+  const tabs = twoTabs ? OWNER_TABS.filter((t) => t.id !== 'solicitudes') : OWNER_TABS;
+  const navW = navWidth(tabs.length, condensed);
   const current = OWNER_TABS.find((t) => t.owns(pathname));
   const CurrentIcon = current?.icon ?? Menu;
+  const onRequests = OWNER_TABS[2]!.owns(pathname);
+
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(12px,env(safe-area-inset-bottom))] md:hidden">
-      <div className="mx-auto flex max-w-[380px] items-center justify-between gap-2">
+      <div className="relative mx-auto h-16 max-w-[380px]" data-testid="dock" data-state={hubShown ? 'hub' : 'new'}>
         <div
-          className="float-pill pointer-events-auto relative h-16 shrink-0 overflow-hidden rounded-full transition-[width] duration-300 ease-out"
-          style={{ width: condensed ? 64 : OWNER_TABS.length * TAB_W + PILL_PAD * 2 }}
+          className="float-pill pointer-events-auto absolute left-0 top-0 h-16 overflow-hidden rounded-full transition-[width] ease-[cubic-bezier(.4,0,.2,1)] motion-reduce:transition-none"
+          style={{ width: navW, transitionDuration: `${MORPH_MS}ms` }}
         >
           <FloatingTabs
             className={cx('transition-opacity duration-200', condensed ? 'opacity-0' : 'opacity-100')}
-            tabs={OWNER_TABS.map((t) => ({ key: t.id, to: tabHref(t), label: t.label, icon: t.icon, active: t.owns(pathname), state: { tab: true } }))}
+            tabs={tabs.map((t) => ({
+              key: t.id,
+              to: tabHref(t),
+              label: t.label,
+              icon: t.icon,
+              active: t.owns(pathname),
+              state: { tab: true },
+              // Coming back from the Hub: the icon appears once the Hub has shrunk into its place.
+              appear: t.id === 'solicitudes' && phase === 'leaving',
+            }))}
             hidden={condensed}
           />
           {/* Condensed: one circle with the current section; tapping it opens the bar again. */}
@@ -282,8 +367,17 @@ function OwnerBottomNav({ tabHref, condensed, expand }: { tabHref: (t: OwnerTab)
             <CurrentIcon className="size-[26px] text-[#3b3b3b]" strokeWidth={2} aria-hidden />
           </button>
         </div>
-        {/* The Request Hub: a +, or the status of your active requests. */}
-        <FloatingRequestHub />
+        {hubShown ? (
+          <FloatingRequestHub
+            items={active ? items : lastItems.current}
+            hubRef={hubRef}
+            current={onRequests}
+            className="absolute right-0 top-0 transition-[width] ease-[cubic-bezier(.4,0,.2,1)] motion-reduce:transition-none"
+            style={{ width: `calc(100% - ${(phase === 'leaving' ? navWidth(2, false) : navW) + DOCK_GAP}px)`, transitionDuration: `${MORPH_MS}ms` }}
+          />
+        ) : (
+          <NewRequestPill pillRef={newRef} className="absolute right-0 top-0" />
+        )}
       </div>
     </div>
   );
@@ -437,7 +531,6 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const { pathname } = useLocation();
   useScrollMemory();
   const [condensed, expand] = useCondensedChrome();
-  const [compact, openCompact] = useNarrowCompact();
 
   const focused = FOCUSED_ROUTES.some((r) => matchPath(r, pathname));
   const ownAction = OWN_ACTION_ROUTES.some((r) => matchPath(r, pathname));
@@ -458,7 +551,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
         <ErrorBoundary>{children ?? <Outlet />}</ErrorBoundary>
       </main>
       <Footer />
-      {isPro ? <MechanicBottomTabs items={mechanicItems} /> : showOwnerBar && <OwnerBottomNav tabHref={tabHref} condensed={condensed || compact} expand={() => (openCompact(), expand())} />}
+      {isPro ? <MechanicBottomTabs items={mechanicItems} /> : showOwnerBar && <OwnerBottomNav tabHref={tabHref} condensed={condensed} expand={expand} />}
       <Toaster />
       <AccountSwitcherDialog open={switcherOpen} onClose={() => setSwitcherOpen(false)} />
       {!isPro && (

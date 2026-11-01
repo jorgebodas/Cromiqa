@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type Ref } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, ChevronLeft, ArrowUpRight, CalendarCheck, ChevronRight, ClipboardList, Loader2, Plus, Send, X } from 'lucide-react';
@@ -27,7 +27,7 @@ export function useHubItems(): HubItem[] {
 }
 
 /** Whether the person asked the system for less motion (live: follows the setting). */
-function useReducedMotion(): boolean {
+export function useReducedMotion(): boolean {
   const query = '(prefers-reduced-motion: reduce)';
   const [reduced, setReduced] = useState(() => typeof window !== 'undefined' && !!window.matchMedia?.(query).matches);
   useEffect(() => {
@@ -139,56 +139,90 @@ function useOpenChip() {
 }
 
 /**
- * The collapsed Request Hub, right of the floating navigation: a + when there's nothing
- * active; otherwise one message for the most important request, "+N" for the other active
- * requests, and a chevron. One message, one priority, one destination.
+ * The Request Hub pill, right of the floating navigation while requests are active: one
+ * message for the most important request, "+N" for the other active requests, and a chevron.
+ * One message, one priority, one destination. (With nothing active the dock shows "+ Nueva".)
  */
-export function FloatingRequestHub({ className }: { className?: string }) {
-  const items = useHubItems();
-  const openHub = useNavUi((s) => s.openHub);
+export function FloatingRequestHub({
+  items,
+  className,
+  style,
+  hubRef,
+  current,
+  contentClassName,
+}: {
+  items: HubItem[];
+  className?: string;
+  style?: CSSProperties;
+  hubRef?: Ref<HTMLButtonElement>;
+  /** On the Requests screens: the hub stands for that section. */
+  current?: boolean;
+  /** For the dock's transition: the text, counter and chevron fade in/out together. */
+  contentClassName?: string;
+}) {
   const open = useOpenChip();
-
-  if (!items.length) {
-    return (
-      <button
-        type="button"
-        onClick={() => openHub({ kind: 'new' })}
-        aria-label="Nueva solicitud"
-        className={cx('float-pill pointer-events-auto flex size-16 shrink-0 items-center justify-center rounded-full text-ink transition-transform active:scale-95', className)}
-        style={{ backgroundColor: 'var(--color-lime)' }}
-        data-testid="new-request-fab"
-      >
-        <Plus className="size-7" strokeWidth={2.25} aria-hidden />
-      </button>
-    );
-  }
   const { top, others, spoken } = chipText(items);
   return (
     <button
+      ref={hubRef}
       type="button"
       onClick={() => open(items)}
       aria-label={spoken}
-      className={cx('pointer-events-auto flex h-16 min-w-0 flex-1 items-center gap-1.5 rounded-full pl-4 pr-3 text-left transition-transform active:scale-[0.97] max-[359px]:gap-0.5 max-[359px]:pl-3 max-[359px]:pr-1.5', pillSurface, className)}
+      aria-current={current ? 'page' : undefined}
+      className={cx(
+        'pointer-events-auto flex h-16 min-w-0 items-center gap-1.5 rounded-full pl-4 pr-3 text-left transition-transform active:scale-[0.97]',
+        pillSurface,
+        current && 'shadow-[0_0_0_1.5px_rgb(23_23_23/0.22),0_8px_24px_rgb(0_0_0/0.12)]',
+        className,
+      )}
+      style={style}
       data-testid="request-hub-chip"
       data-state={items.length > 1 ? 'multiple' : 'single'}
       data-situation={top.quick.situation}
     >
-      <Marquee
-        text={top.label}
-        className={cx('flex-1 font-display text-[15px] leading-tight tracking-[-0.01em] max-[359px]:text-[14px]', top.pending ? 'font-bold text-ink' : 'font-semibold text-ink/75')}
-        wrapClassName="text-[12px] leading-[1.2]"
-      />
-      {others > 0 && (
-        <span className="shrink-0 pl-1 text-[13px] font-semibold tabular-nums text-ink/50 max-[359px]:pl-0.5 max-[359px]:text-xs" data-testid="hub-counter">
-          +{others}
-        </span>
-      )}
-      <ChevronRight className="size-[18px] shrink-0 text-ink/40 max-[359px]:size-3.5" strokeWidth={2.4} aria-hidden />
+      {/* For the dock's morph only (hidden otherwise): a white veil matching the nav pill, and the
+          Solicitudes icon the Hub grows out of and shrinks back into. */}
+      <span className="pointer-events-none absolute inset-0 rounded-[inherit] bg-paper opacity-0" data-hub-veil aria-hidden />
+      <span className="pointer-events-none absolute inset-y-0 left-0 flex w-14 items-center justify-center text-[#7a7a7a] opacity-0" data-hub-icon aria-hidden>
+        <ClipboardList className="size-[26px]" strokeWidth={2} />
+      </span>
+      <span className={cx('relative flex min-w-0 flex-1 items-center gap-1.5', contentClassName)} data-hub-content>
+        <Marquee
+          text={top.label}
+          className={cx('flex-1 font-display text-[15px] leading-tight tracking-[-0.01em]', top.pending ? 'font-bold text-ink' : 'font-semibold text-ink/75')}
+          wrapClassName="text-[12px] leading-[1.2]"
+        />
+        {others > 0 && (
+          <span className="shrink-0 pl-1 text-[13px] font-semibold tabular-nums text-ink/50" data-testid="hub-counter">
+            +{others}
+          </span>
+        )}
+        <ChevronRight className="size-[18px] shrink-0 text-ink/40" strokeWidth={2.4} aria-hidden />
+      </span>
     </button>
   );
 }
 
-/** Desktop header: the same message and counter, smaller, next to "Nueva solicitud". */
+/** The dock's right side when nothing is active: "+ Nueva", opening the usual new-request flow. */
+export function NewRequestPill({ className, style, pillRef }: { className?: string; style?: CSSProperties; pillRef?: Ref<HTMLButtonElement> }) {
+  const openHub = useNavUi((s) => s.openHub);
+  return (
+    <button
+      ref={pillRef}
+      type="button"
+      onClick={() => openHub({ kind: 'new' })}
+      aria-label="Nueva solicitud"
+      className={cx('float-pill pointer-events-auto flex h-16 shrink-0 items-center gap-1.5 rounded-full pl-5 pr-6 font-display text-[16px] font-bold tracking-[-0.01em] text-ink transition-transform active:scale-95', className)}
+      style={{ backgroundColor: 'var(--color-lime)', ...style }}
+      data-testid="new-request-fab"
+    >
+      <Plus className="size-[22px]" strokeWidth={2.4} aria-hidden />
+      Nueva
+    </button>
+  );
+}
+
+/** Desktop header: the same message and counter, smaller; it takes the place of "Nueva solicitud" and "Solicitudes". */
 export function HeaderRequestChip() {
   const items = useHubItems();
   const open = useOpenChip();
@@ -242,7 +276,16 @@ function HubCard({ title, aside, children, className, testId }: { title?: ReactN
   );
 }
 
-function Overview({ items, onOpen }: { items: HubItem[]; onOpen: (item: HubItem) => void }) {
+/** While requests are active the Solicitudes tab is the Hub itself: this keeps the full list (and history) one tap away. */
+function AllRequestsLink({ onClick }: { onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className="mx-auto mt-4 flex items-center gap-1 rounded-full px-3 py-2 text-sm font-semibold text-muted hover:text-ink" data-testid="hub-all-requests">
+      Ver todas tus solicitudes <ChevronRight className="size-4" aria-hidden />
+    </button>
+  );
+}
+
+function Overview({ items, onOpen, onAll }: { items: HubItem[]; onOpen: (item: HubItem) => void; onAll: () => void }) {
   const mechanics = useApp((s) => s.db.mechanics);
   const name = (id: ID) => mechanics.find((m) => m.id === id)?.name ?? 'Mecánico';
   if (!items.length) {
@@ -255,42 +298,45 @@ function Overview({ items, onOpen }: { items: HubItem[]; onOpen: (item: HubItem)
     );
   }
   return (
-    <ul className="space-y-3" data-testid="hub-overview">
-      {items.map((item, i) => {
-        const quotes = item.threads.filter((r) => r.status === 'proposal_received');
-        // The one the floating chip talks about: first, and gently highlighted.
-        const primary = i === 0 && items.length > 1;
-        const info =
-          quotes.length > 1
-            ? `Desde ${formatPrice(Math.min(...quotes.map((r) => currentProposal(r)?.price ?? 0)))}`
-            : item.threads.length === 1 || ['confirmed', 'in_progress', 'awaiting_completion'].includes(item.lead.status)
-              ? name(item.lead.mechanicId)
-              : `${item.threads.length} mecánicos invitados`;
-        return (
-          <li key={item.caseId}>
-            <button
-              type="button"
-              onClick={() => onOpen(item)}
-              className={cx('surface block w-full rounded-[22px] p-4 text-left sm:p-5', primary && 'shadow-[0_0_0_2px_#d8f560,var(--shadow-surface)]')}
-              data-testid="hub-item"
-              data-primary={primary || undefined}
-            >
-              <span className="flex items-start justify-between gap-3">
-                <span className="font-display text-[17px] font-semibold leading-tight tracking-tight">{categoryLabel(item.lead.category)}</span>
-                <ArrowUpRight className="size-[18px] shrink-0 text-muted" aria-hidden />
-              </span>
-              <span className="mt-4 flex items-center gap-2">
-                <StatusChip item={item} />
-              </span>
-              <span className="mt-2 block truncate text-sm text-muted">
-                {bikeLabel(item.lead.bike)} · {info}
-              </span>
-              {item.action && <span className="mt-1 block text-[15px] font-semibold">{item.action}</span>}
-            </button>
-          </li>
-        );
-      })}
-    </ul>
+    <>
+      <ul className="space-y-3" data-testid="hub-overview">
+        {items.map((item, i) => {
+          const quotes = item.threads.filter((r) => r.status === 'proposal_received');
+          // The one the floating chip talks about: first, and gently highlighted.
+          const primary = i === 0 && items.length > 1;
+          const info =
+            quotes.length > 1
+              ? `Desde ${formatPrice(Math.min(...quotes.map((r) => currentProposal(r)?.price ?? 0)))}`
+              : item.threads.length === 1 || ['confirmed', 'in_progress', 'awaiting_completion'].includes(item.lead.status)
+                ? name(item.lead.mechanicId)
+                : `${item.threads.length} mecánicos invitados`;
+          return (
+            <li key={item.caseId}>
+              <button
+                type="button"
+                onClick={() => onOpen(item)}
+                className={cx('surface block w-full rounded-[22px] p-4 text-left sm:p-5', primary && 'shadow-[0_0_0_2px_#d8f560,var(--shadow-surface)]')}
+                data-testid="hub-item"
+                data-primary={primary || undefined}
+              >
+                <span className="flex items-start justify-between gap-3">
+                  <span className="font-display text-[17px] font-semibold leading-tight tracking-tight">{categoryLabel(item.lead.category)}</span>
+                  <ArrowUpRight className="size-[18px] shrink-0 text-muted" aria-hidden />
+                </span>
+                <span className="mt-4 flex items-center gap-2">
+                  <StatusChip item={item} />
+                </span>
+                <span className="mt-2 block truncate text-sm text-muted">
+                  {bikeLabel(item.lead.bike)} · {info}
+                </span>
+                {item.action && <span className="mt-1 block text-[15px] font-semibold">{item.action}</span>}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      <AllRequestsLink onClick={onAll} />
+    </>
   );
 }
 
@@ -330,6 +376,7 @@ function Detail({ item, onGo }: { item: HubItem; onGo: (to: string) => void }) {
           ))}
         </ul>
       </HubCard>
+      <AllRequestsLink onClick={() => onGo('/solicitudes')} />
     </div>
   );
 }
@@ -533,7 +580,7 @@ export function RequestHubOverlay() {
   let primary: HubPrimaryMeta | null = null;
   let run: () => void = () => {};
   if (shown.kind === 'overview') {
-    body = <Overview items={items} onOpen={(item) => (item.quick.href ? go(item.quick.href) : openHub({ kind: 'detail', caseId: item.caseId, screen: item.quick.screen }))} />;
+    body = <Overview items={items} onAll={() => go('/solicitudes')} onOpen={(item) => (item.quick.href ? go(item.quick.href) : openHub({ kind: 'detail', caseId: item.caseId, screen: item.quick.screen }))} />;
     primary = { label: 'Nueva solicitud', icon: 'plus', canBack: false };
     run = toNew;
   } else if (shown.kind === 'detail' && detailItem) {

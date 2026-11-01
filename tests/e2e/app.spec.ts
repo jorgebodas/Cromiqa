@@ -41,23 +41,33 @@ test.describe('Navegación', () => {
     await expect(page.getByRole('tab', { name: /Con cita/ })).toHaveAttribute('aria-selected', 'true');
   });
 
-  test('cyclist: Inicio · Mecánicos · Solicitudes, a separate +, bell and avatar top-right, no general search', async ({ page }) => {
-    await freshDemo(page, 'u-ana');
+  test('cyclist: Inicio · Mecánicos · Solicitudes + Nueva; with active requests Solicitudes becomes the Hub', async ({ page }) => {
     const mobile = isMobile(page);
     const nav = page.getByRole('navigation', { name: mobile ? 'Principal (móvil)' : 'Principal', exact: true });
-    // Phones show icons only; the labels stay as accessible names.
     const links = nav.getByRole('link');
+    // No active requests: three destinations and "+ Nueva" (phones show icons only; labels stay as accessible names).
+    await freshDemo(page);
     await expect(links).toHaveCount(3);
     for (const [i, name] of ['Inicio', 'Mecánicos', 'Solicitudes'].entries()) await expect(links.nth(i)).toHaveAccessibleName(name);
-    // Ana has active requests: the Request Hub shows their status instead of a bare +.
-    await expect(mobile ? page.getByTestId('request-hub-chip') : page.getByRole('button', { name: 'Nueva solicitud' }).first()).toBeVisible();
+    if (mobile) await expect(page.getByTestId('new-request-fab')).toContainText('Nueva');
+    else await expect(page.getByRole('button', { name: 'Nueva solicitud' }).first()).toBeVisible();
+    await expect(page.getByTestId(mobile ? 'request-hub-chip' : 'header-hub-chip')).toHaveCount(0);
 
-    await nav.getByRole('link', { name: 'Solicitudes' }).click();
+    // Ana has active requests: Solicitudes leaves the bar and the Hub stands in its place (no "+ Nueva").
+    await freshDemo(page, 'u-ana');
+    await expect(links).toHaveCount(2);
+    for (const [i, name] of ['Inicio', 'Mecánicos'].entries()) await expect(links.nth(i)).toHaveAccessibleName(name);
+    await expect(page.getByTestId(mobile ? 'request-hub-chip' : 'header-hub-chip')).toBeVisible();
+    await expect(page.getByTestId('new-request-fab')).toHaveCount(0);
+    if (!mobile) await expect(page.getByRole('banner').getByRole('button', { name: 'Nueva solicitud' })).toHaveCount(0);
+    // The full Requests section (history included) stays reachable through the Hub.
+    await page.getByTestId(mobile ? 'request-hub-chip' : 'header-hub-chip').click();
+    await page.getByTestId('request-hub').getByTestId('hub-all-requests').click();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Solicitudes');
     await page.getByRole('tab', { name: /Todas/ }).click();
     await expect(page.getByTestId('case-card').first()).toBeVisible();
-    await page.getByTestId('case-card').first().click();
-    await expect(nav.getByRole('link', { name: 'Solicitudes' })).toHaveAttribute('aria-current', 'page');
+    // On the Requests screens the Hub is the current section.
+    if (mobile) await expect(page.getByTestId('request-hub-chip')).toHaveAttribute('aria-current', 'page');
 
     // No general search: searching lives in Mecánicos.
     await page.goto('./#/');
@@ -425,26 +435,94 @@ test.describe('Navegación', () => {
     await expect(chip()).toHaveAccessibleName(/^Incidencia pendiente/);
     expect(await situation()).toBe('incident');
 
-    // Narrow phone: the tab bar starts as one circle so the message can be read whole; the chip
-    // stays tappable, inside the screen, next to (not over) it. Tapping the circle opens the bar.
+    // Narrow phone: with two tabs the Hub has room; it sits next to (not over) the bar, with its counter and chevron.
     if (mobile) {
       await page.keyboard.press('Escape'); // close the hub panel left open above
       await expect(hub).toHaveCount(0);
       await page.setViewportSize({ width: 320, height: 640 });
-      const circle = page.getByTestId('nav-condensed');
-      await expect(circle).toBeVisible();
-      await expect(chip().getByTestId('marquee')).not.toHaveAttribute('data-moving', 'true');
       await expect.poll(async () => {
-        const [n, c] = [await circle.boundingBox(), await chip().boundingBox()];
+        const [n, c] = [await page.getByRole('navigation', { name: 'Principal (móvil)' }).boundingBox(), await chip().boundingBox()];
         return n && c ? c.x >= n.x + n.width && c.x + c.width <= 320 && c.height >= 44 : false;
       }).toBe(true);
-      await circle.click();
-      await expect(page.getByRole('navigation', { name: 'Principal (móvil)' })).toBeVisible();
     }
   });
 
+  test('adaptive dock: + Nueva ⇄ Request Hub as requests start and end, from every entry point', async ({ page }) => {
+    const mobile = isMobile(page);
+    const nav = page.getByRole('navigation', { name: mobile ? 'Principal (móvil)' : 'Principal', exact: true });
+    const chip = page.getByTestId(mobile ? 'request-hub-chip' : 'header-hub-chip');
+    const hub = page.getByTestId('request-hub');
+    const stateA = async () => {
+      await expect(nav.getByRole('link')).toHaveCount(3);
+      await expect(chip).toHaveCount(0);
+      if (mobile) await expect(page.getByTestId('new-request-fab')).toBeVisible();
+    };
+    const stateB = async (message: RegExp) => {
+      await expect(nav.getByRole('link')).toHaveCount(2);
+      await expect(chip).toHaveAccessibleName(message);
+      await expect(page.getByTestId('new-request-fab')).toHaveCount(0);
+    };
+    const send = async () => {
+      await hub.getByText('Reparación', { exact: true }).click();
+      await hub.getByLabel('Describe el problema').fill('Los frenos chirrían mucho al frenar.');
+      await hub.getByRole('button', { name: 'Continuar' }).click();
+      // The first request saves the bike to the garage; the next one picks it from there.
+      if (await hub.getByText('Elige de tu garaje').count()) await hub.locator('label', { hasText: 'Montaña (MTB)' }).first().click();
+      else await hub.locator('label', { hasText: 'Montaña (MTB)' }).click();
+      for (let i = 0; i < 2; i++) await hub.getByRole('button', { name: 'Continuar' }).click();
+      await hub.getByLabel('Zona', { exact: true }).selectOption('rivas');
+      await hub.locator('label', { hasText: 'A domicilio' }).click();
+      for (let i = 0; i < 2; i++) await hub.getByRole('button', { name: 'Continuar' }).click();
+      await hub.getByTestId('provider-option').first().click();
+      await hub.getByRole('button', { name: 'Continuar' }).click();
+      await hub.getByRole('button', { name: 'Enviar solicitud' }).click();
+      await expect(hub).toHaveCount(0);
+    };
+
+    // A new user with nothing active (Álex, the clean test cyclist); a request from the Home hero turns the dock into the Hub.
+    await freshDemo(page, 'u-test');
+    await stateA();
+    await page.getByTestId('widget-need').getByRole('button', { name: 'Nueva solicitud' }).click();
+    await send();
+    await stateB(/^Buscando mecánicos · Reparación\. Abrir$/);
+    if (mobile) await expect(page.getByTestId('dock')).toHaveAttribute('data-state', 'hub');
+
+    // A second one from the Requests section: the counter appears.
+    await chip.click();
+    await hub.getByTestId('hub-all-requests').click();
+    await page.getByTestId('requests-new').click();
+    await send();
+    await stateB(/1 solicitud activa más/);
+
+    // The Hub works from any section.
+    await nav.getByRole('link', { name: 'Mecánicos' }).click();
+    await chip.click();
+    await expect(hub.getByTestId('hub-overview')).toBeVisible();
+    await expect(hub.getByTestId('hub-item')).toHaveCount(2);
+    await page.keyboard.press('Escape');
+
+    // Cancelling both: the last one brings back the three tabs and "+ Nueva".
+    for (let i = 0; i < 2; i++) {
+      await page.goto('./#/solicitudes');
+      await page.getByTestId('case-card').first().click();
+      await page.getByRole('button', { name: 'Retirar solicitud' }).first().click();
+      await page.getByRole('dialog').getByRole('button', { name: 'Retirar solicitud' }).click();
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+    }
+    await page.goto('./#/');
+    await stateA();
+
+    // Completing the last active request also returns to "+ Nueva" (reduced motion: instantly).
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await freshDemo(page, 'u-fran');
+    await stateB(/^Reparación terminada/);
+    await chip.click();
+    await hub.getByRole('button', { name: 'Confirmar que está terminado' }).click();
+    await stateA();
+  });
+
   test('tabs remember their state, and back works from a direct link', async ({ page }) => {
-    await freshDemo(page, 'u-ana');
+    await freshDemo(page); // no active requests: the three tabs
     const nav = page.getByRole('navigation', { name: isMobile(page) ? 'Principal (móvil)' : 'Principal', exact: true });
     await nav.getByRole('link', { name: 'Mecánicos' }).click();
     await page.getByRole('searchbox', { name: /Buscar/ }).fill('suspensión');
@@ -453,6 +531,7 @@ test.describe('Navegación', () => {
     await nav.getByRole('link', { name: 'Mecánicos' }).click();
     await expect(page.getByRole('searchbox', { name: /Buscar/ })).toHaveValue('suspensión');
 
+    await freshDemo(page, 'u-ana');
     await page.goto('./#/garaje/b-ana-mtb');
     await page.reload();
     await page.getByRole('link', { name: 'Volver' }).click();
@@ -480,7 +559,7 @@ test.describe('Navegación', () => {
     await page.mouse.wheel(0, 300);
     await expect.poll(async () => (await condensed.boundingBox())?.width).toBeLessThanOrEqual(68);
     await condensed.click();
-    await expect(page.getByRole('navigation', { name: 'Principal (móvil)' }).getByRole('link', { name: 'Solicitudes' })).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Principal (móvil)' }).getByRole('link', { name: 'Mecánicos' })).toBeVisible();
   });
 
   test('role gates offer a demo account instead of a fake login', async ({ page }) => {

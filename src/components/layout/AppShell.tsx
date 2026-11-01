@@ -240,10 +240,10 @@ const MORPH_EASE = 'cubic-bezier(.4,0,.2,1)';
 
 /**
  * The phone dock: one floating system with two states.
- *  · No active requests: [ Inicio | Mecánicos | Solicitudes ]  [ + Nueva ]
+ *  · No active requests: [ Inicio | Mecánicos | Solicitudes ]  [ + ]
  *  · Active requests:    [ Inicio | Mecánicos ]  [ Request Hub ]
  * The Solicitudes icon doesn't vanish: it leaves the pill, moves right and grows into the Hub
- * (and shrinks back into the pill when the last request is done). Reduced motion: instant.
+ * (and shrinks back into the pill when the last request is done); tapping it opens Solicitudes. Reduced motion: instant.
  */
 function OwnerBottomNav({ tabHref, condensed, expand }: { tabHref: (t: OwnerTab) => string; condensed: boolean; expand: () => void }) {
   const { pathname } = useLocation();
@@ -313,7 +313,7 @@ function OwnerBottomNav({ tabHref, condensed, expand }: { tabHref: (t: OwnerTab)
     return () => anims.forEach((a) => a.cancel());
   }, [phase]);
 
-  // "+ Nueva" fades in once the Hub has gone back into the pill.
+  // The + fades in once the Hub has gone back into the pill.
   useLayoutEffect(() => {
     const pill = newRef.current;
     if (shown !== 'new' || !pill || reduced || typeof pill.animate !== 'function' || !lastItems.current.length) return;

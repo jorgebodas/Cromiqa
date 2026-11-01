@@ -1,22 +1,16 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type Ref } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type Ref } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
-import { ArrowRight, ChevronLeft, ArrowUpRight, CalendarCheck, ChevronRight, ClipboardList, Loader2, Plus, Send, X } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { ArrowRight, ChevronLeft, ChevronRight, ClipboardList, Loader2, Plus, Send, X } from 'lucide-react';
 import { HubActionContext, type HubActionApi, type HubPrimaryMeta } from './hubAction';
-import type { ID, ServiceRequest } from '@/domain/types';
-import { bikeLabel, categoryLabel } from '@/domain/catalog';
-import { DomainError, currentProposal } from '@/domain/logic/requests';
-import { caseHref, threadHref } from '@/domain/logic/cases';
-import { hubItems, type HubItem, type QuickScreen } from '@/domain/logic/hub';
-import { formatDate, formatPrice } from '@/domain/utils';
+import { categoryLabel } from '@/domain/catalog';
+import { hubItems, type HubItem } from '@/domain/logic/hub';
 import { useApp } from '@/state/store';
 import { useCurrentUser, useRequestsFor } from '@/state/selectors';
 import { useMode } from '@/state/mode';
-import { useNavUi, type HubView } from '@/state/ui';
+import { useNavUi } from '@/state/ui';
 import { RequestForm } from '@/pages/owner/request/RequestFlowPage';
-import { PhotoStrip, RequestTimeline } from '@/components/domain/RequestParts';
-import { AppointmentCard, CompletionCard } from '@/components/domain/ServiceParts';
-import { Avatar, Button, Dialog, cx } from '@/components/ui';
+import { Button, Dialog, cx } from '@/components/ui';
 
 /** The signed-in cyclist's active requests, as hub items (empty for guests and mechanic mode). */
 export function useHubItems(): HubItem[] {
@@ -122,19 +116,16 @@ function chipText(items: HubItem[]) {
   return { top, others, spoken };
 }
 
-/** Light yellow-to-lilac glow with a hairline: the chip's background. */
-const pillSurface =
-  'bg-[radial-gradient(130%_160%_at_0%_0%,#efffa8_0%,rgb(239_255_168/0)_55%),radial-gradient(120%_160%_at_100%_100%,#e6e9ff_0%,rgb(230_233_255/0)_60%),linear-gradient(#fffdf0,#fffdf0)] text-ink shadow-[0_0_0_1px_rgb(23_23_23/0.06),0_8px_24px_rgb(0_0_0/0.12)]';
+/** The same lime as the +, with the floating pills' soft shadow. */
+const pillSurface = 'bg-lime text-ink shadow-[0_0_0_1px_rgb(23_23_23/0.05),0_8px_24px_rgb(0_0_0/0.14)]';
 
-/** Where a tap goes: one request → its next action (a screen in the hub, or the chat/page); several → the overview. */
+/** Where a tap goes: always the Requests section, the one place where requests are managed. */
 function useOpenChip() {
-  const openHub = useNavUi((s) => s.openHub);
   const navigate = useNavigate();
-  return (items: HubItem[]) => {
-    if (items.length > 1) return openHub({ kind: 'overview' });
-    const { quick, caseId } = items[0]!;
-    if (quick.href) return navigate(quick.href);
-    openHub({ kind: 'detail', caseId, screen: quick.screen });
+  const { pathname } = useLocation();
+  return () => {
+    if (pathname === '/solicitudes') window.scrollTo({ top: 0, behavior: 'smooth' });
+    else navigate('/solicitudes');
   };
 }
 
@@ -166,7 +157,7 @@ export function FloatingRequestHub({
     <button
       ref={hubRef}
       type="button"
-      onClick={() => open(items)}
+      onClick={open}
       aria-label={spoken}
       aria-current={current ? 'page' : undefined}
       className={cx(
@@ -193,7 +184,7 @@ export function FloatingRequestHub({
           wrapClassName="text-[12px] leading-[1.2]"
         />
         {others > 0 && (
-          <span className="shrink-0 pl-1 text-[13px] font-semibold tabular-nums text-ink/50" data-testid="hub-counter">
+          <span className="shrink-0 pl-1 text-[13px] font-semibold tabular-nums text-ink/70" data-testid="hub-counter">
             +{others}
           </span>
         )}
@@ -203,7 +194,7 @@ export function FloatingRequestHub({
   );
 }
 
-/** The dock's right side when nothing is active: "+ Nueva", opening the usual new-request flow. */
+/** The dock's right side when nothing is active: a round +, opening the usual new-request flow. */
 export function NewRequestPill({ className, style, pillRef }: { className?: string; style?: CSSProperties; pillRef?: Ref<HTMLButtonElement> }) {
   const openHub = useNavUi((s) => s.openHub);
   return (
@@ -212,12 +203,11 @@ export function NewRequestPill({ className, style, pillRef }: { className?: stri
       type="button"
       onClick={() => openHub({ kind: 'new' })}
       aria-label="Nueva solicitud"
-      className={cx('float-pill pointer-events-auto flex h-16 shrink-0 items-center gap-1.5 rounded-full pl-5 pr-6 font-display text-[16px] font-bold tracking-[-0.01em] text-ink transition-transform active:scale-95', className)}
+      className={cx('float-pill pointer-events-auto flex size-16 shrink-0 items-center justify-center rounded-full text-ink transition-transform active:scale-95', className)}
       style={{ backgroundColor: 'var(--color-lime)', ...style }}
       data-testid="new-request-fab"
     >
-      <Plus className="size-[22px]" strokeWidth={2.4} aria-hidden />
-      Nueva
+      <Plus className="size-7" strokeWidth={2.25} aria-hidden />
     </button>
   );
 }
@@ -231,153 +221,16 @@ export function HeaderRequestChip() {
   return (
     <button
       type="button"
-      onClick={() => open(items)}
+      onClick={open}
       aria-label={spoken}
       className={cx('inline-flex h-10 w-[min(300px,28vw)] min-w-[180px] items-center gap-1.5 rounded-full pl-4 pr-2.5 text-left text-sm transition-opacity hover:opacity-90', pillSurface)}
       data-testid="header-hub-chip"
       data-situation={top.quick.situation}
     >
       <Marquee text={top.label} className={cx('flex-1 font-display tracking-[-0.01em]', top.pending ? 'font-bold' : 'font-semibold text-ink/75')} wrapClassName="text-xs leading-tight" />
-      {others > 0 && <span className="shrink-0 text-xs font-semibold tabular-nums text-ink/50">+{others}</span>}
+      {others > 0 && <span className="shrink-0 text-xs font-semibold tabular-nums text-ink/70">+{others}</span>}
       <ChevronRight className="size-4 shrink-0 text-ink/40" strokeWidth={2.4} aria-hidden />
     </button>
-  );
-}
-
-function StatusChip({ item }: { item: HubItem }) {
-  return (
-    <span className={cx('inline-flex max-w-full items-center truncate rounded-full px-2.5 py-1 text-xs font-semibold', item.pending ? 'bg-lime text-ink' : 'bg-canvas text-ink')}>{item.label}</span>
-  );
-}
-
-/** One provider's answer, in a few words. */
-function answer(r: ServiceRequest): string {
-  const p = currentProposal(r);
-  if (['confirmed', 'in_progress', 'awaiting_completion'].includes(r.status)) return 'Contratado';
-  if (r.status === 'proposal_received' && p) return formatPrice(p.price);
-  if (r.status === 'awaiting_proposal' && r.openProposal) return 'Te ha escrito';
-  if (r.status === 'not_selected') return 'No seleccionado';
-  if (r.status === 'cancelled') return 'No disponible';
-  return 'Pendiente';
-}
-
-/** A widget card, as on the Home screens: title top-left, optional element top-right. */
-function HubCard({ title, aside, children, className, testId }: { title?: ReactNode; aside?: ReactNode; children: ReactNode; className?: string; testId?: string }) {
-  return (
-    <section className={cx('surface rounded-[22px] p-4 sm:p-5', className)} data-testid={testId}>
-      {(title || aside) && (
-        <div className="mb-3 flex items-start justify-between gap-3">
-          {title && <h3 className="font-display text-[17px] font-semibold leading-tight tracking-tight">{title}</h3>}
-          {aside}
-        </div>
-      )}
-      {children}
-    </section>
-  );
-}
-
-/** While requests are active the Solicitudes tab is the Hub itself: this keeps the full list (and history) one tap away. */
-function AllRequestsLink({ onClick }: { onClick: () => void }) {
-  return (
-    <button type="button" onClick={onClick} className="mx-auto mt-4 flex items-center gap-1 rounded-full px-3 py-2 text-sm font-semibold text-muted hover:text-ink" data-testid="hub-all-requests">
-      Ver todas tus solicitudes <ChevronRight className="size-4" aria-hidden />
-    </button>
-  );
-}
-
-function Overview({ items, onOpen, onAll }: { items: HubItem[]; onOpen: (item: HubItem) => void; onAll: () => void }) {
-  const mechanics = useApp((s) => s.db.mechanics);
-  const name = (id: ID) => mechanics.find((m) => m.id === id)?.name ?? 'Mecánico';
-  if (!items.length) {
-    return (
-      <div className="py-10 text-center">
-        <ClipboardList className="mx-auto size-8 text-muted" aria-hidden />
-        <p className="mt-3 font-semibold">No tienes solicitudes activas</p>
-        <p className="mt-1 text-sm text-muted">Cuéntanos qué necesita tu bici y te ayudamos a encontrar mecánico.</p>
-      </div>
-    );
-  }
-  return (
-    <>
-      <ul className="space-y-3" data-testid="hub-overview">
-        {items.map((item, i) => {
-          const quotes = item.threads.filter((r) => r.status === 'proposal_received');
-          // The one the floating chip talks about: first, and gently highlighted.
-          const primary = i === 0 && items.length > 1;
-          const info =
-            quotes.length > 1
-              ? `Desde ${formatPrice(Math.min(...quotes.map((r) => currentProposal(r)?.price ?? 0)))}`
-              : item.threads.length === 1 || ['confirmed', 'in_progress', 'awaiting_completion'].includes(item.lead.status)
-                ? name(item.lead.mechanicId)
-                : `${item.threads.length} mecánicos invitados`;
-          return (
-            <li key={item.caseId}>
-              <button
-                type="button"
-                onClick={() => onOpen(item)}
-                className={cx('surface block w-full rounded-[22px] p-4 text-left sm:p-5', primary && 'shadow-[0_0_0_2px_#d8f560,var(--shadow-surface)]')}
-                data-testid="hub-item"
-                data-primary={primary || undefined}
-              >
-                <span className="flex items-start justify-between gap-3">
-                  <span className="font-display text-[17px] font-semibold leading-tight tracking-tight">{categoryLabel(item.lead.category)}</span>
-                  <ArrowUpRight className="size-[18px] shrink-0 text-muted" aria-hidden />
-                </span>
-                <span className="mt-4 flex items-center gap-2">
-                  <StatusChip item={item} />
-                </span>
-                <span className="mt-2 block truncate text-sm text-muted">
-                  {bikeLabel(item.lead.bike)} · {info}
-                </span>
-                {item.action && <span className="mt-1 block text-[15px] font-semibold">{item.action}</span>}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-      <AllRequestsLink onClick={onAll} />
-    </>
-  );
-}
-
-function Detail({ item, onGo }: { item: HubItem; onGo: (to: string) => void }) {
-  const mechanics = useApp((s) => s.db.mechanics);
-  const name = (id: ID) => mechanics.find((m) => m.id === id)?.name ?? 'Mecánico';
-  const hired = item.threads.find((r) => ['confirmed', 'in_progress', 'awaiting_completion'].includes(r.status));
-  const appt = hired?.appointment?.confirmed;
-  const r = item.lead;
-  return (
-    <div className="space-y-3" data-testid="hub-detail">
-      <HubCard title="Tu solicitud" aside={<StatusChip item={item} />}>
-        {item.action && <p className="text-lg font-bold leading-snug">{item.action}</p>}
-        <p className={cx('line-clamp-3 text-[15px] text-muted', item.action && 'mt-1')}>{r.description}</p>
-        <p className="mt-2 text-sm text-muted">{bikeLabel(r.bike)}</p>
-        {r.photos && r.photos.length > 0 && <PhotoStrip photos={r.photos} />}
-      </HubCard>
-      {appt && (
-        <HubCard title="Cita">
-          <p className="flex items-center gap-2 text-[15px] font-semibold first-letter:uppercase">
-            <CalendarCheck className="size-5 shrink-0 text-lime-text" aria-hidden />
-            {formatDate(appt.date, { weekday: 'long', day: 'numeric', month: 'long' })}, {appt.time}
-          </p>
-        </HubCard>
-      )}
-      <HubCard title={item.threads.length === 1 ? 'Mecánico' : `${item.threads.length} mecánicos`}>
-        <ul className="-mx-4 -mb-4 divide-y divide-line sm:-mx-5 sm:-mb-5">
-          {item.threads.map((t) => (
-            <li key={t.id}>
-              <button type="button" onClick={() => onGo(threadHref(t))} className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-canvas/60 sm:px-5">
-                <Avatar name={name(t.mechanicId)} size="sm" className="size-9" />
-                <span className="min-w-0 flex-1 truncate font-medium">{name(t.mechanicId)}</span>
-                <span className="shrink-0 text-sm font-semibold">{answer(t)}</span>
-                <ChevronRight className="size-4 shrink-0 text-muted" aria-hidden />
-              </button>
-            </li>
-          ))}
-        </ul>
-      </HubCard>
-      <AllRequestsLink onClick={() => onGo('/solicitudes')} />
-    </div>
   );
 }
 
@@ -388,122 +241,15 @@ const plainBackClass =
 const softCircleClass =
   'flex size-9 shrink-0 items-center justify-center rounded-full bg-canvas text-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink';
 
-const TITLES: Record<HubView['kind'], string> = { overview: 'Tus solicitudes', detail: 'Solicitud', new: 'Nueva solicitud' };
-const SCREEN_TITLES: Record<QuickScreen, string> = {
-  compare: 'Presupuestos',
-  appointment: 'Cita',
-  completion: 'Confirmar servicio',
-  incident: 'Incidencia',
-  tracking: 'Seguimiento',
-  status: 'Solicitud',
-};
-
-/** Accepting one quote from the comparison: an explicit tap, never automatic. */
-function CompareQuotes({ item, onGo, onAccepted }: { item: HubItem; onGo: (to: string) => void; onAccepted: () => void }) {
-  const mechanics = useApp((s) => s.db.mechanics);
-  const actOnRequest = useApp((s) => s.actOnRequest);
-  const toast = useApp((s) => s.toast);
-  const [busy, setBusy] = useState<ID | null>(null);
-  const quotes = item.threads
-    .filter((r) => r.status === 'proposal_received' && currentProposal(r)?.status === 'pending')
-    .sort((a, b) => (currentProposal(a)?.price ?? 0) - (currentProposal(b)?.price ?? 0));
-  const name = (id: ID) => mechanics.find((m) => m.id === id)?.name ?? 'Mecánico';
-  const accept = async (r: ServiceRequest) => {
-    setBusy(r.id);
-    try {
-      await actOnRequest(r.id, { type: 'accept_proposal' });
-      toast(`Has contratado a ${name(r.mechanicId)}. Ahora acordad la cita.`);
-      onAccepted();
-    } catch (e) {
-      toast(e instanceof DomainError ? e.message : 'No se pudo aceptar.', 'error');
-    } finally {
-      setBusy(null);
-    }
-  };
-  return (
-    <div className="space-y-3" data-testid="compare-quotes">
-      {quotes.length > 1 && <p className="text-sm text-muted">Ordenados por precio. Al aceptar uno, los demás se cierran. Aceptar no es un pago.</p>}
-      {quotes.map((r) => {
-        const p = currentProposal(r)!;
-        return (
-          <article key={r.id} className="surface rounded-[22px] p-4 sm:p-5" data-testid="quick-quote">
-            <div className="flex items-center gap-3">
-              <Avatar name={name(r.mechanicId)} size="sm" className="size-9" />
-              <span className="min-w-0 flex-1 truncate font-semibold">{name(r.mechanicId)}</span>
-              <span className="font-display text-2xl font-bold">{formatPrice(p.price)}</span>
-            </div>
-            <p className="mt-2 text-sm text-muted">
-              Propone {formatDate(p.date, { weekday: 'short', day: 'numeric', month: 'short' })}, {p.time}
-              {r.proposals.length > 1 ? ` · versión ${r.proposals.length}` : ''}
-            </p>
-            <p className="mt-2 line-clamp-2 text-[15px]">{p.message}</p>
-            <div className="mt-3 flex gap-2">
-              <Button size="sm" onClick={() => accept(r)} loading={busy === r.id} disabled={busy !== null}>
-                Aceptar presupuesto
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => onGo(threadHref(r))}>
-                Ver conversación
-              </Button>
-            </div>
-          </article>
-        );
-      })}
-    </div>
-  );
-}
-
-/** A request's next meaningful action, opened straight from the chip. Reuses the request screens' parts. */
-function QuickScreenView({
-  item,
-  screen,
-  onGo,
-  onSummary,
-  onScreen,
-}: {
-  item: HubItem;
-  screen: Exclude<QuickScreen, 'status'>;
-  onGo: (to: string) => void;
-  onSummary: () => void;
-  onScreen: (screen: QuickScreen) => void;
-}) {
-  const user = useCurrentUser();
-  const mechanics = useApp((s) => s.db.mechanics);
-  const thread = item.threads.find((r) => r.id === item.quick.threadId) ?? item.lead;
-  const mechanicName = mechanics.find((m) => m.id === thread.mechanicId)?.name ?? 'Mecánico';
-  return (
-    <div className="space-y-3" data-testid={`quick-${screen}`}>
-      <HubCard title={categoryLabel(item.lead.category)} aside={<StatusChip item={item} />}>
-        <p className="truncate text-sm text-muted">
-          {bikeLabel(item.lead.bike)}
-          {screen !== 'compare' ? ` · ${mechanicName}` : ''}
-        </p>
-        {item.action && <p className="mt-1 text-[15px] font-semibold">{item.action}</p>}
-      </HubCard>
-      {screen === 'compare' && <CompareQuotes item={item} onGo={onGo} onAccepted={() => onScreen('appointment')} />}
-      {(screen === 'appointment' || screen === 'tracking') && ['confirmed', 'in_progress', 'awaiting_completion'].includes(thread.status) && (
-        <AppointmentCard request={thread} viewer="owner" otherName={mechanicName} />
-      )}
-      {(screen === 'completion' || screen === 'incident') && <CompletionCard request={thread} viewer="owner" otherName={mechanicName} />}
-      {(screen === 'tracking' || screen === 'incident') && <RequestTimeline request={thread} mechanicName={mechanicName} ownerName={user?.name ?? 'Tú'} viewer="owner" />}
-      <button type="button" onClick={onSummary} className="text-sm font-semibold underline-offset-2 hover:underline">
-        Ver resumen de la solicitud
-      </button>
-    </div>
-  );
-}
-
 /**
- * The Request Hub panel: a large bottom sheet on phones, a side panel on desktop. Shows the
- * active requests, one request's summary, or the new-request form, without leaving the page.
+ * The new-request box: a large bottom sheet on phones, a side panel on desktop, without leaving
+ * the page. (Requests are managed in one place, the Solicitudes screen; the Hub links there.)
  */
 export function RequestHubOverlay() {
   const view = useNavUi((s) => s.hub);
-  const openHub = useNavUi((s) => s.openHub);
   const closeHub = useNavUi((s) => s.closeHub);
   const draft = useApp((s) => s.draft);
   const resetDraft = useApp((s) => s.resetDraft);
-  const items = useHubItems();
-  const navigate = useNavigate();
   const panel = useRef<HTMLDivElement>(null);
   const [confirm, setConfirm] = useState(false);
   const open = view !== null;
@@ -523,12 +269,8 @@ export function RequestHubOverlay() {
   const dirty = draft.description.trim().length > 0 || draft.step > 0 || draft.photos.length > 0;
 
   const requestClose = () => {
-    if (view?.kind === 'new' && dirty) setConfirm(true);
+    if (dirty) setConfirm(true);
     else closeHub();
-  };
-  const go = (to: string) => {
-    closeHub();
-    navigate(to);
   };
 
   // Focus in, Escape, focus trap, body scroll lock, focus restored on close.
@@ -569,40 +311,7 @@ export function RequestHubOverlay() {
   }, [open]);
 
   if (!view) return null;
-  const detailItem = view.kind === 'detail' ? items.find((i) => i.caseId === view.caseId) : undefined;
-  // A request that stopped being active (e.g. completed) falls back to the overview.
-  const shown: HubView = view.kind === 'detail' && !detailItem ? { kind: 'overview' } : view;
-  const screen = shown.kind === 'detail' && shown.screen && shown.screen !== 'status' ? shown.screen : undefined;
-  const toNew = () => openHub({ kind: 'new', from: 'overview' });
-
-  // The bottom row's primary button: set here for the hub's own views, by the form in "new".
-  let body: ReactNode;
-  let primary: HubPrimaryMeta | null = null;
-  let run: () => void = () => {};
-  if (shown.kind === 'overview') {
-    body = <Overview items={items} onAll={() => go('/solicitudes')} onOpen={(item) => (item.quick.href ? go(item.quick.href) : openHub({ kind: 'detail', caseId: item.caseId, screen: item.quick.screen }))} />;
-    primary = { label: 'Nueva solicitud', icon: 'plus', canBack: false };
-    run = toNew;
-  } else if (shown.kind === 'detail' && detailItem) {
-    body = screen ? (
-      <QuickScreenView item={detailItem} screen={screen} onGo={go} onSummary={() => openHub({ kind: 'detail', caseId: detailItem.caseId })} onScreen={(next) => openHub({ kind: 'detail', caseId: detailItem.caseId, screen: next })} />
-    ) : (
-      <Detail item={detailItem} onGo={go} />
-    );
-    primary = { label: screen ? 'Ver solicitud completa' : detailItem.pending ? 'Ver y responder' : 'Ver solicitud', icon: 'arrow', canBack: true };
-    run = () => go(caseHref(detailItem.lead));
-  } else {
-    body = (
-      <RequestForm
-        variant="overlay"
-        onSent={() => closeHub()}
-        onBackFromStart={shown.kind === 'new' && shown.from === 'overview' ? () => openHub({ kind: 'overview' }) : undefined}
-      />
-    );
-  }
-  const meta = shown.kind === 'new' ? formMeta : primary;
-  const onPrimary = shown.kind === 'new' ? () => runRef.current() : run;
-  const onBack = shown.kind === 'new' ? () => backRef.current() : () => openHub({ kind: 'overview' });
+  const meta = formMeta;
   const PrimaryIcon = meta?.icon === 'plus' ? Plus : meta?.icon === 'send' ? Send : ArrowRight;
 
   return createPortal(
@@ -623,38 +332,30 @@ export function RequestHubOverlay() {
         {/* Back and close up top, quiet; the bottom is only for the main action. */}
         <header className="flex items-center gap-2 px-6 pb-3 pt-7">
           {meta?.canBack ? (
-            <button type="button" onClick={onBack} aria-label={shown.kind === 'new' ? 'Atrás' : 'Volver a tus solicitudes'} className={plainBackClass}>
+            <button type="button" onClick={() => backRef.current()} aria-label="Atrás" className={plainBackClass}>
               <ChevronLeft className="size-6" strokeWidth={2.2} aria-hidden />
             </button>
           ) : (
-            // Forms keep their progress bar centred even without a back button.
-            shown.kind === 'new' && <span className="-ml-2 size-10 shrink-0" aria-hidden />
+            // The progress bar stays centred even without a back button.
+            <span className="-ml-2 size-10 shrink-0" aria-hidden />
           )}
           <h2
             id="hub-title"
             tabIndex={-1}
             data-autofocus
-            className={cx(
-              'min-w-0 flex-1 truncate font-display text-xl font-extrabold leading-tight tracking-tight outline-none',
-              // Forms show their progress up here instead of a title.
-              shown.kind === 'new' && 'sr-only',
-            )}
+            // The progress bar stands in for the title (kept for screen readers).
+            className="sr-only outline-none"
           >
-            {screen ? SCREEN_TITLES[screen] : shown.kind === 'detail' && detailItem ? categoryLabel(detailItem.lead.category) : TITLES[shown.kind]}
+            Nueva solicitud
           </h2>
-          {shown.kind === 'new' && <div ref={setHeaderSlot} className="min-w-0 flex-1 px-2" data-testid="hub-progress" />}
-          {shown.kind === 'detail' && (
-            <button type="button" onClick={toNew} aria-label="Nueva solicitud" className={softCircleClass}>
-              <Plus className="size-[18px]" aria-hidden />
-            </button>
-          )}
+          <div ref={setHeaderSlot} className="min-w-0 flex-1 px-2" data-testid="hub-progress" />
           <button type="button" onClick={requestClose} aria-label="Cerrar" className={softCircleClass}>
             <X className="size-[18px]" aria-hidden />
           </button>
         </header>
         <HubActionContext.Provider value={api}>
           <div data-hub-scroll className="min-h-0 flex-1 overflow-y-auto px-6 pb-4">
-            {body}
+            <RequestForm variant="overlay" onSent={() => closeHub()} />
           </div>
         </HubActionContext.Provider>
 
@@ -663,7 +364,7 @@ export function RequestHubOverlay() {
           {meta && (
             <button
               type="button"
-              onClick={onPrimary}
+              onClick={() => runRef.current()}
               disabled={meta.loading}
               aria-disabled={meta.disabled || undefined}
               className={cx(

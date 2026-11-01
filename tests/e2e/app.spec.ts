@@ -41,7 +41,7 @@ test.describe('Navegación', () => {
     await expect(page.getByRole('tab', { name: /Con cita/ })).toHaveAttribute('aria-selected', 'true');
   });
 
-  test('cyclist: Inicio · Mecánicos · Solicitudes + Nueva; with active requests Solicitudes becomes the Hub', async ({ page }) => {
+  test('cyclist: Inicio · Mecánicos · Solicitudes and a +; with active requests Solicitudes becomes the Hub', async ({ page }) => {
     const mobile = isMobile(page);
     const nav = page.getByRole('navigation', { name: mobile ? 'Principal (móvil)' : 'Principal', exact: true });
     const links = nav.getByRole('link');
@@ -49,7 +49,7 @@ test.describe('Navegación', () => {
     await freshDemo(page);
     await expect(links).toHaveCount(3);
     for (const [i, name] of ['Inicio', 'Mecánicos', 'Solicitudes'].entries()) await expect(links.nth(i)).toHaveAccessibleName(name);
-    if (mobile) await expect(page.getByTestId('new-request-fab')).toContainText('Nueva');
+    if (mobile) await expect(page.getByTestId('new-request-fab')).toHaveAccessibleName('Nueva solicitud'); // a round +
     else await expect(page.getByRole('button', { name: 'Nueva solicitud' }).first()).toBeVisible();
     await expect(page.getByTestId(mobile ? 'request-hub-chip' : 'header-hub-chip')).toHaveCount(0);
 
@@ -60,9 +60,8 @@ test.describe('Navegación', () => {
     await expect(page.getByTestId(mobile ? 'request-hub-chip' : 'header-hub-chip')).toBeVisible();
     await expect(page.getByTestId('new-request-fab')).toHaveCount(0);
     if (!mobile) await expect(page.getByRole('banner').getByRole('button', { name: 'Nueva solicitud' })).toHaveCount(0);
-    // The full Requests section (history included) stays reachable through the Hub.
+    // The full Requests section (history included) is where the Hub leads.
     await page.getByTestId(mobile ? 'request-hub-chip' : 'header-hub-chip').click();
-    await page.getByTestId('request-hub').getByTestId('hub-all-requests').click();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Solicitudes');
     await page.getByRole('tab', { name: /Todas/ }).click();
     await expect(page.getByTestId('case-card').first()).toBeVisible();
@@ -249,89 +248,21 @@ test.describe('Navegación', () => {
     await expect(hub.getByLabel('Describe el problema')).toHaveValue('');
   });
 
-  test('request hub: several active requests show a count; the panel lists them, opens one, and creates more', async ({ page }) => {
+  test('request hub: the lime pill points to the Requests section, where everything is managed', async ({ page }) => {
     await freshDemo(page, 'u-pablo');
     const mobile = isMobile(page);
-    const chip = mobile ? page.getByTestId('request-hub-chip') : page.getByTestId('header-hub-chip');
-    // Light pill: one circle per request and one word; the full status is its accessible name.
-    // One message for the most important request, and a counter for the other active one.
+    const chip = page.getByTestId(mobile ? 'request-hub-chip' : 'header-hub-chip');
     await expect(chip).toHaveAccessibleName(/^2 presupuestos para comparar · Inspección antes de comprar\. 1 solicitud activa más/);
     await expect(chip).toContainText('+1');
+    // No management box: one tap goes to Solicitudes (one or several requests alike).
     await chip.click();
-    const hub = page.getByTestId('request-hub');
-    // Pending actions first: the inspection with two quotes.
-    await expect(hub.getByTestId('hub-item').first()).toContainText('2 presupuestos');
-    await expect(hub.getByTestId('hub-item').first()).toContainText('Compara y elige uno');
-    // Opening an item goes straight to its next action: the quote comparison.
-    await hub.getByTestId('hub-item').first().click();
-    await expect(hub.getByTestId('quick-compare')).toContainText('Carlos Ortega');
-    await expect(hub.getByTestId('quick-compare')).toContainText('Nerea Campos');
-    await hub.getByRole('button', { name: 'Volver a tus solicitudes' }).click();
-    await hub.getByRole('button', { name: 'Nueva solicitud' }).click();
-    await expect(hub.getByText('Paso 1 de 7')).toBeVisible();
-    // From the overview, back on the first step returns to the list.
-    await hub.getByRole('button', { name: 'Atrás' }).click();
-    await expect(hub.getByTestId('hub-overview')).toBeVisible();
-    await hub.getByTestId('hub-item').first().click();
-    await hub.getByRole('button', { name: 'Ver solicitud completa' }).click();
-    await expect(hub).toHaveCount(0);
-    await expect(page.getByTestId('case-status')).toHaveText('Propuestas recibidas');
-  });
-
-  test('request hub quick actions: one request opens its next action in one tap, without executing it', async ({ page }) => {
-    const mobile = isMobile(page);
-    const chip = () => (mobile ? page.getByTestId('request-hub-chip') : page.getByTestId('header-hub-chip'));
-    const hub = page.getByTestId('request-hub');
-    // Leave each account with a single active request by withdrawing the others in the stored demo data.
-    const keepOnly = async (owner: string, keep: string) =>
-      page.evaluate(([o, k]) => {
-        const db = JSON.parse(localStorage.getItem('cromiqa:demo:db')!);
-        for (const r of db.requests)
-          if (r.ownerId === o && r.caseId !== k && ['sent', 'awaiting_proposal', 'proposal_received', 'confirmed', 'in_progress', 'awaiting_completion'].includes(r.status)) {
-            r.status = 'cancelled';
-            r.events.push({ id: 'x' + r.id, type: 'cancelled_by_owner', by: 'owner', at: new Date().toISOString() });
-          }
-        localStorage.setItem('cromiqa:demo:db', JSON.stringify(db));
-      }, [owner, keep]);
-
-    // Two quotes → the comparison, nothing accepted.
-    await freshDemo(page, 'u-pablo');
-    await keepOnly('u-pablo', 'r-03');
-    await page.reload();
-    await expect(chip()).toHaveAccessibleName(/2 presupuestos/);
-    await chip().click();
-    await expect(hub.getByRole('heading', { name: 'Presupuestos', exact: true })).toBeVisible();
-    await expect(hub.getByTestId('quick-quote')).toHaveCount(2);
-    await expect(chip()).toHaveAccessibleName(/^2 presupuestos para comparar/); // still pending: nothing was accepted
-    // Back to the overview, and a new request is one tap away.
-    await hub.getByRole('button', { name: 'Volver a tus solicitudes' }).click();
-    await expect(hub.getByTestId('hub-overview')).toBeVisible();
-    await expect(hub.getByRole('button', { name: 'Nueva solicitud' })).toBeVisible();
-    // Accepting is an explicit tap; the hub then moves on to the appointment.
-    await hub.getByTestId('hub-item').first().click();
-    await hub.getByTestId('quick-quote').first().getByRole('button', { name: 'Aceptar presupuesto' }).click();
-    await expect(hub.getByTestId('quick-appointment')).toBeVisible();
-    await expect(chip()).toHaveAccessibleName(/^Confirma tu cita/);
-
-    // A date proposed by the mechanic → appointment confirmation, still pending.
-    await freshDemo(page, 'u-diego');
-    await keepOnly('u-diego', 'r-04');
-    await page.reload();
-    await expect(chip()).toHaveAccessibleName(/^Confirma tu cita/);
-    await chip().click();
-    await expect(hub.getByTestId('quick-appointment')).toBeVisible();
-    await expect(hub.getByTestId('appointment-pending')).toContainText('Javier propone');
-    await expect(hub.getByRole('button', { name: 'Confirmar cita' })).toBeVisible();
-
-    // Work in progress → tracking.
-    await freshDemo(page, 'u-irene');
-    await keepOnly('u-irene', 'r-09');
-    await page.reload();
-    await expect(chip()).toHaveAccessibleName(/en curso ·/);
-    await chip().click();
-    await expect(hub.getByRole('heading', { name: 'Seguimiento' })).toBeVisible();
-    await expect(hub.getByTestId('appointment-confirmed')).toBeVisible();
-    await expect(page).not.toHaveURL(/solicitudes/); // never left the page
+    await expect(page).toHaveURL(/#\/solicitudes$/);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Solicitudes');
+    await expect(page.getByTestId('request-hub')).toHaveCount(0);
+    await expect(page.getByTestId('case-card').first()).toBeVisible();
+    // From there, a new request is one tap away.
+    await page.getByTestId('requests-new').click();
+    await expect(page.getByTestId('request-hub').getByText('Paso 1 de 7')).toBeVisible();
   });
 
   test('request hub: one active request shows its status; photos can be attached, previewed and removed', async ({ page }) => {
@@ -367,18 +298,16 @@ test.describe('Navegación', () => {
     await expect(hub.getByTestId('request-photos').getByRole('img')).toHaveCount(1);
     await hub.getByRole('button', { name: 'Enviar solicitud' }).click();
     await expect(hub).toHaveCount(0);
-    // The + became the request's status.
+    // The + became the request's status; it leads to the Requests section.
     const chip = mobile ? page.getByTestId('request-hub-chip') : page.getByTestId('header-hub-chip');
     await expect(chip).toHaveAccessibleName(/^Buscando mecánicos · Mantenimiento\. Abrir$/);
     await chip.click();
-    await expect(hub.getByTestId('hub-detail')).toBeVisible();
-    await expect(hub.getByTestId('request-photos').getByRole('img')).toHaveCount(1);
+    await expect(page).toHaveURL(/#\/solicitudes$/);
   });
 
   test('floating hub v3: one message, a counter, marquee only when needed, and the right destination', async ({ page }) => {
     const mobile = isMobile(page);
     const chip = () => page.getByTestId(mobile ? 'request-hub-chip' : 'header-hub-chip');
-    const hub = page.getByTestId('request-hub');
     const situation = () => chip().getAttribute('data-situation');
 
     // Zero active requests: the + (mobile) / no chip (desktop).
@@ -390,20 +319,15 @@ test.describe('Navegación', () => {
     await freshDemo(page, 'u-diego');
     await expect(chip()).toHaveAccessibleName(/^Confirma tu cita · Mantenimiento\. 2 solicitudes activas más\. Abrir tus solicitudes$/);
     await expect(chip()).toContainText('+2');
-    // Several requests open the overview, with that request first and highlighted.
+    // The tap goes to the Requests section.
     await chip().click();
-    await expect(hub.getByTestId('hub-item').first()).toHaveAttribute('data-primary', 'true');
-    await expect(hub.getByTestId('hub-item').first()).toContainText('Confirma tu cita');
-    await page.keyboard.press('Escape');
+    await expect(page).toHaveURL(/#\/solicitudes$/);
 
-    // One request needing action: no counter; short message stays still; the tap goes straight to its action.
+    // One request needing action: no counter; short message stays still.
     await freshDemo(page, 'u-dani');
     await expect(chip()).toHaveAccessibleName(/^Confirma tu cita · Mantenimiento\. Abrir$/);
     await expect(chip()).not.toContainText('+');
     if (mobile) await expect(chip().getByTestId('marquee')).not.toHaveAttribute('data-moving', 'true');
-    await chip().click();
-    await expect(hub.getByTestId('quick-appointment')).toBeVisible();
-    await page.keyboard.press('Escape');
 
     // One request waiting on someone else: calm (not bold), informational.
     await freshDemo(page, 'u-bea');
@@ -428,8 +352,8 @@ test.describe('Navegación', () => {
     await freshDemo(page, 'u-fran');
     expect(await situation()).toBe('work_finished');
     await expect(chip()).toHaveAccessibleName(/^Reparación terminada/);
-    await chip().click();
-    await hub.getByRole('button', { name: 'Reportar un problema' }).click();
+    await page.goto('./#/solicitudes/r-fran/mecanico/r-fran');
+    await page.getByRole('button', { name: 'Reportar un problema' }).click();
     await page.getByLabel('Qué ha pasado').fill('El cambio sigue saltando.');
     await page.getByRole('button', { name: 'Reportar problema' }).click();
     await expect(chip()).toHaveAccessibleName(/^Incidencia pendiente/);
@@ -437,8 +361,6 @@ test.describe('Navegación', () => {
 
     // Narrow phone: with two tabs the Hub has room; it sits next to (not over) the bar, with its counter and chevron.
     if (mobile) {
-      await page.keyboard.press('Escape'); // close the hub panel left open above
-      await expect(hub).toHaveCount(0);
       await page.setViewportSize({ width: 320, height: 640 });
       await expect.poll(async () => {
         const [n, c] = [await page.getByRole('navigation', { name: 'Principal (móvil)' }).boundingBox(), await chip().boundingBox()];
@@ -447,7 +369,7 @@ test.describe('Navegación', () => {
     }
   });
 
-  test('adaptive dock: + Nueva ⇄ Request Hub as requests start and end, from every entry point', async ({ page }) => {
+  test('adaptive dock: + ⇄ Request Hub as requests start and end, from every entry point', async ({ page }) => {
     const mobile = isMobile(page);
     const nav = page.getByRole('navigation', { name: mobile ? 'Principal (móvil)' : 'Principal', exact: true });
     const chip = page.getByTestId(mobile ? 'request-hub-chip' : 'header-hub-chip');
@@ -487,9 +409,9 @@ test.describe('Navegación', () => {
     await stateB(/^Buscando mecánicos · Reparación\. Abrir$/);
     if (mobile) await expect(page.getByTestId('dock')).toHaveAttribute('data-state', 'hub');
 
-    // A second one from the Requests section: the counter appears.
+    // A second one from the Requests section (where the Hub leads): the counter appears.
     await chip.click();
-    await hub.getByTestId('hub-all-requests').click();
+    await expect(page).toHaveURL(/#\/solicitudes$/);
     await page.getByTestId('requests-new').click();
     await send();
     await stateB(/1 solicitud activa más/);
@@ -497,9 +419,8 @@ test.describe('Navegación', () => {
     // The Hub works from any section.
     await nav.getByRole('link', { name: 'Mecánicos' }).click();
     await chip.click();
-    await expect(hub.getByTestId('hub-overview')).toBeVisible();
-    await expect(hub.getByTestId('hub-item')).toHaveCount(2);
-    await page.keyboard.press('Escape');
+    await expect(page).toHaveURL(/#\/solicitudes$/);
+    await expect(page.getByTestId('case-card')).toHaveCount(2);
 
     // Cancelling both: the last one brings back the three tabs and "+ Nueva".
     for (let i = 0; i < 2; i++) {
@@ -516,8 +437,8 @@ test.describe('Navegación', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await freshDemo(page, 'u-fran');
     await stateB(/^Reparación terminada/);
-    await chip.click();
-    await hub.getByRole('button', { name: 'Confirmar que está terminado' }).click();
+    await page.goto('./#/solicitudes/r-fran/mecanico/r-fran');
+    await page.getByRole('button', { name: 'Confirmar que está terminado' }).click();
     await stateA();
   });
 

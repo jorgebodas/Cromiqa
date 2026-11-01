@@ -8,6 +8,7 @@ import { CASE_STATUS_LABEL, caseStatus, leadThread, recoveryHint, threadHref } f
 import { matchProviders } from '@/domain/logic/matching';
 import { formatDate, formatPrice } from '@/domain/utils';
 import { useApp } from '@/state/store';
+import { attentionActionLabel, attentionFromActions, attentionHref } from '@/domain/logic/home';
 import { useCurrentUser } from '@/state/selectors';
 import { RoleGate } from '@/components/layout/RoleGate';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
@@ -104,6 +105,9 @@ function Inner() {
   // Accept a case id, or any of its invitation ids (older links).
   const caseId = requests.find((r) => r.caseId === id)?.caseId ?? requests.find((r) => r.id === id)?.caseId;
   const threads = useMemo(() => requests.filter((r) => r.caseId === caseId && r.ownerId === user.id), [requests, caseId, user.id]);
+  // Everything the cyclist still owes on this request (the same PendingActions as the Request Hub).
+  const actions = useApp((s) => s.db.pendingActions);
+  const pending = useMemo(() => attentionFromActions({ requests, pendingActions: actions }, user.id).filter((a) => a.request.caseId === caseId), [requests, actions, user.id, caseId]);
   if (!threads.length) {
     return (
       <div className="container-page py-12">
@@ -158,6 +162,43 @@ function Inner() {
           </h2>
           {status === 'proposals_received' && quotes > 1 && <p className="mt-1 text-muted">Compara los presupuestos y contrata a uno. Los demás se cerrarán.</p>}
         </header>
+
+        {pending.length > 0 && (
+          <section aria-labelledby="attention-title" className="mb-6 rounded-[22px] bg-[color-mix(in_srgb,var(--color-lime)_9%,var(--color-paper))] p-4 shadow-[0_0_0_2px_var(--color-lime)] sm:p-5" data-testid="case-attention">
+            <h2 id="attention-title" className="flex items-center gap-2 text-sm font-semibold">
+              <span className="size-2 rounded-full bg-lime ring-2 ring-ink" aria-hidden /> Requiere tu atención
+            </h2>
+            <ul className="mt-2 divide-y divide-line">
+              {pending.map((item) => {
+                const to = attentionHref(item);
+                const here = to === `/solicitudes/${caseId}`;
+                const label = (
+                  <>
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-semibold">{attentionActionLabel(item)}</span>
+                      <span className="block text-sm text-muted">{item.kind === 'proposal' && item.count && item.count > 1 ? `${item.count} presupuestos, aquí debajo` : name(item.request)}</span>
+                    </span>
+                    <ChevronRight className={cx('size-4 shrink-0 text-muted', here && 'rotate-90')} aria-hidden />
+                  </>
+                );
+                return (
+                  <li key={`${item.kind}-${item.request.id}`}>
+                    {here ? (
+                      // The decision is on this page (compare the quotes below).
+                      <button type="button" onClick={() => document.getElementById('responses-title')?.scrollIntoView({ behavior: 'smooth' })} className="flex w-full items-center gap-3 py-2.5 text-left">
+                        {label}
+                      </button>
+                    ) : (
+                      <Link to={to} className="flex items-center gap-3 py-2.5">
+                        {label}
+                      </Link>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
           <div className="min-w-0 space-y-6">

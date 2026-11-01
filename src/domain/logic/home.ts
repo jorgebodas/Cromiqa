@@ -109,6 +109,27 @@ export function homeAttention(db: Pick<DemoDatabase, 'requests' | 'pendingAction
   return [...attentionFromActions(db, userId, now), ...extras];
 }
 
+/** What to do about a pending item, in a few words (request cards and the request page). */
+export function attentionActionLabel(item: CyclistAttention): string {
+  const r = item.request;
+  switch (item.kind) {
+    case 'proposal':
+      return item.count && item.count > 1 ? 'Revisa y compara los presupuestos' : 'Revisa el presupuesto';
+    case 'appointment':
+      return r.appointment?.confirmed ? 'Confirma la nueva fecha' : 'Confirma la fecha propuesta';
+    case 'clarify':
+      return 'Responde al mecánico';
+    case 'confirm':
+      return { repair: 'Confirma la reparación', maintenance: 'Confirma el mantenimiento', inspection: 'Confirma la inspección', diagnosis: 'Confirma el diagnóstico' }[r.category];
+    case 'incident':
+      return 'Revisa la incidencia';
+    case 'declined':
+      return 'Invita a otros mecánicos';
+    default:
+      return 'Valora el servicio';
+  }
+}
+
 /** Where a pending item opens: the request (to compare quotes or invite others) or the conversation with that mechanic. */
 export function attentionHref(item: CyclistAttention): string {
   return item.kind === 'proposal' || item.kind === 'declined' ? caseHref(item.request) : threadHref(item.request);

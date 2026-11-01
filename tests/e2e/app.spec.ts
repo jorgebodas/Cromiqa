@@ -584,6 +584,52 @@ test.describe('Navegación', () => {
     await expect(page.getByTestId('new-request-fab')).toBeVisible();
   });
 
+  test('Solicitudes: the request that needs the cyclist stands out with its action; others look as before', async ({ page }) => {
+    await freshDemo(page, 'u-pablo');
+    await page.goto('./#/solicitudes');
+    const cards = page.getByTestId('case-card');
+    await expect(cards).toHaveCount(2);
+    // The one with a pending decision first, in lime, with what to do.
+    const first = cards.first();
+    await expect(first).toHaveAttribute('data-attention', 'true');
+    await expect(first.getByTestId('case-status-chip')).toHaveText('Requiere tu atención');
+    await expect(first.getByTestId('case-action')).toHaveText('Revisa y compara los presupuestos');
+    // The other keeps its usual look and status.
+    await expect(cards.nth(1)).not.toHaveAttribute('data-attention', 'true');
+    await expect(cards.nth(1).getByTestId('case-status-chip')).toHaveText('Esperando respuestas');
+    // Opening it shows everything pending on that request.
+    await first.click();
+    await expect(page.getByTestId('case-attention')).toContainText('Revisa y compara los presupuestos');
+
+    // Several actions on one request: highlighted once, the most urgent first, "+1 more", all listed inside.
+    await page.evaluate(() => {
+      const db = JSON.parse(localStorage.getItem('cromiqa:demo:db')!);
+      const quote = db.pendingActions.find((a: { requestId: string; type: string }) => a.requestId === 'r-03' && a.type === 'quote_decision');
+      const other = db.requests.find((r: { caseId: string; id: string }) => r.caseId === 'r-03' && r.id !== quote.threadId);
+      db.pendingActions.push({ ...quote, id: 'pa-extra', type: 'information_required', priority: 4, key: `information:${other.id}`, threadId: other.id, sourceEntityType: 'open_proposal', sourceEntityId: `${other.id}@x` });
+      localStorage.setItem('cromiqa:demo:db', JSON.stringify(db));
+    });
+    await page.goto('./#/solicitudes');
+    await page.reload();
+    await expect(page.locator('[data-testid="case-card"][data-attention="true"]')).toHaveCount(1);
+    await expect(cards.first().getByTestId('case-action')).toHaveText('Revisa y compara los presupuestos · 1 acción más');
+    await cards.first().click();
+    await expect(page.getByTestId('case-attention').getByRole('listitem')).toHaveCount(2);
+    await expect(page.getByTestId('case-attention')).toContainText('Responde al mecánico');
+
+    // Resolving the action removes the highlight at once.
+    await freshDemo(page, 'u-dani');
+    await page.goto('./#/solicitudes');
+    await expect(cards.first().getByTestId('case-action')).toHaveText('Confirma la fecha propuesta');
+    await cards.first().click(); // straight to the conversation where the date is confirmed
+    await expect(page).toHaveURL(/#\/solicitudes\/r-dani\/mecanico\/r-dani$/);
+    await page.getByRole('button', { name: 'Confirmar cita' }).click();
+    await page.goBack();
+    await expect(page).toHaveURL(/#\/solicitudes$/);
+    await expect(cards.first()).not.toHaveAttribute('data-attention', 'true');
+    await expect(cards.first().getByTestId('case-status-chip')).toHaveText('Servicio contratado');
+  });
+
   test('tabs remember their state, and back works from a direct link', async ({ page }) => {
     await freshDemo(page); // no active requests: the three tabs
     const nav = page.getByRole('navigation', { name: isMobile(page) ? 'Principal (móvil)' : 'Principal', exact: true });

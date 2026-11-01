@@ -256,7 +256,7 @@ test.describe('Navegación', () => {
     await freshDemo(page, 'u-pablo');
     const mobile = isMobile(page);
     const chip = page.getByTestId(mobile ? 'pending-main' : 'header-hub-chip');
-    if (mobile) await expect(chip).toHaveText('1 pendiente');
+    if (mobile) await expect(chip).toHaveAccessibleName('1 pendiente. Abrir solicitudes');
     else await expect(chip).toHaveAccessibleName(/^2 presupuestos para comparar · Inspección antes de comprar\. 1 solicitud activa más/);
     // No management box: one tap goes to Solicitudes.
     await chip.click();
@@ -473,9 +473,9 @@ test.describe('Navegación', () => {
     await expect(page.getByTestId('pending-pill')).toHaveCount(0);
     await expect(page.getByTestId('new-request-fab')).toBeVisible();
 
-    // One pending action: the Solicitudes tab becomes the pill.
+    // One pending action: the lime pill floats where the + was.
     await freshDemo(page, 'u-ana');
-    await expect(main).toHaveText('1 pendiente');
+    await expect(main).toHaveAccessibleName('1 pendiente. Abrir solicitudes');
     await expect(page.getByTestId('new-request-fab')).toHaveCount(0);
     // The chevron opens the preview without navigating, and closes it again.
     await toggle.click();
@@ -518,7 +518,7 @@ test.describe('Navegación', () => {
       localStorage.setItem('cromiqa:demo:db', JSON.stringify(db));
     });
     await page.reload();
-    await expect(main).toHaveText('2 pendientes');
+    await expect(main).toHaveAccessibleName('2 pendientes. Abrir solicitudes');
     await toggle.click();
     await expect(preview.getByTestId('pending-item')).toHaveCount(2);
     await expect(preview.getByTestId('pending-item').nth(0)).toContainText('Cita');

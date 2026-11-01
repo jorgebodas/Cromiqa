@@ -145,8 +145,8 @@ export function usePendingActions(): CyclistAttention[] {
 export const pendingLabel = (n: number) => `${n} ${n === 1 ? 'pendiente' : 'pendientes'}`;
 
 /**
- * The Solicitudes tab, stretched into a lime pill when something needs the cyclist. Two zones:
- * icon + "N pendientes" opens Solicitudes; the chevron opens or closes the preview.
+ * The floating lime pill on the right of the dock (where the + sits when nothing is pending).
+ * Two zones: "N pendientes" opens Solicitudes; the chevron opens or closes the preview.
  */
 export function PendingPill({
   count,
@@ -165,7 +165,12 @@ export function PendingPill({
 }) {
   const navigate = useNavigate();
   return (
-    <div ref={pillRef} className={cx('pointer-events-auto flex items-center overflow-hidden rounded-full bg-lime text-ink', className)} style={style} data-testid="pending-pill">
+    <div
+      ref={pillRef}
+      className={cx('float-pill pointer-events-auto flex h-16 items-center rounded-full text-ink', className)}
+      style={{ backgroundColor: 'var(--color-lime)', ...style }}
+      data-testid="pending-pill"
+    >
       <button
         type="button"
         onClick={(e) => {
@@ -173,15 +178,13 @@ export function PendingPill({
           navigate('/solicitudes');
         }}
         aria-label={`${pendingLabel(count)}. Abrir solicitudes`}
-        className="flex h-full min-w-0 items-center gap-1 rounded-full pr-1 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink max-[359px]:pl-4"
+        className="flex h-full min-w-0 items-center rounded-full pl-5 pr-1 font-display text-[15px] font-bold tracking-[-0.01em] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink max-[359px]:pl-4"
         data-testid="pending-main"
       >
-        {/* Narrow phones: no room for the icon; the count says what it is. */}
-        <span className="flex size-14 shrink-0 items-center justify-center max-[359px]:hidden" aria-hidden>
-          <ClipboardList className="size-[26px]" strokeWidth={2} />
-        </span>
-        <span className="whitespace-nowrap font-display text-[15px] font-bold tracking-[-0.01em]" data-hub-content>
-          {pendingLabel(count)}
+        <span className="whitespace-nowrap max-[359px]:hidden">{pendingLabel(count)}</span>
+        {/* Narrow phones: just the number (the full label is the accessible name). */}
+        <span className="hidden text-[17px] max-[359px]:inline" aria-hidden>
+          {count}
         </span>
       </button>
       <button
@@ -193,10 +196,10 @@ export function PendingPill({
         aria-label={open ? 'Ocultar lo pendiente' : 'Ver lo pendiente'}
         aria-expanded={open}
         aria-controls="pending-preview"
-        className="flex h-full w-11 shrink-0 items-center justify-center rounded-full focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink max-[359px]:w-10"
+        className="flex h-full w-11 shrink-0 items-center justify-center rounded-full pr-1 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink"
         data-testid="pending-toggle"
       >
-        <ChevronDown className={cx('size-5 transition-transform duration-200', open && 'rotate-180')} strokeWidth={2.4} aria-hidden data-hub-content />
+        <ChevronDown className={cx('size-5 transition-transform duration-200', open && 'rotate-180')} strokeWidth={2.4} aria-hidden />
       </button>
     </div>
   );

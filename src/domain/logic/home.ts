@@ -4,6 +4,7 @@ import type { Mechanic, Review, ServiceRequest } from '../types';
 import { toISODate } from '../utils';
 import { autoCloseReminderDue, currentProposal, openIncident } from './requests';
 import { compareRanked, declinedRecently, type Ranked } from './hub';
+import { caseHref, threadHref } from './cases';
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -62,6 +63,11 @@ export function cyclistAttention(requests: ServiceRequest[], reviews: Review[], 
     }
   }
   return items.sort(compareRanked).map(({ kind, request, count, closingSoon }) => ({ kind, request, count, closingSoon }));
+}
+
+/** Where a pending item opens: the request (to compare quotes or invite others) or the conversation with that mechanic. */
+export function attentionHref(item: CyclistAttention): string {
+  return item.kind === 'proposal' || item.kind === 'declined' ? caseHref(item.request) : threadHref(item.request);
 }
 
 /**

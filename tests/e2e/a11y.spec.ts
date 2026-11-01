@@ -38,3 +38,11 @@ test('a11y new request box', async ({ page }) => {
   await expect(page.getByTestId('request-hub').getByText('Paso 1 de 7')).toBeVisible();
   await expectNoViolations(page);
 });
+
+test('a11y phone dock: pending pill and "Pendiente de ti" preview', async ({ page }) => {
+  test.skip(page.viewportSize()!.width >= 768, 'Phone dock');
+  await freshDemo(page, 'u-ana');
+  await page.getByTestId('pending-toggle').click();
+  await expect(page.getByTestId('pending-preview')).toBeVisible();
+  await expectNoViolations(page);
+});

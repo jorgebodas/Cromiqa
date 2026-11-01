@@ -53,23 +53,24 @@ test.describe('Navegación', () => {
     else await expect(page.getByRole('button', { name: 'Nueva solicitud' }).first()).toBeVisible();
     await expect(page.getByTestId(mobile ? 'request-hub-chip' : 'header-hub-chip')).toHaveCount(0);
 
-    // Ana has active requests: the three tabs stay and the Hub takes the place of the +.
+    // Ana has something pending: the three tabs stay and the Hub takes the place of the +.
+    const hubEntry = page.getByTestId(mobile ? 'pending-main' : 'header-hub-chip');
     await freshDemo(page, 'u-ana');
     await expect(links).toHaveCount(3);
-    await expect(page.getByTestId(mobile ? 'request-hub-chip' : 'header-hub-chip')).toBeVisible();
+    await expect(hubEntry).toBeVisible();
     await expect(page.getByTestId('new-request-fab')).toHaveCount(0);
     if (!mobile) await expect(page.getByRole('banner').getByRole('button', { name: 'Nueva solicitud' })).toHaveCount(0);
     // The full Requests section (history included) is where the Hub leads.
-    await page.getByTestId(mobile ? 'request-hub-chip' : 'header-hub-chip').click();
+    await hubEntry.click();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Solicitudes');
     await page.getByRole('tab', { name: /Todas/ }).click();
     await expect(page.getByTestId('case-card').first()).toBeVisible();
     // Inside Requests the Hub hides: the selected tab says where you are.
-    await expect(page.getByTestId(mobile ? 'request-hub-chip' : 'header-hub-chip')).toHaveCount(0);
+    await expect(hubEntry).toHaveCount(0);
     await expect(nav.getByRole('link', { name: 'Solicitudes' })).toHaveAttribute('aria-current', 'page');
     // Leaving brings it back.
     await nav.getByRole('link', { name: 'Inicio' }).click();
-    await expect(page.getByTestId(mobile ? 'request-hub-chip' : 'header-hub-chip')).toBeVisible();
+    await expect(hubEntry).toBeVisible();
 
     // No general search: searching lives in Mecánicos.
     await page.goto('./#/');
@@ -254,10 +255,10 @@ test.describe('Navegación', () => {
   test('request hub: the lime pill points to the Requests section, where everything is managed', async ({ page }) => {
     await freshDemo(page, 'u-pablo');
     const mobile = isMobile(page);
-    const chip = page.getByTestId(mobile ? 'request-hub-chip' : 'header-hub-chip');
-    await expect(chip).toHaveAccessibleName(/^2 presupuestos para comparar · Inspección antes de comprar\. 1 solicitud activa más/);
-    await expect(chip).not.toContainText('+1'); // just the message: no counter, no chevron
-    // No management box: one tap goes to Solicitudes (one or several requests alike).
+    const chip = page.getByTestId(mobile ? 'pending-main' : 'header-hub-chip');
+    if (mobile) await expect(chip).toHaveText('1 pendiente');
+    else await expect(chip).toHaveAccessibleName(/^2 presupuestos para comparar · Inspección antes de comprar\. 1 solicitud activa más/);
+    // No management box: one tap goes to Solicitudes.
     await chip.click();
     await expect(page).toHaveURL(/#\/solicitudes$/);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Solicitudes');
@@ -301,14 +302,21 @@ test.describe('Navegación', () => {
     await expect(hub.getByTestId('request-photos').getByRole('img')).toHaveCount(1);
     await hub.getByRole('button', { name: 'Enviar solicitud' }).click();
     await expect(hub).toHaveCount(0);
-    // The + became the request's status; it leads to the Requests section.
-    const chip = mobile ? page.getByTestId('request-hub-chip') : page.getByTestId('header-hub-chip');
-    await expect(chip).toHaveAccessibleName(/^Buscando mecánicos · Mantenimiento\. Abrir$/);
-    await chip.click();
-    await expect(page).toHaveURL(/#\/solicitudes$/);
+    if (mobile) {
+      // Waiting for mechanics is nothing the cyclist has to do: the phone dock keeps its +.
+      await expect(page.getByTestId('pending-pill')).toHaveCount(0);
+      await expect(page.getByTestId('new-request-fab')).toBeVisible();
+    } else {
+      // Desktop: the header chip shows the request's status and leads to the Requests section.
+      const chip = page.getByTestId('header-hub-chip');
+      await expect(chip).toHaveAccessibleName(/^Buscando mecánicos · Mantenimiento\. Abrir$/);
+      await chip.click();
+      await expect(page).toHaveURL(/#\/solicitudes$/);
+    }
   });
 
-  test('floating hub v3: one message, a counter, marquee only when needed, and the right destination', async ({ page }) => {
+  test('desktop hub chip: one prioritised message, marquee only when needed, and the right destination', async ({ page }) => {
+    test.skip(isMobile(page), 'The phone dock shows pending actions instead (own test)');
     const mobile = isMobile(page);
     const chip = () => page.getByTestId(mobile ? 'request-hub-chip' : 'header-hub-chip');
     const situation = () => chip().getAttribute('data-situation');
@@ -374,7 +382,8 @@ test.describe('Navegación', () => {
     }
   });
 
-  test('adaptive dock: + ⇄ Request Hub as requests start and end, from every entry point', async ({ page }) => {
+  test('desktop header: Nueva solicitud ⇄ Request Hub as requests start and end, from every entry point', async ({ page }) => {
+    test.skip(isMobile(page), 'Phones: see the pending-hub test');
     const mobile = isMobile(page);
     const nav = page.getByRole('navigation', { name: mobile ? 'Principal (móvil)' : 'Principal', exact: true });
     const chip = page.getByTestId(mobile ? 'request-hub-chip' : 'header-hub-chip');
@@ -387,7 +396,7 @@ test.describe('Navegación', () => {
     const stateB = async (message: RegExp) => {
       await expect(nav.getByRole('link')).toHaveCount(3);
       await expect(chip).toHaveAccessibleName(message);
-      await expect(page.getByTestId('new-request-fab')).toHaveCount(0);
+      await expect(page.getByRole('banner').getByRole('button', { name: 'Nueva solicitud' })).toHaveCount(0);
     };
     const send = async () => {
       await hub.getByText('Reparación', { exact: true }).click();
@@ -450,6 +459,91 @@ test.describe('Navegación', () => {
     await page.getByRole('button', { name: 'Confirmar que está terminado' }).click();
     await page.goto('./#/');
     await stateA();
+  });
+
+  test('phone dock: "N pendientes" pill, chevron preview, request detail and back to the list', async ({ page }) => {
+    test.skip(!isMobile(page), 'Phone dock');
+    const nav = page.getByRole('navigation', { name: 'Principal (móvil)' });
+    const main = page.getByTestId('pending-main');
+    const toggle = page.getByTestId('pending-toggle');
+    const preview = page.getByTestId('pending-preview');
+
+    // Nothing to do: the tabs and the separate +.
+    await freshDemo(page, 'u-bea'); // waiting for mechanics: nothing for her to do
+    await expect(page.getByTestId('pending-pill')).toHaveCount(0);
+    await expect(page.getByTestId('new-request-fab')).toBeVisible();
+
+    // One pending action: the Solicitudes tab becomes the pill.
+    await freshDemo(page, 'u-ana');
+    await expect(main).toHaveText('1 pendiente');
+    await expect(page.getByTestId('new-request-fab')).toHaveCount(0);
+    // The chevron opens the preview without navigating, and closes it again.
+    await toggle.click();
+    await expect(preview).toBeVisible();
+    await expect(preview.getByRole('heading', { name: 'Pendiente de ti' })).toBeVisible();
+    await expect(page).not.toHaveURL(/solicitudes/); // the chevron doesn't navigate
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await toggle.click();
+    await expect(preview).toHaveCount(0);
+    // An item opens that request; back returns to the Solicitudes list.
+    await toggle.click();
+    await preview.getByTestId('pending-item').first().click();
+    await expect(page).toHaveURL(/#\/solicitudes\/r-14\/mecanico\/r-14$/);
+    await expect(preview).toHaveCount(0);
+    await page.goBack();
+    await expect(page).toHaveURL(/#\/solicitudes$/);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Solicitudes');
+    // Inside Solicitudes: no Hub, Solicitudes selected.
+    await expect(page.getByTestId('pending-pill')).toHaveCount(0);
+    await expect(nav.getByRole('link', { name: 'Solicitudes' })).toHaveAttribute('aria-current', 'page');
+    // "Ver todas las solicitudes" and the main area both open the list.
+    await nav.getByRole('link', { name: 'Inicio' }).click();
+    await toggle.click();
+    await preview.getByTestId('pending-all').click();
+    await expect(page).toHaveURL(/#\/solicitudes$/);
+    await nav.getByRole('link', { name: 'Mecánicos' }).click();
+    await main.click();
+    await expect(page).toHaveURL(/#\/solicitudes$/);
+    // Escape and navigation close the preview.
+    await nav.getByRole('link', { name: 'Inicio' }).click();
+    await toggle.click();
+    await page.keyboard.press('Escape');
+    await expect(preview).toHaveCount(0);
+
+    // Several pending actions in different categories: plural, one row each, grouped.
+    await freshDemo(page, 'u-pablo');
+    await page.evaluate(() => {
+      const db = JSON.parse(localStorage.getItem('cromiqa:demo:db')!);
+      for (const r of db.requests) if (r.caseId === 'r-04') r.ownerId = 'u-pablo'; // Diego's date proposal, now Pablo's
+      localStorage.setItem('cromiqa:demo:db', JSON.stringify(db));
+    });
+    await page.reload();
+    await expect(main).toHaveText('2 pendientes');
+    await toggle.click();
+    await expect(preview.getByTestId('pending-item')).toHaveCount(2);
+    await expect(preview.getByTestId('pending-item').nth(0)).toContainText('Cita');
+    await expect(preview.getByTestId('pending-item').nth(1)).toContainText('Presupuestos');
+    await expect(preview.getByTestId('pending-item').nth(1)).toContainText('2 propuestas para comparar');
+    await page.keyboard.press('Escape');
+
+    // Narrow phone: the pill and its chevron fit inside the screen.
+    await page.setViewportSize({ width: 320, height: 640 });
+    await expect.poll(async () => {
+      const t = await toggle.boundingBox();
+      return t ? t.x + t.width <= 320 - 12 : false;
+    }).toBe(true);
+    await toggle.click();
+    await expect(preview).toBeInViewport();
+
+    // Doing the last pending action brings the + back.
+    await page.setViewportSize({ width: 390, height: 760 });
+    await freshDemo(page, 'u-ana');
+    await page.goto('./#/solicitudes/r-14/mecanico/r-14');
+    await page.getByRole('button', { name: 'Confirmar que está terminado' }).click();
+    await expect(page.getByRole('button', { name: 'Confirmar que está terminado' })).toHaveCount(0);
+    await page.goto('./#/');
+    await expect(page.getByTestId('pending-pill')).toHaveCount(0);
+    await expect(page.getByTestId('new-request-fab')).toBeVisible();
   });
 
   test('tabs remember their state, and back works from a direct link', async ({ page }) => {

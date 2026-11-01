@@ -8,8 +8,8 @@ import { useOwnerActivity } from '@/state/activity';
 import { useNavUi } from '@/state/ui';
 import { Avatar, Toaster, cx } from '@/components/ui';
 import { AccountSwitcherDialog } from './AccountSwitcher';
-import { FloatingRequestHub, HeaderRequestChip, NewRequestPill, RequestHubOverlay, useHubItems, useReducedMotion } from '@/components/hub/RequestHub';
-import type { HubItem } from '@/domain/logic/hub';
+import { HeaderRequestChip, NewRequestPill, PendingPill, PendingPreview, RequestHubOverlay, useHubItems, usePendingActions, useReducedMotion } from '@/components/hub/RequestHub';
+import type { CyclistAttention } from '@/domain/logic/home';
 import { useMode, useModeStore } from '@/state/mode';
 import { modeOfPath, type AppMode } from '@/domain/logic/modes';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -242,53 +242,79 @@ const MORPH_EASE = 'cubic-bezier(.4,0,.2,1)';
 
 /**
  * The phone dock: one white bar with the three tabs.
- *  · Outside Solicitudes, active requests: the Solicitudes tab stretches into a lime capsule,
- *    the Request Hub (its icon + message + "+N" + chevron), and the bar takes the full width.
- *  · Outside Solicitudes, nothing active: the bar hugs its tabs and a separate round + sits right.
+ *  · Outside Solicitudes, something pending: the Solicitudes tab stretches into a lime pill,
+ *    "N pendientes" (opens Solicitudes) + a chevron (opens "Pendiente de ti" above the bar).
+ *  · Outside Solicitudes, nothing pending: the bar hugs its tabs and a separate round + sits right.
  *  · Inside Solicitudes: just the tabs, Solicitudes selected.
- * The capsule grows out of the Solicitudes circle and shrinks back into it. Reduced motion: instant.
+ * The pill grows out of the Solicitudes circle and shrinks back into it. Reduced motion: instant.
  */
 function OwnerBottomNav({ tabHref, condensed, expand }: { tabHref: (t: OwnerTab) => string; condensed: boolean; expand: () => void }) {
   const { pathname } = useLocation();
-  const items = useHubItems();
+  const pending = usePendingActions();
   const reduced = useReducedMotion();
   const onRequests = OWNER_TABS.find((t) => t.id === 'solicitudes')!.owns(pathname);
-  const wantHub = !onRequests && items.length > 0 && !condensed;
-  // The capsule stays mounted while it shrinks back into the tab.
-  const [hubMounted, setHubMounted] = useState(wantHub);
-  const lastItems = useRef<HubItem[]>(items);
-  if (items.length) lastItems.current = items;
-  const hubRef = useRef<HTMLButtonElement>(null);
+  const wantPill = !onRequests && pending.length > 0 && !condensed;
+  // The pill stays mounted while it shrinks back into the tab.
+  const [pillMounted, setPillMounted] = useState(wantPill);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const lastPending = useRef<CyclistAttention[]>(pending);
+  if (pending.length) lastPending.current = pending;
+  const shown = pending.length ? pending : lastPending.current;
+  const pillRef = useRef<HTMLDivElement>(null);
   const plusRef = useRef<HTMLButtonElement>(null);
-  const showPlus = !onRequests && !items.length;
+  const dockRef = useRef<HTMLDivElement>(null);
+  const [pillW, setPillW] = useState(196);
+  const showPlus = !onRequests && !pending.length;
 
   useLayoutEffect(() => {
-    if (wantHub) setHubMounted(true);
-  }, [wantHub]);
+    if (wantPill) setPillMounted(true);
+  }, [wantPill]);
+  // The preview closes on navigation, when the pill goes away, on Escape and on a tap outside.
+  useEffect(() => setPreviewOpen(false), [pathname]);
+  useEffect(() => {
+    if (!wantPill) setPreviewOpen(false);
+  }, [wantPill]);
+  useEffect(() => {
+    if (!previewOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setPreviewOpen(false);
+    const onDown = (e: PointerEvent) => !dockRef.current?.contains(e.target as Node) && setPreviewOpen(false);
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('pointerdown', onDown);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.removeEventListener('pointerdown', onDown);
+    };
+  }, [previewOpen]);
 
-  // The bar's width does the stretching (CSS); the capsule fades its lime and text in/out.
+  // The bar is exactly as wide as the tabs plus the pill (whose label length varies).
   useLayoutEffect(() => {
-    const hub = hubRef.current;
-    if (!hubMounted || !hub) return;
-    const content = hub.querySelector<HTMLElement>('[data-hub-content]');
-    if (reduced || typeof hub.animate !== 'function') {
-      if (!wantHub) setHubMounted(false);
+    if (pillRef.current) setPillW(pillRef.current.scrollWidth);
+  }, [pillMounted, shown.length]);
+
+  // The bar's width does the stretching (CSS); the pill fades its lime and label in/out.
+  useLayoutEffect(() => {
+    const pill = pillRef.current;
+    if (!pillMounted || !pill) return;
+    if (reduced || typeof pill.animate !== 'function') {
+      if (!wantPill) setPillMounted(false);
       return;
     }
+    const content = Array.from(pill.querySelectorAll<HTMLElement>('[data-hub-content]'));
     const opts = { duration: MORPH_MS, easing: MORPH_EASE, fill: 'both' as const };
+    const lime = (a: number) => ({ backgroundColor: `rgb(200 255 46 / ${a})` });
     const anims: Animation[] = [];
-    if (wantHub) {
-      anims.push(hub.animate([{ backgroundColor: 'rgb(200 255 46 / 0)' }, { backgroundColor: 'rgb(200 255 46 / 1)', offset: 0.4 }, { backgroundColor: 'rgb(200 255 46 / 1)' }], opts));
-      if (content) anims.push(content.animate([{ opacity: 0 }, { opacity: 0, offset: 0.4 }, { opacity: 1 }], opts));
+    if (wantPill) {
+      anims.push(pill.animate([lime(0), { ...lime(1), offset: 0.4 }, lime(1)], opts));
+      content.forEach((c) => anims.push(c.animate([{ opacity: 0 }, { opacity: 0, offset: 0.4 }, { opacity: 1 }], opts)));
       anims[0]!.onfinish = () => anims.forEach((x) => x.cancel());
     } else {
-      if (content) anims.push(content.animate([{ opacity: 1 }, { opacity: 0, offset: 0.4 }, { opacity: 0 }], opts));
-      const fade = hub.animate([{ backgroundColor: 'rgb(200 255 46 / 1)' }, { backgroundColor: 'rgb(200 255 46 / 1)', offset: 0.6 }, { backgroundColor: 'rgb(200 255 46 / 0)' }], opts);
+      content.forEach((c) => anims.push(c.animate([{ opacity: 1 }, { opacity: 0, offset: 0.4 }, { opacity: 0 }], opts)));
+      const fade = pill.animate([lime(1), { ...lime(1), offset: 0.6 }, lime(0)], opts);
       anims.push(fade);
-      fade.onfinish = () => setHubMounted(false);
+      fade.onfinish = () => setPillMounted(false);
     }
     return () => anims.forEach((x) => x.cancel());
-  }, [wantHub, hubMounted, reduced]);
+  }, [wantPill, pillMounted, reduced]);
 
   // The + fades in when it appears.
   useLayoutEffect(() => {
@@ -298,13 +324,20 @@ function OwnerBottomNav({ tabHref, condensed, expand }: { tabHref: (t: OwnerTab)
     return () => a.cancel();
   }, [showPlus, reduced]);
 
-  const width = condensed ? '64px' : wantHub ? '100%' : `${NAV_W}px`;
+  const pillLeft = PILL_PAD + 2 * TAB_W;
+  const width = condensed ? 64 : wantPill ? pillLeft + pillW + PILL_PAD : NAV_W;
   const current = OWNER_TABS.find((t) => t.owns(pathname));
   const CurrentIcon = current?.icon ?? Menu;
 
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(12px,env(safe-area-inset-bottom))] md:hidden">
-      <div className="relative mx-auto h-16 max-w-[380px]" data-testid="dock" data-state={wantHub ? 'hub' : showPlus ? 'new' : 'none'}>
+      <div ref={dockRef} className="relative mx-auto h-16 max-w-[380px]" data-testid="dock" data-state={wantPill ? 'pending' : showPlus ? 'new' : 'none'}>
+        {/* "Pendiente de ti": above the bar, as part of it (not a modal). */}
+        {previewOpen && wantPill && (
+          <div className="cq-sheet-up absolute inset-x-0 bottom-[calc(100%+10px)] origin-bottom">
+            <PendingPreview items={pending} onClose={() => setPreviewOpen(false)} />
+          </div>
+        )}
         <div
           className="float-pill pointer-events-auto absolute left-0 top-0 h-16 overflow-hidden rounded-full transition-[width] ease-[cubic-bezier(.4,0,.2,1)] motion-reduce:transition-none"
           style={{ width, maxWidth: '100%', transitionDuration: `${MORPH_MS}ms` }}
@@ -314,13 +347,15 @@ function OwnerBottomNav({ tabHref, condensed, expand }: { tabHref: (t: OwnerTab)
             tabs={OWNER_TABS.map((t) => ({ key: t.id, to: tabHref(t), label: t.label, icon: t.icon, active: t.owns(pathname), state: { tab: true } }))}
             hidden={condensed}
           />
-          {/* The Request Hub: the Solicitudes tab, stretched (it covers that tab, from its circle to the bar's end). */}
-          {hubMounted && (
-            <FloatingRequestHub
-              items={items.length ? items : lastItems.current}
-              hubRef={hubRef}
-              className="absolute bottom-1 right-1 top-1"
-              style={{ left: PILL_PAD + 2 * TAB_W }}
+          {/* The Solicitudes tab, stretched: covers that tab from its circle to the bar's end. */}
+          {pillMounted && (
+            <PendingPill
+              count={shown.length}
+              open={previewOpen}
+              onToggle={() => setPreviewOpen((o) => !o)}
+              pillRef={pillRef}
+              className="absolute bottom-1 top-1 w-max"
+              style={{ left: pillLeft }}
             />
           )}
           {/* Condensed: one circle with the current section; tapping it opens the bar again. */}

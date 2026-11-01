@@ -6,7 +6,7 @@ import { bikeTypeLabel, categoryLabel, locationShort, specializationLabel } from
 import { currentProposal } from '@/domain/logic/requests';
 import { searchMechanics, type MechanicResult } from '@/domain/logic/search';
 import { caseHref, caseStatus, groupCases, threadHref } from '@/domain/logic/cases';
-import { cyclistAttention, upcomingAppointments, type CyclistAttention } from '@/domain/logic/home';
+import { attentionHref, cyclistAttention, upcomingAppointments, type CyclistAttention } from '@/domain/logic/home';
 import { formatDate, formatPrice, toISODate } from '@/domain/utils';
 import { useApp } from '@/state/store';
 import { useCurrentUser, useOwnerBikes, useRequestsFor } from '@/state/selectors';
@@ -86,7 +86,7 @@ function AttentionRow({ item, mechanicName }: { item: CyclistAttention; mechanic
   const urgent = item.kind !== 'review' && item.kind !== 'declined';
   return (
     <li>
-      <Link to={content.to} className="flex items-center gap-3 py-3 hover:opacity-80" data-testid={`attention-${item.kind}`}>
+      <Link to={attentionHref(item)} className="flex items-center gap-3 py-3 hover:opacity-80" data-testid={`attention-${item.kind}`}>
         <span className={cx('size-2.5 shrink-0 rounded-full', urgent ? 'bg-lime ring-2 ring-ink' : 'bg-line-strong')} aria-hidden />
         <span className="min-w-0 flex-1">
           <span className="block font-semibold leading-snug">{content.title}</span>

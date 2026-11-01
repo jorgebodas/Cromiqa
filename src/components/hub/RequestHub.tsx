@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type Ref } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ArrowRight, ChevronLeft, ClipboardList, Loader2, Plus, Send, X } from 'lucide-react';
+import { ArrowRight, CalendarClock, ChevronDown, ChevronLeft, ChevronRight, CircleCheck, ClipboardList, Loader2, MessageCircle, Plus, ReceiptText, Send, TriangleAlert, UserSearch, X } from 'lucide-react';
 import { HubActionContext, type HubActionApi, type HubPrimaryMeta } from './hubAction';
 import { categoryLabel } from '@/domain/catalog';
 import { hubItems, type HubItem } from '@/domain/logic/hub';
+import { attentionHref, cyclistAttention, type CyclistAttention, type CyclistAttentionKind } from '@/domain/logic/home';
 import { useApp } from '@/state/store';
 import { useCurrentUser, useRequestsFor } from '@/state/selectors';
 import { useMode } from '@/state/mode';
@@ -130,37 +131,150 @@ function useOpenChip() {
 }
 
 /**
- * The Request Hub, inside the floating bar: the Solicitudes tab stretched into a lime capsule
- * with its icon and one message for the most important request. Tapping it opens Solicitudes. (With nothing active: a separate +.)
+ * What only the cyclist can move forward right now: the same items as Home's "Requiere tu
+ * atención" (one source of truth), minus reviews of finished services. One entry per action.
  */
-export function FloatingRequestHub({ items, className, style, hubRef }: { items: HubItem[]; className?: string; style?: CSSProperties; hubRef?: Ref<HTMLButtonElement> }) {
-  const open = useOpenChip();
-  const { top, spoken } = chipText(items);
+export function usePendingActions(): CyclistAttention[] {
+  const user = useCurrentUser();
+  const mode = useMode();
+  const requests = useRequestsFor({ ownerId: user && mode === 'cyclist' ? user.id : '__none__' });
+  const reviews = useApp((s) => s.db.reviews);
+  return useMemo(() => cyclistAttention(requests, reviews).filter((i) => i.kind !== 'review'), [requests, reviews]);
+}
+
+export const pendingLabel = (n: number) => `${n} ${n === 1 ? 'pendiente' : 'pendientes'}`;
+
+/**
+ * The Solicitudes tab, stretched into a lime pill when something needs the cyclist. Two zones:
+ * icon + "N pendientes" opens Solicitudes; the chevron opens or closes the preview.
+ */
+export function PendingPill({
+  count,
+  open,
+  onToggle,
+  className,
+  style,
+  pillRef,
+}: {
+  count: number;
+  open: boolean;
+  onToggle: () => void;
+  className?: string;
+  style?: CSSProperties;
+  pillRef?: Ref<HTMLDivElement>;
+}) {
+  const navigate = useNavigate();
   return (
-    <button
-      ref={hubRef}
-      type="button"
-      onClick={open}
-      aria-label={spoken}
-      className={cx('pointer-events-auto flex min-w-0 items-center gap-1.5 overflow-hidden rounded-full bg-lime pr-3 text-left text-ink', className)}
-      style={style}
-      data-testid="request-hub-chip"
-      data-state={items.length > 1 ? 'multiple' : 'single'}
-      data-situation={top.quick.situation}
-    >
-      {/* The Solicitudes icon, in the same place as the tab it grew out of. */}
-      <span className="flex size-14 shrink-0 items-center justify-center" aria-hidden>
-        <ClipboardList className="size-[26px]" strokeWidth={2} />
-      </span>
-      {/* Just the message: the other active requests are in the accessible name and in Solicitudes. */}
-      <span className="flex min-w-0 flex-1 items-center gap-1.5 pr-2" data-hub-content>
-        <Marquee
-          text={top.label}
-          className={cx('flex-1 font-display text-[15px] leading-tight tracking-[-0.01em]', top.pending ? 'font-bold text-ink' : 'font-semibold text-ink/75')}
-          wrapClassName="text-[12px] leading-[1.2]"
-        />
-      </span>
-    </button>
+    <div ref={pillRef} className={cx('pointer-events-auto flex items-center overflow-hidden rounded-full bg-lime text-ink', className)} style={style} data-testid="pending-pill">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          navigate('/solicitudes');
+        }}
+        aria-label={`${pendingLabel(count)}. Abrir solicitudes`}
+        className="flex h-full min-w-0 items-center gap-1 rounded-full pr-1 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink max-[359px]:pl-4"
+        data-testid="pending-main"
+      >
+        {/* Narrow phones: no room for the icon; the count says what it is. */}
+        <span className="flex size-14 shrink-0 items-center justify-center max-[359px]:hidden" aria-hidden>
+          <ClipboardList className="size-[26px]" strokeWidth={2} />
+        </span>
+        <span className="whitespace-nowrap font-display text-[15px] font-bold tracking-[-0.01em]" data-hub-content>
+          {pendingLabel(count)}
+        </span>
+      </button>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggle();
+        }}
+        aria-label={open ? 'Ocultar lo pendiente' : 'Ver lo pendiente'}
+        aria-expanded={open}
+        aria-controls="pending-preview"
+        className="flex h-full w-11 shrink-0 items-center justify-center rounded-full focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink max-[359px]:w-10"
+        data-testid="pending-toggle"
+      >
+        <ChevronDown className={cx('size-5 transition-transform duration-200', open && 'rotate-180')} strokeWidth={2.4} aria-hidden data-hub-content />
+      </button>
+    </div>
+  );
+}
+
+const PENDING_KIND: Record<Exclude<CyclistAttentionKind, 'review'>, { title: string; icon: typeof ClipboardList }> = {
+  incident: { title: 'Incidencia', icon: TriangleAlert },
+  confirm: { title: 'Servicio terminado', icon: CircleCheck },
+  appointment: { title: 'Cita', icon: CalendarClock },
+  proposal: { title: 'Presupuestos', icon: ReceiptText },
+  declined: { title: 'Mecánicos', icon: UserSearch },
+  clarify: { title: 'Mensajes', icon: MessageCircle },
+};
+
+/** One pending action, in a few words. */
+function pendingText(item: CyclistAttention, mechanic: string): string {
+  const r = item.request;
+  switch (item.kind) {
+    case 'proposal':
+      return item.count && item.count > 1 ? `${item.count} propuestas para comparar` : `Nuevo presupuesto de ${mechanic}`;
+    case 'appointment':
+      return r.appointment?.pending ? (r.appointment.confirmed ? 'Nueva fecha propuesta' : `${mechanic} propone una fecha`) : 'Elige fecha para el servicio';
+    case 'clarify':
+      return `${mechanic} te ha escrito`;
+    case 'confirm':
+      return item.closingSoon ? 'Confirma la entrega: se cierra en menos de 24 h' : 'Confirma que está bien o reporta un problema';
+    case 'incident':
+      return `Incidencia abierta con ${mechanic}`;
+    default:
+      return 'Nadie ha podido atenderte: invita a otros';
+  }
+}
+
+/**
+ * "Pendiente de ti": the cyclist's pending actions, most urgent first, grouped by kind, above
+ * the floating bar. Each row opens that request inside Solicitudes (back returns to the list).
+ */
+export function PendingPreview({ items, onClose }: { items: CyclistAttention[]; onClose: () => void }) {
+  const navigate = useNavigate();
+  const mechanics = useApp((s) => s.db.mechanics);
+  const name = (id: string) => mechanics.find((m) => m.id === id)?.name.split(' ')[0] ?? 'El mecánico';
+  // Grouped by kind, keeping the urgency order of each kind's first item.
+  const groups: CyclistAttention[] = [];
+  for (const kind of [...new Set(items.map((i) => i.kind))]) groups.push(...items.filter((i) => i.kind === kind));
+  const open = (to: string) => {
+    onClose();
+    // Through the list, so "back" from the request lands on Solicitudes (not where you were).
+    navigate('/solicitudes');
+    if (to !== '/solicitudes') navigate(to);
+  };
+  return (
+    <section id="pending-preview" aria-label="Pendiente de ti" className="pointer-events-auto rounded-[28px] bg-paper p-2 shadow-[0_0_0_1px_rgb(0_0_0/0.04),0_8px_24px_rgb(0_0_0/0.10),0_24px_48px_rgb(0_0_0/0.12)]" data-testid="pending-preview">
+      <h2 className="px-3 pb-1 pt-3 font-display text-[17px] font-bold tracking-tight">Pendiente de ti</h2>
+      <ul className="max-h-[min(52dvh,360px)] overflow-y-auto">
+        {groups.map((item) => {
+          const k = PENDING_KIND[item.kind as keyof typeof PENDING_KIND];
+          return (
+            <li key={`${item.kind}-${item.request.id}`}>
+              <button type="button" onClick={() => open(attentionHref(item))} className="flex w-full items-center gap-3 rounded-[20px] px-3 py-2.5 text-left hover:bg-canvas" data-testid="pending-item">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-lime/70" aria-hidden>
+                  <k.icon className="size-5" strokeWidth={2} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[15px] font-semibold leading-snug">{k.title}</span>
+                  <span className="line-clamp-2 text-sm leading-snug text-muted">
+                    {pendingText(item, name(item.request.mechanicId))} · {categoryLabel(item.request.category)}
+                  </span>
+                </span>
+                <ChevronRight className="size-4 shrink-0 text-muted" aria-hidden />
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      <button type="button" onClick={() => open('/solicitudes')} className="mt-1 flex h-12 w-full items-center justify-center rounded-[20px] text-[15px] font-semibold hover:bg-canvas" data-testid="pending-all">
+        Ver todas las solicitudes
+      </button>
+    </section>
   );
 }
 

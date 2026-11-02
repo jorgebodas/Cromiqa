@@ -144,7 +144,7 @@ export const isActiveService = (r: ServiceRequest) => ['confirmed', 'in_progress
  * because a quote was sent. It closes when the invitation is over.
  */
 export function chatUnlocked(r: ServiceRequest): boolean {
-  if (['cancelled', 'completed', 'not_selected'].includes(r.status)) return false;
+  if (['cancelled', 'completed'].includes(r.status)) return false;
   return Boolean(r.openProposal) || isHired(r);
 }
 
@@ -209,31 +209,20 @@ export function runScheduledTransitions(db: DemoDatabase, now = new Date()): Dem
   });
   if (!changed) return db;
   // The closure ends the cyclist's confirmation as an administrative closure, never as their acceptance.
-  const closedCases = requests.filter((r, i) => r !== db.requests[i]).map((r) => r.caseId);
-  return syncPendingActions({ ...db, requests, maintenance }, closedCases, { type: 'administrative_closure' }, now);
+  const closed = requests.filter((r, i) => r !== db.requests[i]).map((r) => r.id);
+  return syncPendingActions({ ...db, requests, maintenance }, closed, { type: 'administrative_closure' }, now);
 }
 
-/** All invitations of the same cyclist request. */
-export function caseThreads(db: Pick<DemoDatabase, 'requests'>, caseId: ID): ServiceRequest[] {
-  return db.requests.filter((r) => r.caseId === caseId);
-}
-
-/** One request = one mechanic: to ask another one, the cyclist starts another request. */
-export const MAX_RECIPIENTS_PER_SEND = 1;
 export const MAX_PHOTOS = 3;
 
 /** The request's own fields, independent of who receives it. */
 export function validateRequestInput(input: NewRequestInput, db: DemoDatabase): Record<string, string> {
   const errors: Record<string, string> = {};
-  const ids = new Set(input.mechanicIds);
-  if (ids.size === 0) errors.mechanicIds = 'Elige al menos un mecánico.';
-  else if (ids.size > MAX_RECIPIENTS_PER_SEND) errors.mechanicIds = 'Una solicitud va a un solo mecánico. Para consultar a otro, crea otra solicitud.';
-  for (const id of errors.mechanicIds ? [] : ids) {
-    const first = Object.values(validateForMechanic(input, id, db))[0];
-    if (first) {
-      errors.mechanicIds = first;
-      break;
-    }
+  // One request = one mechanic: to ask another one, the cyclist starts another request.
+  if (!input.mechanicId) errors.mechanicId = 'Elige un mecánico.';
+  else {
+    const first = Object.values(validateForMechanic(input, input.mechanicId, db))[0];
+    if (first) errors.mechanicId = first;
   }
   if (!db.users.some((u) => u.id === input.ownerId)) errors.ownerId = 'Elige una cuenta.';
   if (input.description.trim().length < 10) errors.description = 'Describe el problema con al menos 10 caracteres.';
@@ -283,7 +272,7 @@ export function createRequest(
   db: DemoDatabase,
   input: NewRequestInput,
   now = new Date(),
-): { db: DemoDatabase; requests: ServiceRequest[] } {
+): { db: DemoDatabase; request: ServiceRequest } {
   const errors = validateRequestInput(input, db);
   const first = Object.values(errors)[0];
   if (first) throw new DomainError(first);
@@ -310,10 +299,11 @@ export function createRequest(
   }
   const garageBike = bikeId ? bikes.find((b) => b.id === bikeId) : undefined;
 
-  const caseId = uid('case');
-  const base = {
-    caseId,
+  const request: ServiceRequest = {
+    id: uid('req'),
+    code: nextCode(db),
     ownerId: input.ownerId,
+    mechanicId: input.mechanicId,
     category: input.category,
     topic: input.topic,
     description: input.description.trim(),
@@ -326,59 +316,14 @@ export function createRequest(
     mode: input.mode,
     availability: input.availability,
     photos: input.photos?.length ? input.photos : undefined,
-  };
-  const requests = invitationsFor(db, base, [...new Set(input.mechanicIds)], now);
-  // A new request owes nobody anything yet (waiting is not a decision); synced for consistency.
-  return { db: syncPendingActions({ ...db, bikes, requests: [...requests, ...db.requests] }, requests.map((r) => r.caseId), { type: 'request_created' }, now), requests };
-}
-
-type CaseFields = Omit<ServiceRequest, 'id' | 'code' | 'mechanicId' | 'status' | 'proposals' | 'openProposal' | 'events' | 'createdAt' | 'updatedAt' | 'completionSummary'>;
-
-function invitationsFor(db: DemoDatabase, base: CaseFields, mechanicIds: ID[], now: Date): ServiceRequest[] {
-  let next = Number(nextCode(db).replace(/\D/g, ''));
-  return mechanicIds.map((mechanicId) => ({
-    ...base,
-    id: uid('req'),
-    code: `CRQ-${next++}`,
-    mechanicId,
-    status: 'sent' as const,
+    status: 'sent',
     proposals: [],
     events: [event('created', 'owner', now)],
     createdAt: now.toISOString(),
     updatedAt: now.toISOString(),
-  }));
-}
-
-/**
- * Invites more providers to an existing request, keeping earlier invitations and quotes.
- * Skips providers already invited; refuses once the request is hired or withdrawn.
- */
-export function inviteToCase(
-  db: DemoDatabase,
-  caseId: ID,
-  ownerId: ID,
-  mechanicIds: ID[],
-  now = new Date(),
-): { db: DemoDatabase; requests: ServiceRequest[] } {
-  const threads = caseThreads(db, caseId);
-  const first = threads[0];
-  if (!first || first.ownerId !== ownerId) throw new DomainError('No encontramos esta solicitud.');
-  // One request = one mechanic: another mechanic means another request.
-  if (threads.length + new Set(mechanicIds).size > MAX_RECIPIENTS_PER_SEND)
-    throw new DomainError('Una solicitud va a un solo mecánico. Para consultar a otro, crea otra solicitud.');
-  if (threads.some(isHired)) throw new DomainError('Esta solicitud ya tiene un servicio contratado.');
-  if (threads.every((r) => r.status === 'cancelled' && r.events.some((e) => e.type === 'cancelled_by_owner')))
-    throw new DomainError('Retiraste esta solicitud.');
-  const fresh = [...new Set(mechanicIds)].filter((id) => !threads.some((r) => r.mechanicId === id));
-  if (fresh.length === 0) throw new DomainError('Esos mecánicos ya tienen tu solicitud.');
-  if (fresh.length > MAX_RECIPIENTS_PER_SEND) throw new DomainError(`Puedes invitar a ${MAX_RECIPIENTS_PER_SEND} mecánicos como máximo cada vez.`);
-  for (const id of fresh) {
-    const err = Object.values(validateForMechanic(first, id, db))[0];
-    if (err) throw new DomainError(err);
-  }
-  const { id: _i, code: _c, mechanicId: _m, status: _s, proposals: _p, openProposal: _o, events: _e, createdAt: _ca, updatedAt: _u, completionSummary: _cs, ...base } = first;
-  const requests = invitationsFor(db, base, fresh, now);
-  return { db: syncPendingActions({ ...db, requests: [...requests, ...db.requests] }, requests.map((r) => r.caseId), { type: 'invited' }, now), requests };
+  };
+  // A new request owes nobody anything yet (waiting is not a decision); synced for consistency.
+  return { db: syncPendingActions({ ...db, bikes, requests: [request, ...db.requests] }, [request.id], { type: 'request_created' }, now), request };
 }
 
 export function validateProposal(p: ProposalInput, now = new Date()): Record<string, string> {
@@ -434,9 +379,6 @@ export function applyRequestAction(
     case 'accept_proposal':
     case 'reject_proposal': {
       const accepted = action.type === 'accept_proposal';
-      // One booking per request.
-      if (accepted && caseThreads(db, req.caseId).some((r) => r.id !== req.id && isHired(r)))
-        throw new DomainError('Ya contrataste otro mecánico para esta solicitud.');
       req.proposals = req.proposals.map((p) =>
         p.status === 'pending' ? { ...p, status: accepted ? 'accepted' : 'rejected', respondedAt: now.toISOString() } : p,
       );
@@ -515,23 +457,9 @@ export function applyRequestAction(
 
   if (action.type !== 'message') req.status = RULES[action.type].to ?? req.status;
   req = { ...req };
-  let requests = db.requests.map((r) => (r.id === requestId ? req : r));
-  // Hiring one provider closes the other invitations of the same request.
-  if (action.type === 'accept_proposal') {
-    requests = requests.map((r) =>
-      r.caseId === req.caseId && r.id !== req.id && !['cancelled', 'completed', 'not_selected'].includes(r.status)
-        ? {
-            ...r,
-            status: 'not_selected' as const,
-            proposals: r.proposals.map((p) => (p.status === 'pending' ? { ...p, status: 'not_selected' as const } : p)),
-            events: [...r.events, event('not_selected', 'owner', now)],
-            updatedAt: now.toISOString(),
-          }
-        : r,
-    );
-  }
+  const requests = db.requests.map((r) => (r.id === requestId ? req : r));
   // Every domain event updates the decisions people owe on this request (PendingActions).
-  const next = syncPendingActions({ ...db, maintenance, requests }, [req.caseId], { type: action.type, by: actor }, now);
+  const next = syncPendingActions({ ...db, maintenance, requests }, [req.id], { type: action.type, by: actor }, now);
   return { db: next, request: req };
 }
 

@@ -1,6 +1,6 @@
 import type { Bike, Mechanic, NewRequestInput, ID } from '@/domain/types';
 import { bikeTypeLabel } from '@/domain/catalog';
-import { MAX_PHOTOS, MAX_RECIPIENTS_PER_SEND } from '@/domain/logic/requests';
+import { MAX_PHOTOS } from '@/domain/logic/requests';
 import type { RequestDraft } from '@/state/store';
 
 export const STEP_TITLES = ['¿Qué le pasa?', 'Tu bici', 'Fotos', '¿Dónde?', '¿Cuándo?', 'Mecánicos', 'Revisión'] as const;
@@ -11,7 +11,7 @@ export const STEP = { need: 0, bike: 1, photos: 2, where: 3, when: 4, providers:
 export const LAST_STEP = STEP_TITLES.length - 1;
 
 export type DraftErrors = Partial<Record<
-  'category' | 'description' | 'photos' | 'bikeId' | 'type' | 'brand' | 'model' | 'location' | 'mode' | 'timeSlots' | 'owner' | 'preferredDate' | 'askingPrice' | 'mechanicIds',
+  'category' | 'description' | 'photos' | 'bikeId' | 'type' | 'brand' | 'model' | 'location' | 'mode' | 'timeSlots' | 'owner' | 'preferredDate' | 'askingPrice' | 'mechanicId',
   string
 >>;
 
@@ -58,8 +58,7 @@ export function validateStep(step: number, d: RequestDraft, m: Mechanic | undefi
       e.preferredDate = 'La fecha no puede estar en el pasado.';
   }
   if (step === STEP.providers) {
-    if (d.mechanicIds.length === 0) e.mechanicIds = 'Elige al menos un mecánico.';
-    else if (d.mechanicIds.length > MAX_RECIPIENTS_PER_SEND) e.mechanicIds = 'Elige un solo mecánico.';
+    if (!d.mechanicId) e.mechanicId = 'Elige al menos un mecánico.';
   }
   return e;
 }
@@ -80,7 +79,7 @@ export function draftToInput(d: RequestDraft, ownerId: ID, ownerBikes: Bike[]): 
   const garageBike = useGarage ? ownerBikes.find((b) => b.id === d.bikeId) : undefined;
   return {
     ownerId,
-    mechanicIds: d.mechanicIds,
+    mechanicId: d.mechanicId!,
     category: d.category!,
     topic: d.topic,
     description: d.description,

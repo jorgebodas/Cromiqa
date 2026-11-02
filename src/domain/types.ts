@@ -147,10 +147,7 @@ export interface MaintenanceRecord {
   cost?: number;
 }
 
-/**
- * Status of one invitation (a request sent to one provider). The cyclist's request is the
- * case grouping its invitations; its status is derived (see `domain/logic/cases.ts`).
- */
+/** Status of a request. One request = one mechanic: asking another mechanic is another request. */
 export type RequestStatus =
   | 'sent'
   | 'awaiting_proposal'
@@ -160,9 +157,7 @@ export type RequestStatus =
   /** The mechanic marked the work finished; waiting for the cyclist (or the 72 h closure). */
   | 'awaiting_completion'
   | 'completed'
-  | 'cancelled'
-  /** The cyclist hired another provider for this request. */
-  | 'not_selected';
+  | 'cancelled';
 
 export interface BikeSnapshot {
   type: BikeType;
@@ -190,8 +185,8 @@ export interface RequestAvailability {
   urgency?: RequestUrgency;
 }
 
-/** `withdrawn` also marks a version replaced by a revision; `not_selected` another quote won. */
-export type ProposalStatus = 'pending' | 'accepted' | 'rejected' | 'withdrawn' | 'not_selected';
+/** `withdrawn` also marks a version replaced by a revision. */
+export type ProposalStatus = 'pending' | 'accepted' | 'rejected' | 'withdrawn';
 
 export interface Proposal {
   id: ID;
@@ -217,7 +212,6 @@ export type RequestEventType =
   | 'rejected_by_mechanic'
   | 'open_proposal_sent'
   | 'proposal_revised'
-  | 'not_selected'
   | 'appointment_proposed'
   | 'appointment_confirmed'
   | 'work_finished'
@@ -274,8 +268,6 @@ export interface Incident {
 
 export interface ServiceRequest {
   id: ID;
-  /** The cyclist's request this invitation belongs to; shared by every invited provider. */
-  caseId: ID;
   code: string;
   ownerId: ID;
   mechanicId: ID;
@@ -289,7 +281,7 @@ export interface ServiceRequest {
   location: LocationId;
   mode: ServiceMode;
   availability: RequestAvailability;
-  /** Photos the cyclist attached (shared by every invitation of the request). */
+  /** Photos the cyclist attached. */
   photos?: string[];
   status: RequestStatus;
   /** Closed quotes, oldest first: each revision adds a version and withdraws the previous one. */
@@ -318,10 +310,8 @@ export type PendingActionStatus = 'pending' | 'resolved' | 'superseded';
  */
 export interface PendingAction {
   id: ID;
-  /** The cyclist's request (case) it belongs to. */
+  /** The request it belongs to (and where it's taken). */
   requestId: ID;
-  /** The invitation (one mechanic) it is about: where the action is taken. */
-  threadId: ID;
   /** Who owes it. */
   userId: ID;
   type: PendingActionType;
@@ -359,8 +349,8 @@ export interface NewRequestInput {
   ownerId: ID;
   /** The service picked on Home, if the request started there. */
   topic?: ServiceTopic;
-  /** The one provider the cyclist chose (one request = one mechanic). */
-  mechanicIds: ID[];
+  /** The mechanic the request goes to (one request = one mechanic). */
+  mechanicId: ID;
   category: ServiceCategory;
   description: string;
   bikeId?: ID;

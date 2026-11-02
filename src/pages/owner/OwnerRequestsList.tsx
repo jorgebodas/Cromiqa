@@ -4,7 +4,7 @@ import { ChevronRight, ClipboardList } from 'lucide-react';
 import type { ServiceRequest } from '@/domain/types';
 import { STATUSES, bikeLabel, serviceLabel } from '@/domain/catalog';
 import { currentProposal } from '@/domain/logic/requests';
-import { caseHref, caseStatus, groupCases, leadThread, type CaseStatus } from '@/domain/logic/cases';
+import { byLatest, requestHref, requestStage, type RequestStage } from '@/domain/logic/cases';
 import { attentionActionLabel, attentionFromActions, attentionHref, type CyclistAttention } from '@/domain/logic/home';
 import { formatPrice } from '@/domain/utils';
 import { useApp } from '@/state/store';
@@ -12,7 +12,7 @@ import { useCurrentUser, useRequestsFor } from '@/state/selectors';
 import { EmptyState, cx } from '@/components/ui';
 
 type View = 'activas' | 'completadas' | 'canceladas';
-const VIEWS: Record<View, CaseStatus[]> = {
+const VIEWS: Record<View, RequestStage[]> = {
   activas: ['searching', 'proposals_received', 'booked'],
   completadas: ['completed'],
   // Not a main tab: reached from the end of Completadas.
@@ -31,19 +31,18 @@ function statusText(r: ServiceRequest): string {
  * (the same ones the Request Hub counts) shows a lime dot, "Requiere tu atención" and what to
  * do instead of its status, and opens straight on that action. Finished ones are quieter.
  */
-function RequestCard({ threads, mechanicName, pending }: { threads: ServiceRequest[]; mechanicName: (id: string) => string; pending: CyclistAttention[] }) {
-  const lead = leadThread(threads);
-  const status = caseStatus(threads);
+function RequestCard({ request: lead, mechanicName, pending }: { request: ServiceRequest; mechanicName: (id: string) => string; pending: CyclistAttention[] }) {
+  const status = requestStage(lead);
   const quote = currentProposal(lead);
   const first = pending[0];
   const done = status === 'completed' || status === 'canceled' || status === 'unavailable';
   const showPrice = quote && quote.status !== 'withdrawn' && quote.status !== 'rejected' && !(lead.status === 'cancelled' && quote.status !== 'accepted');
   return (
     <Link
-      to={first ? attentionHref(first) : caseHref(lead)}
+      to={first ? attentionHref(first) : requestHref(lead)}
       className={cx('surface group flex items-center gap-3 px-5 py-4', first && '!shadow-[0_0_0_1.5px_var(--color-lime),var(--shadow-surface)]')}
       data-testid="case-card"
-      data-case-id={lead.caseId}
+      data-request-id={lead.id}
       data-attention={first ? 'true' : undefined}
     >
       <span className="min-w-0 flex-1">
@@ -80,21 +79,21 @@ export function OwnerRequestsList() {
   const view = (['activas', 'completadas', 'canceladas'].includes(params.get('estado') ?? '') ? params.get('estado') : 'activas') as View;
   const setView = (v: View) => setParams(v === 'activas' ? {} : { estado: v }, { replace: true });
 
-  const cases = useMemo(() => groupCases(requests).map((c) => ({ ...c, status: caseStatus(c.threads) })), [requests]);
+  const cases = useMemo(() => [...requests].sort(byLatest).map((r) => ({ request: r, status: requestStage(r) })), [requests]);
   // The cyclist's unresolved PendingActions (the Request Hub's), per request, most urgent first.
   const allRequests = useApp((s) => s.db.requests);
   const actions = useApp((s) => s.db.pendingActions);
-  const pendingByCase = useMemo(() => {
+  const pendingByRequest = useMemo(() => {
     const map = new Map<string, CyclistAttention[]>();
-    for (const a of attentionFromActions({ requests: allRequests, pendingActions: actions }, user.id)) map.set(a.request.caseId, [...(map.get(a.request.caseId) ?? []), a]);
+    for (const a of attentionFromActions({ requests: allRequests, pendingActions: actions }, user.id)) map.set(a.request.id, [...(map.get(a.request.id) ?? []), a]);
     return map;
   }, [allRequests, actions, user.id]);
   const count = (v: View) => cases.filter((c) => VIEWS[v].includes(c.status)).length;
   const visible = cases.filter((c) => VIEWS[view].includes(c.status));
   // Requests that need the cyclist go first, in the order of their most urgent action.
-  const urgency = [...pendingByCase.keys()];
-  const rank = (caseId: string) => (urgency.includes(caseId) ? urgency.indexOf(caseId) : urgency.length);
-  const sorted = [...visible].sort((a, b) => rank(a.caseId) - rank(b.caseId));
+  const urgency = [...pendingByRequest.keys()];
+  const rank = (id: string) => (urgency.includes(id) ? urgency.indexOf(id) : urgency.length);
+  const sorted = [...visible].sort((a, b) => rank(a.request.id) - rank(b.request.id));
 
   if (requests.length === 0)
     return <EmptyState icon={<ClipboardList className="size-6" />} title="Aún no tienes solicitudes" description="Pulsa + para pedir un servicio. Aquí verás su estado y la respuesta del mecánico." />;
@@ -132,8 +131,8 @@ export function OwnerRequestsList() {
       ) : (
         <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2">
           {sorted.map((c) => (
-            <li key={c.caseId}>
-              <RequestCard threads={c.threads} mechanicName={mechanicName} pending={pendingByCase.get(c.caseId) ?? []} />
+            <li key={c.request.id}>
+              <RequestCard request={c.request} mechanicName={mechanicName} pending={pendingByRequest.get(c.request.id) ?? []} />
             </li>
           ))}
         </ul>

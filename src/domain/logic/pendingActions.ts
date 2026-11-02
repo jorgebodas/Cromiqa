@@ -1,8 +1,8 @@
 // PendingAction lifecycle: the decisions a person owes on a request, as their own records.
 //
 // One place creates, resolves and supersedes them: `syncPendingActions`, called after every
-// domain event (`applyRequestAction`, a new request or invitation, the 72 h closure). For the
-// request (case) the event touched, it works out which decisions are owed now and reconciles
+// domain event (`applyRequestAction`, a new request, the 72 h closure). For the
+// request the event touched, it works out which decisions are owed now and reconciles
 // the stored records with that: a decision that appears creates an action; one that is no
 // longer owed is resolved, with the reason the event gives; one replaced by a newer version
 // (a revised quote, another date) is superseded and linked to its successor. Running it twice
@@ -15,7 +15,7 @@ import { uid } from '../utils';
 import { autoCloseAt, currentProposal, openIncident, type RequestAction } from './requests';
 
 /** What triggered a sync: a request action (and who did it), or a system event. */
-export type PendingCause = { type: RequestAction['type']; by: Role } | { type: 'request_created' | 'invited' | 'administrative_closure' | 'migration' };
+export type PendingCause = { type: RequestAction['type']; by: Role } | { type: 'request_created' | 'administrative_closure' | 'migration' };
 
 export const ACTION_PRIORITY: Record<PendingActionType, PendingAction['priority']> = {
   incident_response: 1,
@@ -25,76 +25,59 @@ export const ACTION_PRIORITY: Record<PendingActionType, PendingAction['priority'
   service_confirmation: 5,
 };
 
-type Owed = Pick<PendingAction, 'key' | 'type' | 'userId' | 'requestId' | 'threadId' | 'sourceEntityType' | 'sourceEntityId' | 'createdAt' | 'dueAt'>;
+type Owed = Pick<PendingAction, 'key' | 'type' | 'userId' | 'requestId' | 'sourceEntityType' | 'sourceEntityId' | 'createdAt' | 'dueAt'>;
 
 const lastBy = (r: ServiceRequest, by: Role, type: string, after: string) => r.events.some((e) => e.by === by && e.type === type && e.at > after);
 
-/** The decisions owed right now on one request (case), by whom. Pure, from the stored request. */
-export function owedActions(db: Pick<DemoDatabase, 'users'>, threads: ServiceRequest[]): Owed[] {
-  if (!threads.length) return [];
-  const caseId = threads[0]!.caseId;
-  const ownerId = threads[0]!.ownerId;
-  const mechanicUser = (mechanicId: ID) => db.users.find((u) => u.mechanicId === mechanicId)?.id;
+/** The decisions owed right now on one request, by whom. Pure, from the stored request. */
+export function owedActions(db: Pick<DemoDatabase, 'users'>, r: ServiceRequest): Owed[] {
   const owed: Owed[] = [];
+  const owner = r.ownerId;
+  const of = (o: Omit<Owed, 'requestId'>) => owed.push({ ...o, requestId: r.id });
 
-  // Quotes: every pending quote of the request is one comparison decision. A revision makes it a
-  // new decision (new terms to review), so the version count is part of its source.
-  const quotes = threads.filter((r) => r.status === 'proposal_received' && currentProposal(r)?.status === 'pending');
-  if (quotes.length) {
-    const revisions = threads.reduce((n, r) => n + r.events.filter((e) => e.type === 'proposal_revised').length, 0);
-    const newest = [...quotes].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0]!;
-    owed.push({
-      key: `quote:${caseId}`,
-      type: 'quote_decision',
-      userId: ownerId,
-      requestId: caseId,
-      threadId: newest.id,
-      sourceEntityType: 'proposal',
-      sourceEntityId: `${caseId}#v${revisions}`,
-      createdAt: quotes.map((r) => currentProposal(r)!.createdAt).sort()[0]!,
-    });
-  }
+  // The mechanic's quote: one decision. A revision is a new decision (new terms to review).
+  const quote = r.status === 'proposal_received' ? currentProposal(r) : undefined;
+  if (quote?.status === 'pending')
+    of({ key: `quote:${r.id}`, type: 'quote_decision', userId: owner, sourceEntityType: 'proposal', sourceEntityId: quote.id, createdAt: quote.createdAt });
 
-  for (const t of threads) {
-    // A date the mechanic proposed (first one or a change): the cyclist confirms or counters.
-    const p = t.status === 'confirmed' ? t.appointment?.pending : undefined;
-    if (p?.by === 'mechanic')
-      owed.push({ key: `appointment:${t.id}`, type: 'appointment_confirmation', userId: ownerId, requestId: caseId, threadId: t.id, sourceEntityType: 'appointment', sourceEntityId: `${t.id}@${p.at}:${p.date}T${p.time}`, createdAt: p.at });
+  // A date the mechanic proposed (first one or a change): the cyclist confirms or counters.
+  const p = r.status === 'confirmed' ? r.appointment?.pending : undefined;
+  if (p?.by === 'mechanic')
+    of({ key: `appointment:${r.id}`, type: 'appointment_confirmation', userId: owner, sourceEntityType: 'appointment', sourceEntityId: `${r.id}@${p.at}:${p.date}T${p.time}`, createdAt: p.at });
 
-    // A mechanic asked for specific information before quoting (open proposal), until the cyclist answers.
-    const o = t.status === 'awaiting_proposal' ? t.openProposal : undefined;
-    if (o && !lastBy(t, 'owner', 'message', o.createdAt))
-      owed.push({ key: `information:${t.id}`, type: 'information_required', userId: ownerId, requestId: caseId, threadId: t.id, sourceEntityType: 'open_proposal', sourceEntityId: `${t.id}@${o.createdAt}`, createdAt: o.createdAt });
+  // The mechanic asked for specific information before quoting (open proposal), until the cyclist answers.
+  const o = r.status === 'awaiting_proposal' ? r.openProposal : undefined;
+  if (o && !lastBy(r, 'owner', 'message', o.createdAt))
+    of({ key: `information:${r.id}`, type: 'information_required', userId: owner, sourceEntityType: 'open_proposal', sourceEntityId: `${r.id}@${o.createdAt}`, createdAt: o.createdAt });
 
-    // Incidents live on their own: whatever happens to the request (even a cancellation), the
-    // response is owed until the incident is formally resolved. Only the party who has to respond
-    // owes something: first the mechanic; once the mechanic has answered, the cyclist (who closes
-    // it formally when it's fixed).
-    const incident = openIncident(t);
-    if (incident) {
-      const answered = t.events.find((e) => e.by === 'mechanic' && e.type === 'message' && e.at > incident.openedAt);
-      const mech = mechanicUser(t.mechanicId);
-      if (!answered && mech)
-        owed.push({ key: `incident:${t.id}@${incident.openedAt}:mechanic`, type: 'incident_response', userId: mech, requestId: caseId, threadId: t.id, sourceEntityType: 'incident', sourceEntityId: `${t.id}@${incident.openedAt}`, createdAt: incident.openedAt });
-      if (answered)
-        owed.push({ key: `incident:${t.id}@${incident.openedAt}:owner`, type: 'incident_response', userId: ownerId, requestId: caseId, threadId: t.id, sourceEntityType: 'incident', sourceEntityId: `${t.id}@${incident.openedAt}`, createdAt: answered.at });
-    } else if (t.status === 'awaiting_completion') {
-      // Work marked finished (or an incident resolved since): the cyclist confirms or reports a problem.
-      const anchor = [t.finishedAt ?? t.updatedAt, ...(t.incidents ?? []).map((i) => i.resolvedAt ?? '')].sort().pop()!;
-      owed.push({ key: `service:${t.id}`, type: 'service_confirmation', userId: ownerId, requestId: caseId, threadId: t.id, sourceEntityType: 'completion', sourceEntityId: `${t.id}@${anchor}`, createdAt: anchor, dueAt: autoCloseAt(t)?.toISOString() });
-    }
+  // Incidents live on their own: whatever happens to the request (even a cancellation), the
+  // response is owed until the incident is formally resolved. Only the party who has to respond
+  // owes something: first the mechanic; once the mechanic has answered, the cyclist (who closes
+  // it formally when it's fixed).
+  const incident = openIncident(r);
+  if (incident) {
+    const answered = r.events.find((e) => e.by === 'mechanic' && e.type === 'message' && e.at > incident.openedAt);
+    const mech = db.users.find((u) => u.mechanicId === r.mechanicId)?.id;
+    if (!answered && mech)
+      of({ key: `incident:${r.id}@${incident.openedAt}:mechanic`, type: 'incident_response', userId: mech, sourceEntityType: 'incident', sourceEntityId: `${r.id}@${incident.openedAt}`, createdAt: incident.openedAt });
+    if (answered)
+      of({ key: `incident:${r.id}@${incident.openedAt}:owner`, type: 'incident_response', userId: owner, sourceEntityType: 'incident', sourceEntityId: `${r.id}@${incident.openedAt}`, createdAt: answered.at });
+  } else if (r.status === 'awaiting_completion') {
+    // Work marked finished (or an incident resolved since): the cyclist confirms or reports a problem.
+    const anchor = [r.finishedAt ?? r.updatedAt, ...(r.incidents ?? []).map((i) => i.resolvedAt ?? '')].sort().pop()!;
+    of({ key: `service:${r.id}`, type: 'service_confirmation', userId: owner, sourceEntityType: 'completion', sourceEntityId: `${r.id}@${anchor}`, createdAt: anchor, dueAt: autoCloseAt(r)?.toISOString() });
   }
   return owed;
 }
 
-/** Events that cancel the request (or an invitation of it). */
+/** Events that cancel the request. */
 const CANCELLATIONS: ReadonlySet<PendingCause['type']> = new Set(['cancel_by_owner', 'cancel_by_mechanic']);
 
 /** Why an action stopped being owed, from the event that ended it. Never "confirmed" by silence. */
 function resolutionReason(cause: PendingCause, a: PendingAction): string {
   switch (cause.type) {
     case 'accept_proposal':
-      return a.type === 'quote_decision' ? 'quote_accepted' : 'other_quote_accepted';
+      return a.type === 'quote_decision' ? 'quote_accepted' : 'no_longer_required';
     case 'reject_proposal':
       return 'quote_declined';
     case 'send_proposal':
@@ -126,23 +109,24 @@ function resolutionReason(cause: PendingCause, a: PendingAction): string {
 }
 
 /**
- * Reconcile the stored actions of the given requests (cases) with what is owed now. Called by
+ * Reconcile the stored actions of the given requests with what is owed now. Called by
  * every domain event; idempotent. Never touches other requests.
  */
-export function syncPendingActions(db: DemoDatabase, caseIds: Iterable<ID>, cause: PendingCause, now = new Date()): DemoDatabase {
+export function syncPendingActions(db: DemoDatabase, requestIds: Iterable<ID>, cause: PendingCause, now = new Date()): DemoDatabase {
   const at = now.toISOString();
   let actions = db.pendingActions ?? [];
   let changed = false;
-  for (const caseId of new Set(caseIds)) {
-    const owed = owedActions(db, db.requests.filter((r) => r.caseId === caseId));
-    const open = actions.filter((a) => a.requestId === caseId && a.status === 'pending');
+  for (const requestId of new Set(requestIds)) {
+    const request = db.requests.find((r) => r.id === requestId);
+    const owed = request ? owedActions(db, request) : [];
+    const open = actions.filter((a) => a.requestId === requestId && a.status === 'pending');
     const next: PendingAction[] = [];
     const updates = new Map<ID, PendingAction>();
     for (const o of owed) {
       const current = open.find((a) => a.key === o.key);
       if (current && current.sourceEntityId === o.sourceEntityId) {
-        // Same decision: keep it (refresh where it's taken and its deadline).
-        if (current.threadId !== o.threadId || current.dueAt !== o.dueAt) updates.set(current.id, { ...current, threadId: o.threadId, dueAt: o.dueAt });
+        // Same decision: keep it (refresh its deadline).
+        if (current.dueAt !== o.dueAt) updates.set(current.id, { ...current, dueAt: o.dueAt });
         continue;
       }
       const fresh: PendingAction = { ...o, id: uid('pa'), status: 'pending', priority: ACTION_PRIORITY[o.type] };
@@ -168,7 +152,7 @@ export function syncPendingActions(db: DemoDatabase, caseIds: Iterable<ID>, caus
 
 /** Migration / seeding: build the actions of every request from its stored state. */
 export function backfillPendingActions(db: DemoDatabase, now = new Date()): DemoDatabase {
-  return syncPendingActions({ ...db, pendingActions: db.pendingActions ?? [] }, db.requests.map((r) => r.caseId), { type: 'migration' }, now);
+  return syncPendingActions({ ...db, pendingActions: db.pendingActions ?? [] }, db.requests.map((r) => r.id), { type: 'migration' }, now);
 }
 
 /**

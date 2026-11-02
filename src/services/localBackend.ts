@@ -1,10 +1,9 @@
 import type { DemoDatabase } from '@/domain/types';
-import { addReview, applyRequestAction, createRequest, inviteToCase, runScheduledTransitions } from '@/domain/logic/requests';
+import { addReview, applyRequestAction, createRequest, runScheduledTransitions } from '@/domain/logic/requests';
 import { addBike, removeBike, updateBike, updateMechanic, updateUser } from '@/domain/logic/garage';
 import { approveProfessionalProfile, submitProfessionalProfile } from '@/domain/logic/onboarding';
 import { SEED_VERSION, createSeed } from '@/data/seed';
-import { backfillPendingActions } from '@/domain/logic/pendingActions';
-import { splitRequestsPerMechanic } from '@/data/migrations';
+import { toOneMechanicPerRequest } from '@/data/migrations';
 import type { CromiqaBackend } from './backend';
 import { storage } from './storage';
 
@@ -23,10 +22,9 @@ export class LocalBackend implements CromiqaBackend {
 
   private read(): DemoDatabase | null {
     let parsed = storage.getJSON<DemoDatabase>(DB_KEY);
-    // Migrations: v9 → v10 adds PendingActions (backfilled from the stored requests);
-    // v10 → v11 splits requests per mechanic. Same data, nothing reset.
-    if (parsed && parsed.version === 9 && Array.isArray(parsed.requests)) parsed = { ...backfillPendingActions(parsed, this.now()), version: 10 };
-    if (parsed && parsed.version === 10 && Array.isArray(parsed.requests)) parsed = { ...splitRequestsPerMechanic(parsed, this.now()), version: SEED_VERSION };
+    // Migrations (same data, nothing reset): v9 had no PendingActions; v9–v11 grouped
+    // invitations to several mechanics in one request. v12: one request = one mechanic.
+    if (parsed && [9, 10, 11].includes(parsed.version) && Array.isArray(parsed.requests)) parsed = { ...toOneMechanicPerRequest(parsed, this.now()), version: SEED_VERSION };
     if (!parsed || parsed.version !== SEED_VERSION || !Array.isArray(parsed.requests)) return null;
     // Time-based transitions (72 h closure) run on every read: idempotent and restart-safe.
     // Integration point: a real backend runs `runScheduledTransitions` from a server scheduler.
@@ -59,13 +57,7 @@ export class LocalBackend implements CromiqaBackend {
   createRequest: CromiqaBackend['createRequest'] = (input) =>
     this.commit((db) => {
       const r = createRequest(db, input, this.now());
-      return { db: r.db, result: r.requests };
-    });
-
-  inviteToCase: CromiqaBackend['inviteToCase'] = (caseId, ownerId, mechanicIds) =>
-    this.commit((db) => {
-      const r = inviteToCase(db, caseId, ownerId, mechanicIds, this.now());
-      return { db: r.db, result: r.requests };
+      return { db: r.db, result: r.request };
     });
 
   updateRequest: CromiqaBackend['updateRequest'] = (id, action, actor) =>

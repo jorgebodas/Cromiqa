@@ -48,7 +48,7 @@ const STEPS: { label: string; statuses: RequestStatus[] }[] = [
 
 /** Horizontal progress through the lifecycle. */
 export function StatusProgress({ status }: { status: RequestStatus }) {
-  if (status === 'cancelled' || status === 'not_selected') return null;
+  if (status === 'cancelled') return null;
   const current = STATUSES[status].step;
   return (
     <ol className="grid grid-cols-7 gap-1" aria-label="Progreso de la solicitud">

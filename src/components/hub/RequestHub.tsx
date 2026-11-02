@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowRight, CalendarClock, ChevronDown, ChevronLeft, ChevronRight, CircleCheck, ClipboardList, Loader2, MessageCircle, Plus, ReceiptText, Send, TriangleAlert, X } from 'lucide-react';
 import { HubActionContext, type HubActionApi, type HubPrimaryMeta } from './hubAction';
-import { categoryLabel } from '@/domain/catalog';
+import { serviceLabel } from '@/domain/catalog';
 import { hubItems, type HubItem } from '@/domain/logic/hub';
 import { attentionFromActions, attentionHref, type CyclistAttention } from '@/domain/logic/home';
 import { useApp } from '@/state/store';
@@ -113,7 +113,7 @@ export function Marquee({ text, className, wrapClassName }: { text: string; clas
 function chipText(items: HubItem[]) {
   const top = items[0]!;
   const others = items.length - 1;
-  const spoken = `${top.label} · ${categoryLabel(top.lead.category)}.${others ? ` ${others} ${others === 1 ? 'solicitud activa más' : 'solicitudes activas más'}.` : ''} ${others ? 'Abrir tus solicitudes' : 'Abrir'}`;
+  const spoken = `${top.label} · ${serviceLabel(top.request)}.${others ? ` ${others} ${others === 1 ? 'solicitud activa más' : 'solicitudes activas más'}.` : ''} ${others ? 'Abrir tus solicitudes' : 'Abrir'}`;
   return { top, others, spoken };
 }
 
@@ -210,7 +210,7 @@ function pendingText(item: CyclistAttention, mechanic: string): string {
     case 'appointment':
       return r.appointment?.pending ? (r.appointment.confirmed ? 'Nueva fecha propuesta' : `${mechanic} propone una fecha`) : 'Elige fecha para el servicio';
     case 'clarify':
-      return item.count && item.count > 1 ? `${item.count} mecánicos necesitan más información` : `${mechanic} necesita más información`;
+      return `${mechanic} necesita más información`;
     case 'confirm':
       return item.closingSoon ? 'Confirma la entrega: se cierra en menos de 24 h' : 'Confirma que está bien o reporta un problema';
     default:
@@ -249,7 +249,7 @@ export function PendingPreview({ items, onClose }: { items: CyclistAttention[]; 
                 <span className="min-w-0 flex-1">
                   <span className="block text-[15px] font-semibold leading-snug">{k.title}</span>
                   <span className="line-clamp-2 text-sm leading-snug text-muted">
-                    {pendingText(item, name(item.request.mechanicId))} · {categoryLabel(item.request.category)}
+                    {pendingText(item, name(item.request.mechanicId))} · {serviceLabel(item.request)}
                   </span>
                 </span>
                 <ChevronRight className="size-4 shrink-0 text-muted" aria-hidden />

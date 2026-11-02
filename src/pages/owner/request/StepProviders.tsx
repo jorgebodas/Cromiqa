@@ -82,7 +82,7 @@ export function StepProviders({
   }
 
   return (
-    <div className="space-y-6" id="field-mechanicIds" tabIndex={-1}>
+    <div className="space-y-6" id="field-mechanicId" tabIndex={-1}>
       <p className="text-[15px] text-muted">
         Elige un mecánico: recibirá tu solicitud y te responderá. Si quieres consultar a otro, crea otra solicitud.
       </p>

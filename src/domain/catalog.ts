@@ -241,13 +241,6 @@ export const STATUSES: Record<
     tone: 'positive',
     step: 3,
   },
-  not_selected: {
-    label: 'No seleccionada',
-    ownerHint: 'Contrataste a otro mecánico para esta solicitud.',
-    mechanicHint: 'El cliente eligió otra propuesta para esta solicitud.',
-    tone: 'neutral',
-    step: -1,
-  },
   in_progress: {
     label: 'En curso',
     ownerHint: 'El mecánico está trabajando en tu bici.',

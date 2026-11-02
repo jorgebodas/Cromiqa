@@ -90,7 +90,6 @@ export function ProposalCard({
     accepted: 'Aceptado',
     rejected: 'Rechazado',
     withdrawn: 'Ya no está vigente',
-    not_selected: 'No seleccionado',
   };
   return (
     <section
@@ -162,8 +161,6 @@ function eventText(e: RequestEvent, mechanicName: string, ownerName: string, req
       const p = request.proposals.find((x) => Math.abs(new Date(x.createdAt).getTime() - new Date(e.at).getTime()) < 6 * 3600_000);
       return { title: p ? `Presupuesto revisado: ${formatPrice(p.price)}` : 'Presupuesto revisado', body: e.text };
     }
-    case 'not_selected':
-      return { title: `${first(ownerName)} contrató a otro mecánico para esta solicitud` };
     case 'cancelled_by_mechanic':
       return { title: `${first(mechanicName)} canceló el servicio`, body: e.text };
     case 'appointment_proposed':
@@ -239,7 +236,7 @@ export function RequestTimeline({
       <h2 className="flex items-center gap-2 font-bold">
         <MessageSquare className="size-4" aria-hidden /> Actividad y mensajes
       </h2>
-      {!canMessage && !['cancelled', 'completed', 'not_selected'].includes(request.status) && (
+      {!canMessage && !['cancelled', 'completed'].includes(request.status) && (
         <p className="mt-3 rounded-2xl bg-canvas px-4 py-3 text-sm text-muted" data-testid="chat-locked">
           {viewer === 'owner'
             ? 'El chat se abre cuando aceptas un presupuesto, o antes si el mecánico te envía una propuesta abierta.'

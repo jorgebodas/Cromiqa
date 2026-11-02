@@ -17,8 +17,8 @@ import type {
 import { addDays, toISODate } from '@/domain/utils';
 import { stateProfiles, testWorkshops } from './testWorkshops';
 
-/** v10: PendingActions. v11: one request = one mechanic (older data is migrated on load). */
-export const SEED_VERSION = 11;
+/** v10: PendingActions. v11–v12: one request = one mechanic (older data is migrated on load). */
+export const SEED_VERSION = 12;
 
 const weekdays = (slots: WeeklyAvailability['slots'], days: number[]): WeeklyAvailability[] =>
   days.map((d) => ({ day: d as WeeklyAvailability['day'], slots }));
@@ -298,9 +298,8 @@ export function createSeed(now: Date = new Date()): DemoDatabase {
     durationMinutes,
   });
 
-  const req = (r: Omit<ServiceRequest, 'updatedAt' | 'caseId'> & { caseId?: string; status: RequestStatus }): ServiceRequest => ({
+  const req = (r: Omit<ServiceRequest, 'updatedAt'> & { status: RequestStatus }): ServiceRequest => ({
     ...r,
-    caseId: r.caseId ?? r.id,
     updatedAt: r.events[r.events.length - 1]?.at ?? r.createdAt,
   });
 
@@ -349,7 +348,7 @@ export function createSeed(now: Date = new Date()): DemoDatabase {
     }),
     // Same request, also sent to Nerea: two quotes to compare.
     req({
-      id: 'r-13', caseId: 'r-03', code: 'CRQ-1013', ownerId: 'u-pablo', mechanicId: 'm-nerea', category: 'inspection',
+      id: 'r-13', code: 'CRQ-1013', ownerId: 'u-pablo', mechanicId: 'm-nerea', category: 'inspection',
       description: 'Voy a comprar una MTB doble suspensión de segunda mano a un particular en Rivas. Quiero que alguien la revise antes de pagar.',
       bike: { type: 'mtb', brand: 'Giant', model: 'Trance 29 2', year: 2021, notes: 'Dice el vendedor que la horquilla tiene servicio reciente.' },
       inspection: { askingPrice: 1650, sellerLocation: 'Rivas-Vaciamadrid (centro)', listingReference: 'Anuncio en portal de segunda mano' },
@@ -563,8 +562,7 @@ export function createSeed(now: Date = new Date()): DemoDatabase {
     reviews,
     bikes,
     maintenance,
-    // One request = one mechanic: every invitation is its own request.
-    requests: [...requests, ...states.requests].map((r) => ({ ...r, caseId: r.id })),
+    requests: [...requests, ...states.requests],
   }, now);
 }
 

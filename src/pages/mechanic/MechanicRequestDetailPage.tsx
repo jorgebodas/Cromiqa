@@ -15,7 +15,7 @@ import { OpenProposalCard, ProposalCard, RequestSummary, RequestTimeline } from 
 import { Avatar, Button, Card, Dialog, EmptyState, Field, Input, LinkButton, Textarea } from '@/components/ui';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { isBooked } from './MechanicRequestsPage';
-import { threadHref } from '@/domain/logic/cases';
+import { requestHref } from '@/domain/logic/cases';
 
 const SLOT_TIME: Record<TimeSlot, string> = { morning: '10:00', afternoon: '17:00', evening: '19:30' };
 
@@ -228,7 +228,7 @@ function Inner() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
         <div className="min-w-0 space-y-6">
-          {request.status !== 'not_selected' && <OpenProposalCard request={request} mechanicName={mechanic.name} viewer="mechanic" />}
+          <OpenProposalCard request={request} mechanicName={mechanic.name} viewer="mechanic" />
 
           {answering && !composing && (
             <Card className="p-5 sm:p-6" data-testid="respond-options">
@@ -260,13 +260,7 @@ function Inner() {
           {lastRejected && (
             <div className="rounded-2xl bg-sand p-4 text-sm" data-testid="quote-rejected">
               <strong className="font-semibold">{ownerFirst} rechazó tu presupuesto</strong>
-              {rejectionReason ? `: “${rejectionReason}”` : '.'} Esta invitación queda cerrada.
-            </div>
-          )}
-
-          {request.status === 'not_selected' && (
-            <div className="rounded-2xl bg-sand p-4 text-sm" data-testid="not-selected">
-              <strong className="font-semibold">{ownerFirst} eligió a otro mecánico.</strong> Esta invitación queda cerrada; gracias por responder.
+              {rejectionReason ? `: “${rejectionReason}”` : '.'} La solicitud queda cerrada.
             </div>
           )}
 
@@ -360,7 +354,7 @@ function Inner() {
               block
               className="mt-3"
               icon={<Repeat className="size-4" aria-hidden />}
-              onClick={() => switchAccount(request.ownerId, { to: threadHref(request) })}
+              onClick={() => switchAccount(request.ownerId, { to: requestHref(request) })}
             >
               Ver como {ownerFirst}
             </Button>
@@ -374,7 +368,7 @@ function Inner() {
         title={dialog === 'reject' ? 'Rechazar solicitud' : dialog === 'cancel' ? 'Cancelar servicio' : 'Trabajo terminado'}
         description={
           dialog === 'reject'
-            ? `${ownerFirst} verá que no puedes atenderla. Solo se cierra tu invitación; su solicitud sigue abierta para otros mecánicos.`
+            ? `${ownerFirst} verá que no puedes atenderla y la solicitud se cerrará. Podrá pedírsela a otro mecánico.`
             : dialog === 'cancel'
               ? `${ownerFirst} verá el motivo. En la demo no hay penalización ni cargos.`
               : `Resume lo que has hecho. ${ownerFirst} podrá confirmarlo o reportar un problema; aparecerá en el historial de la bici.`

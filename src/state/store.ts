@@ -15,7 +15,7 @@ import type {
   ServiceRequest,
   TimeSlot,
   User, RequestUrgency } from '@/domain/types';
-import { canPerform, type RequestAction } from '@/domain/logic/requests';
+import type { RequestAction } from '@/domain/logic/requests';
 import { backend } from '@/services';
 import { storage } from '@/services/storage';
 import type { ProfessionalDraft } from '@/domain/logic/onboarding';
@@ -26,8 +26,8 @@ const SESSION_KEY = 'cromiqa:demo:session:v2';
 const DRAFT_KEY = 'cromiqa:demo:draft';
 
 export interface RequestDraft {
-  /** Providers the cyclist picked (1–5), confirmed on the review step. */
-  mechanicIds: ID[];
+  /** The mechanic the request goes to (one request = one mechanic), confirmed on the review step. */
+  mechanicId?: ID;
   /** Set when the request started from a provider's profile (mechanic-first). */
   originMechanicId?: ID;
   category?: ServiceCategory;
@@ -48,7 +48,6 @@ export interface RequestDraft {
 }
 
 export const emptyDraft = (): RequestDraft => ({
-  mechanicIds: [],
   description: '',
   bikeChoice: 'garage',
   bike: { brand: '', model: '', name: '', notes: '' },
@@ -77,10 +76,8 @@ interface AppState {
   setDraft(patch: Partial<RequestDraft>): void;
   resetDraft(patch?: Partial<RequestDraft>): void;
 
-  createRequest(input: NewRequestInput): Promise<ServiceRequest[]>;
-  inviteToCase(caseId: ID, mechanicIds: ID[]): Promise<ServiceRequest[]>;
+  createRequest(input: NewRequestInput): Promise<ServiceRequest>;
   /** Withdraws the whole request: every invitation not yet hired. */
-  withdrawCase(caseId: ID, reason?: string): Promise<void>;
   actOnRequest(requestId: ID, action: RequestAction): Promise<ServiceRequest>;
   addReview(requestId: ID, input: { rating: number; text: string }): Promise<void>;
   addBike(input: BikeInput): Promise<void>;
@@ -122,7 +119,12 @@ export const useApp = create<AppState>((set, get) => {
       const wanted = saved ? saved.userId : DEFAULT_TEST_USER;
       const sessionUserId = wanted && db.users.some((u) => u.id === wanted) ? wanted : null;
       const draft = { ...emptyDraft(), ...(storage.getJSON<RequestDraft>(DRAFT_KEY) ?? {}) };
-      if (!Array.isArray(draft.mechanicIds)) draft.mechanicIds = [];
+      // Drafts saved before one-request-one-mechanic kept a list: keep its first pick.
+      const legacy = (draft as { mechanicIds?: ID[] }).mechanicIds;
+      if (Array.isArray(legacy)) {
+        draft.mechanicId ??= legacy[0];
+        delete (draft as { mechanicIds?: ID[] }).mechanicIds;
+      }
       if (!Array.isArray(draft.photos)) draft.photos = [];
       set({ db, sessionUserId, draft, ready: true });
       // Keep time-based transitions (the 72 h closure) current while the app stays open.
@@ -151,24 +153,9 @@ export const useApp = create<AppState>((set, get) => {
     },
 
     async createRequest(input) {
-      const requests = await backend.createRequest(input);
+      const request = await backend.createRequest(input);
       await refresh();
-      return requests;
-    },
-
-    async inviteToCase(caseId, mechanicIds) {
-      const requests = await backend.inviteToCase(caseId, currentUser().id, mechanicIds);
-      await refresh();
-      return requests;
-    },
-
-    async withdrawCase(caseId, reason) {
-      const user = currentUser();
-      const open = get().db.requests.filter(
-        (r) => r.caseId === caseId && r.ownerId === user.id && canPerform(r, 'cancel_by_owner', 'owner') && !r.proposals.some((p) => p.status === 'accepted'),
-      );
-      for (const r of open) await backend.updateRequest(r.id, { type: 'cancel_by_owner', reason }, 'owner');
-      await refresh();
+      return request;
     },
 
     async actOnRequest(requestId, action) {

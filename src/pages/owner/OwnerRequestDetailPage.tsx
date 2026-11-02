@@ -3,7 +3,7 @@ import { Navigate, useParams } from 'react-router-dom';
 import { Bike, Check, CircleCheckBig, FlaskConical, Repeat, Star, X } from 'lucide-react';
 import { STATUSES } from '@/domain/catalog';
 import { canPerform, currentProposal, DomainError, type RequestAction } from '@/domain/logic/requests';
-import { caseHref, threadHref } from '@/domain/logic/cases';
+import { requestHref } from '@/domain/logic/cases';
 import { useApp } from '@/state/store';
 import { useCurrentUser, useMechanic, useRequest } from '@/state/selectors';
 import { RoleGate } from '@/components/layout/RoleGate';
@@ -66,9 +66,10 @@ function ReviewForm({ requestId, mechanicName }: { requestId: string; mechanicNa
 }
 
 function Inner() {
+  // `/solicitudes/:id`; older links (`…/mecanico/:threadId`) carry the request id last.
   const { id, threadId } = useParams();
   const user = useCurrentUser()!;
-  const request = useRequest(threadId);
+  const request = useRequest(threadId ?? id);
   const mechanic = useMechanic(request?.mechanicId);
   const actOnRequest = useApp((s) => s.actOnRequest);
   const toast = useApp((s) => s.toast);
@@ -94,7 +95,7 @@ function Inner() {
     );
   }
 
-  if (id !== request.caseId) return <Navigate to={threadHref(request)} replace />;
+  if (threadId) return <Navigate to={requestHref(request)} replace />;
 
   const run = async (action: RequestAction, success: string) => {
     setBusy(action.type);
@@ -118,7 +119,7 @@ function Inner() {
 
   return (
     <>
-      <ScreenHeader title={mechanic.name} back={caseHref(request)} />
+      <ScreenHeader title={mechanic.name} back="/solicitudes" />
       <div className="container-page pb-8 sm:pb-10">
       <header className="mb-8">
         <div className="flex flex-wrap items-center gap-3">
@@ -153,14 +154,7 @@ function Inner() {
             </ProposalCard>
           )}
 
-          {request.status === 'not_selected' && (
-            <div className="surface p-5" data-testid="not-selected">
-              <p className="font-bold">No seleccionado</p>
-              <p className="mt-1 text-sm text-muted">Contrataste a otro mecánico para esta solicitud, así que esta invitación se cerró.</p>
-            </div>
-          )}
-
-          {request.status !== 'not_selected' && <OpenProposalCard request={request} mechanicName={mechanic.name} />}
+          <OpenProposalCard request={request} mechanicName={mechanic.name} />
 
           {['confirmed', 'in_progress', 'awaiting_completion'].includes(request.status) && <AppointmentCard request={request} viewer="owner" otherName={mechanic.name} />}
 
@@ -258,7 +252,7 @@ function Inner() {
                 loading={busy === 'cancel_by_owner'}
                 onClick={() => {
                   if (request.status === 'confirmed' && !reason.trim()) return setReasonError('Indica el motivo.');
-                  run({ type: 'cancel_by_owner', reason: reason.trim() || undefined }, request.status === 'confirmed' ? 'Servicio cancelado' : 'Invitación cancelada');
+                  run({ type: 'cancel_by_owner', reason: reason.trim() || undefined }, request.status === 'confirmed' ? 'Servicio cancelado' : 'Solicitud cancelada');
                 }}
               >
                 {request.status === 'confirmed' ? 'Cancelar servicio' : 'Cancelar solicitud'}

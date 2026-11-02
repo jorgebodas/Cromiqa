@@ -121,9 +121,8 @@ export function stateProfiles(now: Date): { users: User[]; requests: ServiceRequ
     status,
     createdAt: iso(hoursAgo),
   });
-  const base = (id: string, code: number, ownerId: string, mechanicId: string, caseId = id) => ({
+  const base = (id: string, code: number, ownerId: string, mechanicId: string) => ({
     id,
-    caseId,
     code: `CRQ-${code}`,
     ownerId,
     mechanicId,
@@ -147,7 +146,7 @@ export function stateProfiles(now: Date): { users: User[]; requests: ServiceRequ
     // Bea: sent to Laura and Sergio, no answers yet.
     ...(['m-t2', 'm-t3'] as const).map((m, i) =>
       done({
-        ...base(`r-bea-${i}`, 2001 + i, 'u-bea', m, 'r-bea-0'),
+        ...base(`r-bea-${i}`, 2001 + i, 'u-bea', m),
         category: 'repair',
         description: 'Los cambios saltan en los piñones grandes.',
         bike: { type: 'mtb', brand: 'Orbea', model: 'Onna' },
@@ -165,7 +164,7 @@ export function stateProfiles(now: Date): { users: User[]; requests: ServiceRequ
       ] as const
     ).map(([m, price, msg], i) =>
       done({
-        ...base(`r-carla-${i}`, 2003 + i, 'u-carla', m, 'r-carla-0'),
+        ...base(`r-carla-${i}`, 2003 + i, 'u-carla', m),
         category: 'repair',
         description: 'El freno trasero apenas frena y chirría.',
         bike: { type: 'gravel', brand: 'Canyon', model: 'Grail' },

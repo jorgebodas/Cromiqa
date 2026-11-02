@@ -11,7 +11,7 @@ async function expectNoViolations(page: Page) {
   expect(summary).toEqual([]);
 }
 
-const CYCLIST = ['/', '/mecanicos', '/mecanicos/m-carlos', '/solicitudes', '/solicitudes/r-01', '/solicitudes/r-14/mecanico/r-14', '/solicitar', '/cuenta', '/garaje', '/actividad', '/pro/alta'];
+const CYCLIST = ['/', '/mecanicos', '/mecanicos/m-carlos', '/solicitudes', '/solicitudes/r-01', '/solicitudes/r-14', '/solicitar', '/cuenta', '/garaje', '/actividad', '/pro/alta'];
 const MECHANIC = ['/pro', '/pro/solicitudes', '/pro/solicitudes/r-01', '/pro/trabajos', '/pro/perfil', '/pro/servicios', '/pro/disponibilidad'];
 
 for (const path of CYCLIST) {

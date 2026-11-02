@@ -14,18 +14,18 @@ describe('request hub: one message per request, from the stored lifecycle', () =
     let db = createSeed(now);
     // One request = one mechanic: Bea's first request (to one mechanic) from start to finish.
     const a = forOwner(db, 'u-bea')[0]!.id;
-    const top = (when = now) => hubItems(forOwner(db, 'u-bea'), when).find((i) => i.caseId === a)!;
+    const top = (when = now) => hubItems(forOwner(db, 'u-bea'), when).find((i) => i.id === a)!;
     const act = (id: string, action: RequestAction, by: Role, at = now) => {
       db = applyRequestAction(db, id, action, by, at).db;
     };
     const expectTop = (situation: HubSituation, label: string, pending: boolean) => expect(top(), situation).toMatchObject({ label, pending, quick: { situation } });
 
-    expectTop('searching', 'Buscando mecánicos', false);
+    expectTop('searching', 'Esperando respuesta', false);
     act(a, { type: 'accept_for_review' }, 'mechanic');
-    expectTop('waiting_quotes', 'Esperando presupuestos', false);
+    expectTop('waiting_quotes', 'Esperando presupuesto', false);
     act(a, { type: 'send_open_proposal', message: '¿Es Shimano o SRAM?' }, 'mechanic');
     expectTop('message', 'Nuevo mensaje del mecánico', true);
-    expect(top().quick.href).toBe(`/solicitudes/${a}/mecanico/${a}`);
+    expect(top().quick.href).toBe(`/solicitudes/${a}`);
     act(a, { type: 'send_proposal', proposal: quote(40) }, 'mechanic');
     expectTop('quote', 'Nuevo presupuesto recibido', true);
     expect(top().quick.screen).toBe('compare');
@@ -56,7 +56,7 @@ describe('request hub: one message per request, from the stored lifecycle', () =
     // Nothing above executed anything on the cyclist's behalf: every change was an explicit action.
     act(a, { type: 'resolve_incident' }, 'owner');
     act(a, { type: 'confirm_completion' }, 'owner');
-    expect(hubItems(forOwner(db, 'u-bea'), now).some((i) => i.caseId === a)).toBe(false);
+    expect(hubItems(forOwner(db, 'u-bea'), now).some((i) => i.id === a)).toBe(false);
   });
 
   it('first date from the mechanic asks to confirm; every mechanic declining asks to choose another', () => {
@@ -64,7 +64,7 @@ describe('request hub: one message per request, from the stored lifecycle', () =
     expect(hubItems(forOwner(db, 'u-dani'), now)[0]).toMatchObject({ label: 'Confirma tu cita', quick: { situation: 'confirm_appointment', screen: 'appointment' } });
     for (const r of forOwner(db, 'u-bea')) db = applyRequestAction(db, r.id, { type: 'reject_request', reason: 'Sin hueco' }, 'mechanic', now).db;
     const item = hubItems(forOwner(db, 'u-bea'), now)[0]!;
-    expect(item).toMatchObject({ label: 'Elige un mecánico', pending: true, priority: 3, quick: { situation: 'choose_mechanic', href: `/solicitudes/${item.caseId}` } });
+    expect(item).toMatchObject({ label: 'Busca otro mecánico', pending: true, priority: 3, quick: { situation: 'choose_mechanic', href: `/solicitudes/${item.id}` } });
     // A week later it is no longer active.
     expect(hubItems(forOwner(db, 'u-bea'), new Date(now.getTime() + 8 * 24 * 3600_000))).toEqual([]);
   });
@@ -85,7 +85,7 @@ describe('request hub: one message per request, from the stored lifecycle', () =
       const firstWaiting = items.findIndex((i) => !i.pending);
       if (firstWaiting >= 0) expect(items.slice(firstWaiting).every((i) => !i.pending), u.id).toBe(true);
       // Sorted by the shared ranking.
-      expect([...items].sort(compareRanked).map((i) => i.caseId)).toEqual(items.map((i) => i.caseId));
+      expect([...items].sort(compareRanked).map((i) => i.id)).toEqual(items.map((i) => i.id));
     }
   });
 
@@ -105,7 +105,6 @@ describe('request hub: one message per request, from the stored lifecycle', () =
       new_date: 'appointment',
       confirm_appointment: 'appointment',
       propose_date: 'appointment',
-      quotes: 'proposal',
       quote: 'proposal',
       choose_mechanic: 'declined',
       message: 'clarify',
@@ -116,7 +115,7 @@ describe('request hub: one message per request, from the stored lifecycle', () =
       if (!top?.pending) continue;
       expect(home, u.id).toBeTruthy();
       expect(home!.kind, u.id).toBe(kindOf[top.quick.situation]);
-      expect(home!.request.caseId, u.id).toBe(top.caseId);
+      expect(home!.request.id, u.id).toBe(top.id);
     }
   });
 });
@@ -126,7 +125,7 @@ describe('test profiles: one cyclist per hub state', () => {
     const db = createSeed(now);
     const expected: Record<string, [string, string]> = {
       'u-test': ['', ''],
-      'u-bea': ['Buscando mecánicos', 'status'], // two requests (one per mechanic)
+      'u-bea': ['Esperando respuesta', 'status'], // two requests (one per mechanic)
       'u-carla': ['Nuevo presupuesto recibido', 'compare'], // two requests, one quote each
       'u-dani': ['Confirma tu cita', 'appointment'],
       'u-eva': ['Reparación en curso', 'tracking'],

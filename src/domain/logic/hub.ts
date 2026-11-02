@@ -1,8 +1,8 @@
 // The Request Hub: what the cyclist's floating control says about their active requests.
-// Everything is derived from the stored invitations (no invented progress), one item per
-// request, the ones that need the cyclist first.
-import type { ID, ServiceRequest } from '../types';
-import { caseHref, caseStatus, groupCases, leadThread, threadHref } from './cases';
+// Everything is derived from the stored requests (no invented progress), one item per request
+// (one request = one mechanic), the ones that need the cyclist first.
+import type { ServiceRequest } from '../types';
+import { requestHref, requestStage } from './cases';
 import { autoCloseReminderDue, currentProposal, openIncident } from './requests';
 
 /**
@@ -20,9 +20,8 @@ export type HubSituation =
   | 'new_date' // confirmed: the mechanic proposes a change or answers the cyclist's date
   | 'confirm_appointment' // confirmed: the mechanic proposes the first date
   | 'propose_date' // confirmed: hired, no date proposed yet
-  | 'quotes' // proposal_received ×2+
-  | 'quote' // proposal_received ×1
-  | 'choose_mechanic' // every invited mechanic declined (recently): invite others
+  | 'quote' // proposal_received
+  | 'choose_mechanic' // the mechanic declined (recently): ask another one with a new request
   | 'message' // awaiting_proposal with the mechanic's last word (open proposal or message)
   | 'in_progress' // in_progress
   | 'appointment_confirmed' // confirmed with an agreed date
@@ -38,7 +37,6 @@ export const SITUATION_RANK: Record<HubSituation, [HubPriority, number]> = {
   new_date: [2, 0],
   confirm_appointment: [2, 0],
   propose_date: [2, 0],
-  quotes: [3, 0],
   quote: [3, 0],
   choose_mechanic: [3, 1],
   message: [4, 0],
@@ -67,11 +65,8 @@ export function compareRanked(a: Ranked, b: Ranked): number {
 }
 
 export interface HubItem extends Ranked {
-  caseId: ID;
-  threads: ServiceRequest[];
-  /** The invitation that best represents the request (hired, best quote, newest). */
-  lead: ServiceRequest;
-  /** The chip's message: "2 presupuestos para comparar", "Nueva fecha propuesta"… */
+  request: ServiceRequest;
+  /** The chip's message: "Nuevo presupuesto recibido", "Nueva fecha propuesta"… */
   label: string;
   /** What to do, in a few words, when the cyclist has to act. */
   action?: string;
@@ -92,10 +87,8 @@ export interface QuickAction extends Ranked {
   /** What to do, in a few words, when the cyclist has to act. */
   action?: string;
   screen: QuickScreen;
-  /** Opened directly instead of the hub panel (the chat, the request page). */
+  /** Opened directly instead of the hub panel (the request page). */
   href?: string;
-  /** The invitation the screen is about (the hired one, or the lead). */
-  threadId: ID;
   priority: HubPriority;
   requiresAction: boolean;
 }
@@ -110,94 +103,76 @@ const SERVICE_NOUN: Record<ServiceRequest['category'], [string, string, string]>
 
 const lastEvent = (r: ServiceRequest) => r.events[r.events.length - 1];
 const DAY = 24 * 60 * 60 * 1000;
-const isLive = (r: ServiceRequest) => ['sent', 'awaiting_proposal', 'proposal_received', 'confirmed', 'in_progress', 'awaiting_completion', 'completed'].includes(r.status);
 
-/** A request every invited mechanic declined in the last week: the cyclist should invite others. */
-export function declinedRecently(threads: ServiceRequest[], now = new Date()): string | undefined {
-  const declines = threads.filter((r) => r.status === 'cancelled' && lastEvent(r)?.type === 'rejected_by_mechanic');
-  const at = declines.map((r) => lastEvent(r)!.at).sort().pop();
-  return at && !threads.some(isLive) && now.getTime() - new Date(at).getTime() < 7 * DAY ? at : undefined;
+/** The mechanic declined the request in the last week: the cyclist may ask another one. */
+export function declinedRecently(r: ServiceRequest, now = new Date()): string | undefined {
+  const last = lastEvent(r);
+  return r.status === 'cancelled' && last?.type === 'rejected_by_mechanic' && now.getTime() - new Date(last.at).getTime() < 7 * DAY ? last.at : undefined;
 }
 
 /**
  * The one place that decides a request's situation: its message, destination and priority.
- * Used by the collapsed chip, the hub panel and (through the same ranking) Home. It only points
- * to a screen; nothing is accepted, confirmed or closed on the cyclist's behalf.
+ * Used by the desktop chip and (through the same ranking) Home. It only points to a screen;
+ * nothing is accepted, confirmed or closed on the cyclist's behalf.
  */
-export function getRequestQuickAction(threads: ServiceRequest[], now = new Date()): QuickAction {
-  const lead = leadThread(threads);
-  const [noun, Noun, done] = SERVICE_NOUN[lead.category];
-  const make = (situation: HubSituation, q: { label: string; action?: string; screen: QuickScreen; href?: string; threadId?: ID; at: string; deadline?: boolean }): QuickAction => {
+export function getRequestQuickAction(r: ServiceRequest, now = new Date()): QuickAction {
+  const [noun, Noun, done] = SERVICE_NOUN[r.category];
+  const make = (situation: HubSituation, q: { label: string; action?: string; screen: QuickScreen; href?: string; at: string; deadline?: boolean }): QuickAction => {
     const [priority, order] = SITUATION_RANK[situation];
-    return { situation, ...q, threadId: q.threadId ?? lead.id, priority, order, requiresAction: priority <= 5 };
+    return { situation, ...q, priority, order, requiresAction: priority <= 5 };
   };
-  const hired = threads.find((r) => ['confirmed', 'in_progress', 'awaiting_completion'].includes(r.status));
-  if (hired?.status === 'awaiting_completion') {
-    const incident = openIncident(hired);
-    if (incident) return make('incident', { label: 'Incidencia pendiente', action: 'Sigue el problema con el mecánico', screen: 'incident', threadId: hired.id, at: incident.openedAt });
-    const at = hired.finishedAt ?? hired.updatedAt;
-    if (autoCloseReminderDue(hired, now))
-      return make('confirm_delivery', { label: 'Confirma la entrega', action: 'Se cerrará sola en menos de 24 h', screen: 'completion', threadId: hired.id, at, deadline: true });
-    return make('work_finished', { label: done, action: 'Confirma que está bien o reporta un problema', screen: 'completion', threadId: hired.id, at });
+  if (r.status === 'awaiting_completion') {
+    const incident = openIncident(r);
+    if (incident) return make('incident', { label: 'Incidencia pendiente', action: 'Sigue el problema con el mecánico', screen: 'incident', at: incident.openedAt });
+    const at = r.finishedAt ?? r.updatedAt;
+    if (autoCloseReminderDue(r, now)) return make('confirm_delivery', { label: 'Confirma la entrega', action: 'Se cerrará sola en menos de 24 h', screen: 'completion', at, deadline: true });
+    return make('work_finished', { label: done, action: 'Confirma que está bien o reporta un problema', screen: 'completion', at });
   }
-  if (hired?.status === 'confirmed') {
-    const a = hired.appointment;
+  if (r.status === 'confirmed') {
+    const a = r.appointment;
     if (a?.pending?.by === 'mechanic') {
       // A change of an agreed date, or an answer to the cyclist's own proposal: a new date.
-      const change = !!a.confirmed || hired.events.some((e) => e.type === 'appointment_proposed' && e.by === 'owner');
+      const change = !!a.confirmed || r.events.some((e) => e.type === 'appointment_proposed' && e.by === 'owner');
       return change
-        ? make('new_date', { label: 'Nueva fecha propuesta', action: 'Confirma la fecha o propón otra', screen: 'appointment', threadId: hired.id, at: a.pending.at })
-        : make('confirm_appointment', { label: 'Confirma tu cita', action: 'Confirma la fecha o propón otra', screen: 'appointment', threadId: hired.id, at: a.pending.at });
+        ? make('new_date', { label: 'Nueva fecha propuesta', action: 'Confirma la fecha o propón otra', screen: 'appointment', at: a.pending.at })
+        : make('confirm_appointment', { label: 'Confirma tu cita', action: 'Confirma la fecha o propón otra', screen: 'appointment', at: a.pending.at });
     }
-    if (!a?.confirmed && !a?.pending)
-      return make('propose_date', { label: `Elige fecha para ${noun}`, action: 'Propón una fecha al mecánico', screen: 'appointment', threadId: hired.id, at: hired.updatedAt });
+    if (!a?.confirmed && !a?.pending) return make('propose_date', { label: `Elige fecha para ${noun}`, action: 'Propón una fecha al mecánico', screen: 'appointment', at: r.updatedAt });
+    if (a?.confirmed) return make('appointment_confirmed', { label: 'Cita confirmada', screen: 'tracking', at: a.confirmed.confirmedAt });
+    return make('waiting_confirmation', { label: 'Esperando confirmación', screen: 'appointment', at: a?.pending?.at ?? r.updatedAt });
   }
-  const quotes = threads.filter((r) => r.status === 'proposal_received' && currentProposal(r)?.status === 'pending');
-  if (quotes.length) {
-    const at = quotes.map((r) => currentProposal(r)?.createdAt ?? r.updatedAt).sort()[0]!;
-    return quotes.length === 1
-      ? make('quote', { label: 'Nuevo presupuesto recibido', action: 'Revisa el presupuesto', screen: 'compare', at })
-      : make('quotes', { label: `${quotes.length} presupuestos para comparar`, action: 'Compara y elige uno', screen: 'compare', at });
-  }
-  const declinedAt = !hired ? declinedRecently(threads, now) : undefined;
-  if (declinedAt) return make('choose_mechanic', { label: 'Elige un mecánico', action: 'Invita a otros mecánicos', screen: 'status', href: caseHref(lead), at: declinedAt });
-  const asked = threads.find((r) => r.status === 'awaiting_proposal' && r.openProposal && lastEvent(r)?.by === 'mechanic');
-  if (asked) return make('message', { label: 'Nuevo mensaje del mecánico', action: 'Responde al mecánico', screen: 'status', href: threadHref(asked), threadId: asked.id, at: lastEvent(asked)!.at });
-  if (hired?.status === 'in_progress') return make('in_progress', { label: `${Noun} en curso`, screen: 'tracking', threadId: hired.id, at: hired.updatedAt });
-  if (hired?.status === 'confirmed') {
-    const a = hired.appointment;
-    if (a?.confirmed) return make('appointment_confirmed', { label: 'Cita confirmada', screen: 'tracking', threadId: hired.id, at: a.confirmed.confirmedAt });
-    return make('waiting_confirmation', { label: 'Esperando confirmación', screen: 'appointment', threadId: hired.id, at: a?.pending?.at ?? hired.updatedAt });
-  }
-  const created = threads.map((r) => r.createdAt).sort()[0]!;
-  if (threads.some((r) => r.status === 'awaiting_proposal')) return make('waiting_quotes', { label: 'Esperando presupuestos', screen: 'status', at: created });
-  return make('searching', { label: 'Buscando mecánicos', screen: 'status', at: created });
+  const quote = r.status === 'proposal_received' ? currentProposal(r) : undefined;
+  if (quote?.status === 'pending') return make('quote', { label: 'Nuevo presupuesto recibido', action: 'Revisa el presupuesto', screen: 'compare', at: quote.createdAt });
+  const declinedAt = declinedRecently(r, now);
+  if (declinedAt) return make('choose_mechanic', { label: 'Busca otro mecánico', action: 'Pide el servicio a otro mecánico', screen: 'status', href: requestHref(r), at: declinedAt });
+  if (r.status === 'awaiting_proposal' && r.openProposal && lastEvent(r)?.by === 'mechanic')
+    return make('message', { label: 'Nuevo mensaje del mecánico', action: 'Responde al mecánico', screen: 'status', href: requestHref(r), at: lastEvent(r)!.at });
+  if (r.status === 'in_progress') return make('in_progress', { label: `${Noun} en curso`, screen: 'tracking', at: r.updatedAt });
+  if (r.status === 'awaiting_proposal') return make('waiting_quotes', { label: 'Esperando presupuesto', screen: 'status', at: r.createdAt });
+  return make('searching', { label: 'Esperando respuesta', screen: 'status', at: r.createdAt });
 }
 
 /**
- * The cyclist's active requests, most important first: in motion (searching, quotes, booked)
- * plus the ones every mechanic declined lately (they need the cyclist to invite others).
+ * The cyclist's active requests, most important first: in motion (waiting, quote, booked) plus
+ * the ones the mechanic declined lately (the cyclist may ask another mechanic).
  */
 export function hubItems(requests: ServiceRequest[], now = new Date()): HubItem[] {
-  return groupCases(requests)
-    .filter(({ threads }) => ['searching', 'proposals_received', 'booked'].includes(caseStatus(threads)) || !!declinedRecently(threads, now))
-    .map(({ caseId, threads }) => {
-      const quick = getRequestQuickAction(threads, now);
-      const updatedAt = threads.reduce((a, r) => (r.updatedAt > a ? r.updatedAt : a), '');
+  return requests
+    .filter((r) => ['searching', 'proposals_received', 'booked'].includes(requestStage(r)) || !!declinedRecently(r, now))
+    .map((request) => {
+      const quick = getRequestQuickAction(request, now);
       return {
-        caseId,
-        threads,
-        lead: leadThread(threads),
+        request,
         label: quick.label,
         action: quick.action,
         priority: quick.priority,
         order: quick.order,
         deadline: quick.deadline,
         at: quick.at,
-        id: caseId,
+        id: request.id,
         pending: quick.requiresAction,
         quick,
-        updatedAt,
+        updatedAt: request.updatedAt,
       };
     })
     .sort(compareRanked);

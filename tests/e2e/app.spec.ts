@@ -318,7 +318,7 @@ test.describe('Navegación', () => {
     } else {
       // Desktop: the header chip shows the request's status and leads to the Requests section.
       const chip = page.getByTestId('header-hub-chip');
-      await expect(chip).toHaveAccessibleName(/^Buscando mecánicos · Mantenimiento\. Abrir$/);
+      await expect(chip).toHaveAccessibleName(/^Esperando respuesta · Mantenimiento\. Abrir$/);
       await chip.click();
       await expect(page).toHaveURL(/#\/solicitudes$/);
     }
@@ -372,7 +372,7 @@ test.describe('Navegación', () => {
     await freshDemo(page, 'u-fran');
     expect(await situation()).toBe('work_finished');
     await expect(chip()).toHaveAccessibleName(/^Reparación terminada/);
-    await page.goto('./#/solicitudes/r-fran/mecanico/r-fran');
+    await page.goto('./#/solicitudes/r-fran');
     await page.getByRole('button', { name: 'Reportar un problema' }).click();
     await page.getByLabel('Qué ha pasado').fill('El cambio sigue saltando.');
     await page.getByRole('button', { name: 'Reportar problema' }).click();
@@ -429,7 +429,7 @@ test.describe('Navegación', () => {
     await stateA();
     await page.getByTestId('service-card').filter({ hasText: 'Frenos' }).click();
     await send();
-    await stateB(/^Buscando mecánicos · Reparación\. Abrir$/);
+    await stateB(/^Esperando respuesta · Frenos\. Abrir$/);
     if (mobile) await expect(page.getByTestId('dock')).toHaveAttribute('data-state', 'hub');
 
     // A second one from the Requests section (where the Hub leads): the counter appears.
@@ -467,7 +467,7 @@ test.describe('Navegación', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await freshDemo(page, 'u-fran');
     await stateB(/^Reparación terminada/);
-    await page.goto('./#/solicitudes/r-fran/mecanico/r-fran');
+    await page.goto('./#/solicitudes/r-fran');
     await page.getByRole('button', { name: 'Confirmar que está terminado' }).click();
     await page.goto('./#/');
     await stateA();
@@ -499,7 +499,7 @@ test.describe('Navegación', () => {
     // An item opens that request; back returns to the Solicitudes list.
     await toggle.click();
     await preview.getByTestId('pending-item').first().click();
-    await expect(page).toHaveURL(/#\/solicitudes\/r-14\/mecanico\/r-14$/);
+    await expect(page).toHaveURL(/#\/solicitudes\/r-14$/);
     await expect(preview).toHaveCount(0);
     await page.goBack();
     await expect(page).toHaveURL(/#\/solicitudes$/);
@@ -528,7 +528,7 @@ test.describe('Navegación', () => {
     await page.evaluate(() => {
       const db = JSON.parse(localStorage.getItem('cromiqa:demo:db')!);
       // Diego's date proposal, now Pablo's (the request and the decision he owes on it).
-      for (const r of db.requests) if (r.caseId === 'r-04') r.ownerId = 'u-pablo';
+      for (const r of db.requests) if (r.id === 'r-04') r.ownerId = 'u-pablo';
       for (const x of db.pendingActions) if (x.requestId === 'r-04' && x.userId === 'u-diego') x.userId = 'u-pablo';
       localStorage.setItem('cromiqa:demo:db', JSON.stringify(db));
     });
@@ -545,7 +545,7 @@ test.describe('Navegación', () => {
     // More than three: the count keeps them all, the preview shows the three most urgent.
     await page.evaluate(() => {
       const db = JSON.parse(localStorage.getItem('cromiqa:demo:db')!);
-      for (const r of db.requests) if (r.caseId === 'r-gema' || r.caseId === 'r-fran') r.ownerId = 'u-pablo';
+      for (const r of db.requests) if (r.id === 'r-gema' || r.id === 'r-fran') r.ownerId = 'u-pablo';
       for (const x of db.pendingActions) if ((x.requestId === 'r-gema' && x.userId === 'u-gema') || (x.requestId === 'r-fran' && x.userId === 'u-fran')) x.userId = 'u-pablo';
       localStorage.setItem('cromiqa:demo:db', JSON.stringify(db));
     });
@@ -569,7 +569,7 @@ test.describe('Navegación', () => {
     // Doing the last pending action brings the + back.
     await page.setViewportSize({ width: 390, height: 760 });
     await freshDemo(page, 'u-ana');
-    await page.goto('./#/solicitudes/r-14/mecanico/r-14');
+    await page.goto('./#/solicitudes/r-14');
     await page.getByRole('button', { name: 'Confirmar que está terminado' }).click();
     await expect(page.getByRole('button', { name: 'Confirmar que está terminado' })).toHaveCount(0);
     await page.goto('./#/');
@@ -581,7 +581,7 @@ test.describe('Navegación', () => {
     test.skip(!isMobile(page), 'Phone dock');
     await freshDemo(page, 'u-dani');
     await expect(page.getByTestId('pending-pill')).toHaveAccessibleName('1 pendiente. Ver lo pendiente');
-    await page.goto('./#/solicitudes/r-dani/mecanico/r-dani');
+    await page.goto('./#/solicitudes/r-dani');
     await page.getByRole('button', { name: 'Cancelar servicio' }).click();
     const dialog = page.getByRole('dialog');
     await dialog.getByRole('textbox').fill('Al final lo arreglo yo.');
@@ -614,7 +614,7 @@ test.describe('Navegación', () => {
     await expect(plain).not.toContainText('€');
     // Opening it goes straight to that mechanic's quote.
     await first.click();
-    await expect(page).toHaveURL(/\/mecanico\//);
+    await expect(page).toHaveURL(/#\/solicitudes\/r-[a-z0-9-]+$/);
     await expect(page.getByRole('button', { name: 'Aceptar presupuesto' })).toBeVisible();
     // Completed ones in their tab; cancelled ones one tap further.
     await page.goto('./#/solicitudes');
@@ -626,7 +626,7 @@ test.describe('Navegación', () => {
     await page.goto('./#/solicitudes');
     await expect(cards.first().getByTestId('case-action')).toHaveText('Requiere tu atención · Confirma la fecha propuesta');
     await cards.first().click(); // straight to the conversation where the date is confirmed
-    await expect(page).toHaveURL(/#\/solicitudes\/r-dani\/mecanico\/r-dani$/);
+    await expect(page).toHaveURL(/#\/solicitudes\/r-dani$/);
     await page.getByRole('button', { name: 'Confirmar cita' }).click();
     await page.goBack();
     await expect(page).toHaveURL(/#\/solicitudes$/);
@@ -705,7 +705,7 @@ test.describe('Validación de formularios', () => {
     await expect(page.getByTestId('discover').getByRole('listitem')).toHaveCount(3);
     await expect(page.getByTestId('discover')).not.toContainText('★');
     await proposals.first().click();
-    await expect(page).toHaveURL(/\/mecanico\//);
+    await expect(page).toHaveURL(/#\/solicitudes\/r-[a-z0-9-]+$/);
   });
 
   test('a service card opens the request flow with that service kept through the form', async ({ page }) => {

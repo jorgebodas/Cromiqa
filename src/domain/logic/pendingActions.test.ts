@@ -32,7 +32,7 @@ describe('PendingAction lifecycle: one request from start to finish', () => {
     // 2. The mechanic's quote: one decision (the request has one mechanic).
     act(a, { type: 'send_proposal', proposal: quote(40) }, 'mechanic');
     expect(hub(db, 'u-bea')).toMatchObject([{ type: 'quote_decision', requestId: caseId, status: 'pending', priority: 3 }]);
-    expect(attentionFromActions(db, 'u-bea', now)[0]).toMatchObject({ kind: 'proposal', count: 1 });
+    expect(attentionFromActions(db, 'u-bea', now)[0]).toMatchObject({ kind: 'proposal' });
 
     // 3. Opening the quotes changes nothing: re-syncing without an event keeps the same record.
     const before = db.pendingActions;
@@ -99,14 +99,13 @@ describe('PendingAction lifecycle: one request from start to finish', () => {
   it('a request just created owes nothing (the count is unchanged)', () => {
     const db = createSeed(now);
     const before = hub(db, 'u-ana').length;
-    const { db: next, requests } = createRequest(
+    const { db: next, request } = createRequest(
       db,
-      { ownerId: 'u-ana', mechanicIds: ['m-carlos'], category: 'repair', description: 'Los cambios saltan al subir y la cadena hace ruido.', bikeId: 'b-ana-mtb', bike: { type: 'mtb', brand: 'Orbea', model: 'Occam H30' }, saveBikeToGarage: false, location: 'rivas', mode: 'home', availability: { timeSlots: ['afternoon'], flexible: false } },
+      { ownerId: 'u-ana', mechanicId: 'm-carlos', category: 'repair', description: 'Los cambios saltan al subir y la cadena hace ruido.', bikeId: 'b-ana-mtb', bike: { type: 'mtb', brand: 'Orbea', model: 'Occam H30' }, saveBikeToGarage: false, location: 'rivas', mode: 'home', availability: { timeSlots: ['afternoon'], flexible: false } },
       now,
     );
-    expect(requests).toHaveLength(1);
     expect(hub(next, 'u-ana')).toHaveLength(before);
-    expect(next.pendingActions.filter((x) => x.requestId === requests[0]!.caseId)).toEqual([]);
+    expect(next.pendingActions.filter((x) => x.requestId === request.id)).toEqual([]);
   });
 
   it('12. a generic chat message creates nothing; a specific information request does, until answered', () => {
@@ -128,8 +127,8 @@ describe('PendingAction lifecycle: one request from start to finish', () => {
 
   it('13. the same event twice never duplicates an action', () => {
     const db = createSeed(now);
-    const once = syncPendingActions(db, db.requests.map((r) => r.caseId), { type: 'migration' }, now);
-    const twice = syncPendingActions(once, db.requests.map((r) => r.caseId), { type: 'migration' }, now);
+    const once = syncPendingActions(db, db.requests.map((r) => r.id), { type: 'migration' }, now);
+    const twice = syncPendingActions(once, db.requests.map((r) => r.id), { type: 'migration' }, now);
     expect(twice.pendingActions).toEqual(db.pendingActions);
     const keys = twice.pendingActions.filter((a) => a.status === 'pending').map((a) => `${a.userId}|${a.key}`);
     expect(new Set(keys).size).toBe(keys.length);
@@ -138,7 +137,7 @@ describe('PendingAction lifecycle: one request from start to finish', () => {
   it('14. a revised quote supersedes the old decision', () => {
     let db = createSeed(now);
     const carla = db.requests.find((r) => r.ownerId === 'u-carla' && r.status === 'proposal_received')!;
-    const ofRequest = () => hub(db, 'u-carla').filter((x) => x.requestId === carla.caseId);
+    const ofRequest = () => hub(db, 'u-carla').filter((x) => x.requestId === carla.id);
     const old = ofRequest()[0]!;
     db = applyRequestAction(db, carla.id, { type: 'revise_proposal', proposal: quote(30) }, 'mechanic', now).db;
     const current = ofRequest();
@@ -151,7 +150,7 @@ describe('PendingAction lifecycle: one request from start to finish', () => {
     let db = createSeed(now);
     const fran = hub(db, 'u-fran')[0]!;
     db = runScheduledTransitions(db, at(80));
-    const closed = db.requests.find((r) => r.id === fran.threadId)!;
+    const closed = db.requests.find((r) => r.id === fran.requestId)!;
     expect(closed).toMatchObject({ status: 'completed', autoClosed: true });
     expect(closed.events.some((e) => e.type === 'completion_confirmed')).toBe(false);
     expect(db.pendingActions.find((x) => x.id === fran.id)).toMatchObject({ status: 'resolved', resolutionReason: 'administrative_closure' });
@@ -175,9 +174,8 @@ describe('PendingAction lifecycle: one request from start to finish', () => {
 });
 
 describe('cancelling a request supersedes its outstanding actions (incidents excepted)', () => {
-  const cancelAll = (db: DemoDatabase, caseId: string, by: 'owner' | 'mechanic' = 'owner') => {
-    // As "Retirar solicitud" does: every invitation of the request that can still be cancelled.
-    for (const r of db.requests.filter((x) => x.caseId === caseId && ['sent', 'awaiting_proposal', 'proposal_received', 'confirmed'].includes(x.status)))
+  const cancelAll = (db: DemoDatabase, requestId: string, by: 'owner' | 'mechanic' = 'owner') => {
+    for (const r of db.requests.filter((x) => x.id === requestId && ['sent', 'awaiting_proposal', 'proposal_received', 'confirmed'].includes(x.status)))
       db = applyRequestAction(db, r.id, by === 'owner' ? { type: 'cancel_by_owner', reason: 'Ya no lo necesito' } : { type: 'cancel_by_mechanic', reason: 'Baja por enfermedad' }, by, at(1)).db;
     return db;
   };
@@ -226,14 +224,14 @@ describe('cancelling a request supersedes its outstanding actions (incidents exc
     const incident = hub(db, 'u-gema')[0]!;
     expect(incident.type).toBe('incident_response');
     // The lifecycle doesn't allow cancelling finished work: the incident action is untouched.
-    expect(() => applyRequestAction(db, incident.threadId, { type: 'cancel_by_owner', reason: 'x' }, 'owner', now)).toThrow();
+    expect(() => applyRequestAction(db, incident.requestId, { type: 'cancel_by_owner', reason: 'x' }, 'owner', now)).toThrow();
     // Even if the request ended up cancelled (e.g. by an administrator), the incident remains.
-    db = { ...db, requests: db.requests.map((r) => (r.id === incident.threadId ? { ...r, status: 'cancelled' as const } : r)) };
+    db = { ...db, requests: db.requests.map((r) => (r.id === incident.requestId ? { ...r, status: 'cancelled' as const } : r)) };
     db = syncPendingActions(db, [incident.requestId], { type: 'cancel_by_mechanic', by: 'mechanic' }, at(1));
     expect(superseded(db, incident.id)).toMatchObject({ status: 'pending' });
     expect(hub(db, 'u-gema')).toHaveLength(1);
     // Formal resolution resolves it normally.
-    db = { ...db, requests: db.requests.map((r) => (r.id === incident.threadId ? { ...r, incidents: r.incidents!.map((i) => ({ ...i, resolvedAt: at(2).toISOString() })) } : r)) };
+    db = { ...db, requests: db.requests.map((r) => (r.id === incident.requestId ? { ...r, incidents: r.incidents!.map((i) => ({ ...i, resolvedAt: at(2).toISOString() })) } : r)) };
     db = syncPendingActions(db, [incident.requestId], { type: 'resolve_incident', by: 'owner' }, at(2));
     expect(superseded(db, incident.id)).toMatchObject({ status: 'resolved', resolutionReason: 'incident_resolved' });
     expect(hub(db, 'u-gema')).toEqual([]);

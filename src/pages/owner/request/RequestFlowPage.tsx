@@ -26,7 +26,7 @@ export interface RequestFormProps {
   /** Search filters to prefill from (page entry from a provider profile). */
   params?: URLSearchParams;
   /** Called once the invitations are created. */
-  onSent: (sent: ServiceRequest[]) => void;
+  onSent: (request: ServiceRequest) => void;
   /** Overlay only: leave the form from its first step (back to the hub overview). */
   onBackFromStart?: () => void;
   /** Page only: where the progress bar goes (the top row, between back and close). */
@@ -77,7 +77,7 @@ export function RequestForm({ variant, originMechanicId, params = new URLSearchP
     initialised.current = true;
     if (draft.originMechanicId === mechanic.id) return;
     const f = parseSearchParams(params);
-    const patch: Partial<RequestDraft> = { originMechanicId: mechanic.id, mechanicIds: [mechanic.id], step: 0 };
+    const patch: Partial<RequestDraft> = { originMechanicId: mechanic.id, mechanicId: mechanic.id, step: 0 };
     const category = draft.category ?? f.category;
     if (category && mechanic.services.some((s) => s.category === category)) patch.category = category;
     else patch.category = undefined;
@@ -113,7 +113,7 @@ export function RequestForm({ variant, originMechanicId, params = new URLSearchP
         : [],
     [mechanics, reviews, draft.category, draft.mode, draft.location, draft.description, bikeType, user?.mechanicId],
   );
-  const recipients = draft.mechanicIds.map((id) => mechanics.find((m) => m.id === id)).filter((m): m is NonNullable<typeof m> => Boolean(m));
+  const recipients = mechanics.filter((m) => m.id === draft.mechanicId);
 
   useEffect(() => {
     if (owner) setPickedOwner(owner.id);
@@ -125,7 +125,7 @@ export function RequestForm({ variant, originMechanicId, params = new URLSearchP
   const goTo = (s: number) => {
     setErrors({});
     // Entering provider selection: drop any choice the request no longer fits.
-    if (s === STEP.providers) setDraft({ step: s, mechanicIds: draft.mechanicIds.filter((id) => matches.some((m) => m.mechanic.id === id)) });
+    if (s === STEP.providers) setDraft({ step: s, mechanicId: matches.some((m) => m.mechanic.id === draft.mechanicId) ? draft.mechanicId : undefined });
     else setDraft({ step: s });
     // In the hub panel, back to the top of the panel (progress bar included).
     if (overlay) headingRef.current?.closest('[data-hub-scroll]')?.scrollTo({ top: 0 });
@@ -188,7 +188,7 @@ export function RequestForm({ variant, originMechanicId, params = new URLSearchP
       if (ownerId !== user?.id) switchUser(ownerId);
       const sent = await createRequest(input);
       resetDraft();
-      toast(sent.length === 1 ? `Solicitud enviada a ${recipients[0]?.name}` : `Solicitud enviada a ${sent.length} mecánicos`);
+      toast(`Solicitud enviada a ${recipients[0]?.name ?? 'tu mecánico'}`);
       onSent(sent);
     } catch (err) {
       setSubmitError(err instanceof DomainError ? err.message : 'No se pudo enviar la solicitud. Inténtalo de nuevo.');
@@ -293,13 +293,13 @@ export function RequestForm({ variant, originMechanicId, params = new URLSearchP
               {step === STEP.providers && (
                 <StepProviders
                   matches={matches}
-                  selected={draft.mechanicIds}
-                  onChange={(mechanicIds) => {
+                  selected={draft.mechanicId ? [draft.mechanicId] : []}
+                  onChange={(ids) => {
                     setErrors({});
-                    setDraft({ mechanicIds });
+                    setDraft({ mechanicId: ids[0] });
                   }}
                   origin={mechanic}
-                  error={errors.mechanicIds}
+                  error={errors.mechanicId}
                 />
               )}
               {step === STEP.review && <StepReview draft={draft} recipients={recipients} bikes={bikes} goTo={goTo} ownerPicker={ownerPicker} />}
@@ -416,7 +416,7 @@ export function RequestFlowPage() {
         originMechanicId={params.get('mecanico') ?? undefined}
         params={params}
         progressSlot={slot}
-        onSent={(sent) => navigate(`/solicitudes/${sent[0]!.caseId}/enviada`, { replace: true })}
+        onSent={(sent) => navigate(`/solicitudes/${sent.id}/enviada`, { replace: true })}
       />
     </div>
   );

@@ -66,7 +66,7 @@ test.describe('Escenarios A, B y C: reparación de principio a fin', () => {
     await expect(card).toContainText('Solicitud enviada');
     await card.click();
     // The request is the conversation with its one mechanic.
-    await expect(page).toHaveURL(/\/mecanico\//);
+    await expect(page).toHaveURL(/#\/solicitudes\/req_[a-z0-9]+$/);
     await expect(statusTitle(page)).toHaveText('Solicitud enviada');
 
     // B — Carlos answers with a closed quote
@@ -135,8 +135,9 @@ test.describe('Una solicitud, un mecánico', () => {
     await expect(page.getByTestId('case-card').filter({ hasText: 'Carlos Ortega' })).toContainText('40');
     await expect(page.getByTestId('case-card').filter({ hasText: 'Nerea Campos' })).toContainText('50');
     // A request opens straight on its mechanic: no list of responses, no comparison, no "invite more".
-    await page.goto('./#/solicitudes/r-03');
-    await expect(page).toHaveURL(/\/solicitudes\/r-03\/mecanico\/r-03$/);
+    // Old links (from when a request could go to several mechanics) land on the same request.
+    await page.goto('./#/solicitudes/r-03/mecanico/r-03');
+    await expect(page).toHaveURL(/#\/solicitudes\/r-03$/);
     await expect(page.getByTestId('response-row')).toHaveCount(0);
     await expect(page.getByRole('button', { name: /Invitar a más/ })).toHaveCount(0);
     await page.getByRole('button', { name: 'Rechazar' }).click();
@@ -200,7 +201,7 @@ test.describe('Después de contratar', () => {
     // r-04: Javier proposed a date when quoting; Diego hasn't confirmed.
     await freshDemo(page, 'u-diego');
     await expect(page.getByTestId('attention-appointment')).toContainText('Javier Molina propone una cita');
-    await page.goto('./#/solicitudes/r-04/mecanico/r-04');
+    await page.goto('./#/solicitudes/r-04');
     await expect(page.getByTestId('appointment-pending')).toContainText('Javier propone');
     await page.getByRole('button', { name: 'Proponer otra fecha' }).click();
     const dialog = page.getByRole('dialog', { name: 'Proponer fecha' });
@@ -238,7 +239,7 @@ test.describe('Después de contratar', () => {
 
   test('cancelling a hired service needs a reason', async ({ page }) => {
     await freshDemo(page, 'u-diego');
-    await page.goto('./#/solicitudes/r-11/mecanico/r-11');
+    await page.goto('./#/solicitudes/r-11');
     await page.getByRole('button', { name: 'Cancelar servicio' }).click();
     const dialog = page.getByRole('dialog', { name: 'Cancelar servicio' });
     await dialog.getByRole('button', { name: 'Cancelar servicio' }).click();
@@ -257,7 +258,7 @@ test.describe('Después de contratar', () => {
       r.finishedAt = new Date(Date.now() - 80 * 3600_000).toISOString();
       localStorage.setItem('cromiqa:demo:db', JSON.stringify(db));
     });
-    await page.goto('./#/solicitudes/r-14/mecanico/r-14');
+    await page.goto('./#/solicitudes/r-14');
     await page.reload();
     await expect(statusTitle(page)).toHaveText('Completada');
     await expect(page.getByTestId('auto-closed')).toContainText('No implica conformidad');

@@ -5,7 +5,7 @@ import type { BikeType, LocationId, User } from '@/domain/types';
 import { bikeTypeLabel, categoryLabel, locationShort, serviceLabel, specializationLabel } from '@/domain/catalog';
 import { currentProposal } from '@/domain/logic/requests';
 import { searchMechanics, type MechanicResult } from '@/domain/logic/search';
-import { caseHref, caseStatus, groupCases, threadHref } from '@/domain/logic/cases';
+import { requestHref, requestStage } from '@/domain/logic/cases';
 import { attentionHref, homeAttention, upcomingAppointments, type CyclistAttention } from '@/domain/logic/home';
 import { formatDate, formatPrice, toISODate } from '@/domain/utils';
 import { useApp } from '@/state/store';
@@ -27,26 +27,26 @@ function AttentionRow({ item, mechanicName }: { item: CyclistAttention; mechanic
       title: `Presupuesto de ${mechanicName}`,
       detail: proposal ? `${serviceLabel(r)} · ${formatPrice(proposal.price)} · ${formatDate(proposal.date, { weekday: 'short', day: 'numeric', month: 'short' })}, ${proposal.time}` : serviceLabel(r),
       cta: 'Revisar presupuesto',
-      to: caseHref(r),
+      to: requestHref(r),
     },
     clarify: {
       title: `${mechanicName} necesita aclarar algo`,
       detail: `${categoryLabel(r.category)} · Respóndele en el chat`,
       cta: 'Abrir conversación',
-      to: threadHref(r),
+      to: requestHref(r),
     },
     appointment: r.appointment?.pending
       ? {
           title: `${mechanicName} propone una cita`,
           detail: `${categoryLabel(r.category)} · ${formatDate(r.appointment.pending.date, { weekday: 'short', day: 'numeric', month: 'short' })}, ${r.appointment.pending.time}`,
           cta: 'Confirmar o proponer otra',
-          to: threadHref(r),
+          to: requestHref(r),
         }
       : {
           title: `Acuerda la cita con ${mechanicName}`,
           detail: `${categoryLabel(r.category)} · Servicio contratado, falta la fecha`,
           cta: 'Proponer fecha',
-          to: threadHref(r),
+          to: requestHref(r),
         },
     confirm: {
       title: `${mechanicName} ha terminado el trabajo`,
@@ -54,25 +54,25 @@ function AttentionRow({ item, mechanicName }: { item: CyclistAttention; mechanic
         ? `${categoryLabel(r.category)} · Se cerrará automáticamente en menos de 24 h`
         : `${categoryLabel(r.category)} · Confirma que está bien o reporta un problema`,
       cta: 'Revisar y confirmar',
-      to: threadHref(r),
+      to: requestHref(r),
     },
     incident: {
       title: 'Problema abierto',
       detail: `${categoryLabel(r.category)} · Con ${mechanicName}. El cierre automático está en pausa`,
       cta: 'Ver incidencia',
-      to: threadHref(r),
+      to: requestHref(r),
     },
     declined: {
-      title: 'Ningún mecánico ha podido atenderte',
-      detail: `${categoryLabel(r.category)} · Invita a otros mecánicos a esta solicitud`,
-      cta: 'Invitar a otros',
-      to: caseHref(r),
+      title: `${mechanicName} no ha podido atenderte`,
+      detail: `${serviceLabel(r)} · Puedes pedírselo a otro mecánico con una nueva solicitud`,
+      cta: 'Ver la solicitud',
+      to: requestHref(r),
     },
     review: {
       title: `¿Qué tal con ${mechanicName}?`,
       detail: `${categoryLabel(r.category)} · Servicio completado`,
       cta: 'Valorar el servicio',
-      to: threadHref(r),
+      to: requestHref(r),
     },
   }[item.kind];
   const urgent = item.kind !== 'review' && item.kind !== 'declined';
@@ -160,9 +160,9 @@ function CyclistHome({ user }: { user: User | null }) {
   const actions = useApp((s) => s.db.pendingActions);
   // The cyclist's PendingActions (same as the Request Hub), then Home-only nudges.
   const attention = useMemo(() => homeAttention({ requests: allRequests, pendingActions: actions, reviews }, user?.id), [allRequests, actions, reviews, user?.id]);
-  const statuses = useMemo(() => groupCases(requests).map((c) => caseStatus(c.threads)), [requests]);
+  const statuses = useMemo(() => requests.map(requestStage), [requests]);
   const active = statuses.filter((c) => c === 'searching' || c === 'proposals_received' || c === 'booked').length;
-  const quotes = attention.filter((a) => a.kind === 'proposal').reduce((n, a) => n + (a.count ?? 1), 0);
+  const quotes = attention.filter((a) => a.kind === 'proposal').length;
   const today = toISODate(new Date());
   const next = useMemo(() => upcomingAppointments(requests).find((r) => r.appointment!.confirmed!.date >= today), [requests, today]);
   const toSchedule = requests.find((r) => r.status === 'confirmed' && !r.appointment?.confirmed);
@@ -206,7 +206,7 @@ function CyclistHome({ user }: { user: User | null }) {
                 <Stat value={active} caption={active === 0 ? 'Ninguna activa' : active === 1 ? 'Activa' : 'Activas'} />
               )}
             </Widget>
-            <Widget title="Próxima cita" to={next ? threadHref(next) : toSchedule ? threadHref(toSchedule) : '/solicitudes'} testId="widget-appointment">
+            <Widget title="Próxima cita" to={next ? requestHref(next) : toSchedule ? requestHref(toSchedule) : '/solicitudes'} testId="widget-appointment">
               {next ? (
                 <Stat small value={shortDate(next.appointment!.confirmed!.date)} caption={`${next.appointment!.confirmed!.time} · ${serviceLabel(next)} con ${first(next.mechanicId)}`} />
               ) : toSchedule ? (

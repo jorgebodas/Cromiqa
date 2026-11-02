@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { createSeed } from '@/data/seed';
 import type { NewRequestInput } from '@/domain/types';
-import { addReview, applyRequestAction, AUTO_CLOSE_HOURS, autoCloseAt, autoCloseReminderDue, canPerform, chatUnlocked, createRequest, DomainError, inviteToCase, runScheduledTransitions, validateProposal } from './requests';
-import { caseStatus, recoveryHint } from './cases';
+import { addReview, applyRequestAction, AUTO_CLOSE_HOURS, autoCloseAt, autoCloseReminderDue, canPerform, chatUnlocked, createRequest, DomainError, runScheduledTransitions, validateProposal } from './requests';
+import { requestStage } from './cases';
 import { canTake, matchProviders } from './matching';
 import { toISODate, addDays } from '../utils';
 
@@ -11,7 +11,7 @@ const tomorrow = toISODate(addDays(now, 1));
 
 const baseInput = (): NewRequestInput => ({
   ownerId: 'u-ana',
-  mechanicIds: ['m-carlos'],
+  mechanicId: 'm-carlos',
   category: 'repair',
   description: 'Los cambios saltan al subir y la cadena hace ruido.',
   bikeId: 'b-ana-mtb',
@@ -44,11 +44,11 @@ describe('seed data', () => {
 describe('createRequest', () => {
   it('creates a request in "sent" status with a sequential code', () => {
     const db = createSeed(now);
-    const { db: next, requests: [request] } = createRequest(db, baseInput(), now);
+    const { db: next, request } = createRequest(db, baseInput(), now);
     if (!request) throw new Error('no request');
     expect(request.status).toBe('sent');
     expect(request.code).toBe('CRQ-2009');
-    expect(next.requests[0]!.id).toBe(request.id);
+    expect(next.requests.find((r) => r.id === request.id)).toBeTruthy();
     expect(request.events[0]!.type).toBe('created');
   });
 
@@ -56,16 +56,16 @@ describe('createRequest', () => {
     const db = createSeed(now);
     expect(() => createRequest(db, { ...baseInput(), description: 'ruido' }, now)).toThrow(DomainError);
     // Andrés has no home service
-    expect(() => createRequest(db, { ...baseInput(), mechanicIds: ['m-andres'], bikeId: undefined, location: 'madrid-vallecas' }, now)).toThrow(/domicilio/);
+    expect(() => createRequest(db, { ...baseInput(), mechanicId: 'm-andres', bikeId: undefined, location: 'madrid-vallecas' }, now)).toThrow(/domicilio/);
     // Javi does not travel to Coslada
-    expect(() => createRequest(db, { ...baseInput(), mechanicIds: ['m-javi'], location: 'coslada' }, now)).toThrow(/zona/);
+    expect(() => createRequest(db, { ...baseInput(), mechanicId: 'm-javi', location: 'coslada' }, now)).toThrow(/zona/);
   });
 
   it('can save a new bike to the garage', () => {
     const db = createSeed(now);
     const {
       db: next,
-      requests: [request],
+      request,
     } = createRequest(
       db,
       { ...baseInput(), bikeId: undefined, bike: { type: 'mtb', brand: 'Giant', model: 'Talon' }, saveBikeToGarage: true },
@@ -82,7 +82,7 @@ describe('request lifecycle', () => {
     let db = createSeed(now);
     const created = createRequest(db, baseInput(), now);
     db = created.db;
-    const id = created.requests[0]!.id;
+    const id = created.request.id;
     const step = (action: Parameters<typeof applyRequestAction>[2], actor: 'owner' | 'mechanic') => {
       const r = applyRequestAction(db, id, action, actor, now);
       db = r.db;
@@ -154,28 +154,20 @@ describe('one request = one mechanic', () => {
 
   it('sends a request to exactly one mechanic', () => {
     const db = createSeed(now);
-    const { requests } = createRequest(db, { ...baseInput(), mechanicIds: ['m-carlos'] }, now);
-    expect(requests).toHaveLength(1);
-    expect(requests[0]).toMatchObject({ mechanicId: 'm-carlos', caseId: requests[0]!.id === requests[0]!.caseId ? requests[0]!.id : requests[0]!.caseId });
-    expect(() => createRequest(db, { ...baseInput(), mechanicIds: [] }, now)).toThrow(/al menos un mecánico/);
-    expect(() => createRequest(db, { ...baseInput(), mechanicIds: ['m-carlos', 'm-nerea'] }, now)).toThrow(/un solo mecánico/);
+    const { request } = createRequest(db, { ...baseInput(), mechanicId: 'm-carlos' }, now);
+    expect(request.mechanicId).toBe('m-carlos');
+    expect(request).not.toHaveProperty('caseId');
+    expect(() => createRequest(db, { ...baseInput(), mechanicId: '' }, now)).toThrow(/Elige un mecánico/);
   });
 
-  it('never adds another mechanic to an existing request: that is another request', () => {
-    let db = createSeed(now);
-    const first = createRequest(db, baseInput(), now);
-    db = applyRequestAction(first.db, first.requests[0]!.id, { type: 'send_proposal', proposal: quote(40) }, 'mechanic', now).db;
-    expect(() => inviteToCase(db, first.requests[0]!.caseId, 'u-ana', ['m-nerea'], now)).toThrow(/un solo mecánico/);
-  });
-
-  it('every seeded request has its own mechanic (no shared requests)', () => {
+  it('every seeded request is independent, with its own mechanic', () => {
     const db = createSeed(now);
-    expect(db.requests.every((r) => r.caseId === r.id)).toBe(true);
+    expect(db.requests.every((r) => !('caseId' in r))).toBe(true);
     // Pablo asked Carlos and Nerea about the same bike: two independent requests, each with its own quote.
     expect(['r-03', 'r-13'].map((id) => db.requests.find((r) => r.id === id)!.status)).toEqual(['proposal_received', 'proposal_received']);
     const accepted = applyRequestAction(db, 'r-13', { type: 'accept_proposal' }, 'owner', now).db;
     expect(accepted.requests.find((x) => x.id === 'r-03')!.status).toBe('proposal_received'); // untouched
-    expect(caseStatus(accepted.requests.filter((x) => x.caseId === 'r-13'))).toBe('booked');
+    expect(requestStage(accepted.requests.find((x) => x.id === 'r-13')!)).toBe('booked');
   });
 
   it('versions quote revisions and needs a fresh approval', () => {
@@ -200,16 +192,6 @@ describe('one request = one mechanic', () => {
     expect(open.request.proposals).toHaveLength(0); // an open proposal is never a quote
     const hired = applyRequestAction(db, 'r-03', { type: 'accept_proposal' }, 'owner', now).request;
     expect(chatUnlocked(hired)).toBe(true);
-  });
-
-  it('suggests recovery without inviting anyone automatically', () => {
-    const db = createSeed(now);
-    const { requests } = createRequest(db, baseInput(), now);
-    expect(recoveryHint(requests, now)).toBeNull();
-    const later = new Date(now.getTime() + 5 * 60 * 60 * 1000);
-    expect(recoveryHint(requests, later)).toBe('no_response');
-    const declined = requests.map((r) => ({ ...r, status: 'cancelled' as const }));
-    expect(recoveryHint(declined, now)).toBe('all_declined');
   });
 
   it('matches only providers that can take the job, with factual reasons', () => {

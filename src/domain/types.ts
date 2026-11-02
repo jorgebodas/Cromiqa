@@ -280,6 +280,8 @@ export interface ServiceRequest {
   ownerId: ID;
   mechanicId: ID;
   category: ServiceCategory;
+  /** The service picked on Home (Frenos, Ruedas…), shown as the request's name when present. */
+  topic?: ServiceTopic;
   description: string;
   bikeId?: ID;
   bike: BikeSnapshot;
@@ -350,9 +352,14 @@ export interface DemoDatabase {
   requests: ServiceRequest[];
 }
 
+/** What the cyclist picked on Home's service carousel (a request's category stays the model's source of truth). */
+export type ServiceTopic = 'maintenance' | 'brakes' | 'drivetrain' | 'wheels' | 'suspension' | 'diagnosis';
+
 export interface NewRequestInput {
   ownerId: ID;
-  /** Providers the cyclist chose and confirmed: one invitation each (1–5 per send). */
+  /** The service picked on Home, if the request started there. */
+  topic?: ServiceTopic;
+  /** The one provider the cyclist chose (one request = one mechanic). */
   mechanicIds: ID[];
   category: ServiceCategory;
   description: string;

@@ -179,5 +179,5 @@ export function openActionsFor(actions: PendingAction[], userId: ID | undefined)
   if (!userId) return [];
   return actions
     .filter((a) => a.userId === userId && a.status === 'pending')
-    .sort((a, b) => a.priority - b.priority || (a.dueAt ?? '9999').localeCompare(b.dueAt ?? '9999') || a.createdAt.localeCompare(b.createdAt));
+    .sort((a, b) => a.priority - b.priority || (a.dueAt ?? '9999').localeCompare(b.dueAt ?? '9999') || a.createdAt.localeCompare(b.createdAt) || a.requestId.localeCompare(b.requestId));
 }

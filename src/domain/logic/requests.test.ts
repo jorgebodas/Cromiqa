@@ -149,42 +149,33 @@ describe('request lifecycle', () => {
   });
 });
 
-describe('multi-provider requests', () => {
+describe('one request = one mechanic', () => {
   const quote = (price: number) => ({ price, date: tomorrow, time: '18:00', message: 'Ajuste completo con prueba.' });
 
-  it('sends one request to up to five providers as separate invitations', () => {
+  it('sends a request to exactly one mechanic', () => {
     const db = createSeed(now);
-    const { requests } = createRequest(db, { ...baseInput(), mechanicIds: ['m-carlos', 'm-nerea', 'm-carlos'] }, now);
-    expect(requests.map((r) => r.mechanicId)).toEqual(['m-carlos', 'm-nerea']); // no duplicates
-    expect(new Set(requests.map((r) => r.caseId)).size).toBe(1);
-    expect(new Set(requests.map((r) => r.code)).size).toBe(2);
+    const { requests } = createRequest(db, { ...baseInput(), mechanicIds: ['m-carlos'] }, now);
+    expect(requests).toHaveLength(1);
+    expect(requests[0]).toMatchObject({ mechanicId: 'm-carlos', caseId: requests[0]!.id === requests[0]!.caseId ? requests[0]!.id : requests[0]!.caseId });
     expect(() => createRequest(db, { ...baseInput(), mechanicIds: [] }, now)).toThrow(/al menos un mecánico/);
-    const six = ['m-carlos', 'm-nerea', 'm-marta', 'm-lucia', 'm-javi', 'm-andres'];
-    expect(() => createRequest(db, { ...baseInput(), mechanicIds: six }, now)).toThrow(/como máximo/);
+    expect(() => createRequest(db, { ...baseInput(), mechanicIds: ['m-carlos', 'm-nerea'] }, now)).toThrow(/un solo mecánico/);
   });
 
-  it('invites more providers later without duplicates, keeping earlier quotes', () => {
+  it('never adds another mechanic to an existing request: that is another request', () => {
     let db = createSeed(now);
     const first = createRequest(db, baseInput(), now);
     db = applyRequestAction(first.db, first.requests[0]!.id, { type: 'send_proposal', proposal: quote(40) }, 'mechanic', now).db;
-    const caseId = first.requests[0]!.caseId;
-    const more = inviteToCase(db, caseId, 'u-ana', ['m-nerea', 'm-carlos'], now);
-    expect(more.requests.map((r) => r.mechanicId)).toEqual(['m-nerea']);
-    expect(more.db.requests.find((r) => r.id === first.requests[0]!.id)!.proposals).toHaveLength(1);
-    expect(() => inviteToCase(more.db, caseId, 'u-ana', ['m-nerea'], now)).toThrow(/ya tienen/);
-    expect(() => inviteToCase(more.db, caseId, 'u-pablo', ['m-marta'], now)).toThrow(DomainError);
+    expect(() => inviteToCase(db, first.requests[0]!.caseId, 'u-ana', ['m-nerea'], now)).toThrow(/un solo mecánico/);
   });
 
-  it('allows only one booking per request; the other providers are not selected', () => {
+  it('every seeded request has its own mechanic (no shared requests)', () => {
     const db = createSeed(now);
-    // Seed case r-03: Carlos (40 €) and Nerea (50 €) both quoted Pablo.
-    const r = applyRequestAction(db, 'r-13', { type: 'accept_proposal' }, 'owner', now);
-    const carlos = r.db.requests.find((x) => x.id === 'r-03')!;
-    expect(carlos.status).toBe('not_selected');
-    expect(carlos.proposals[0]!.status).toBe('not_selected');
-    expect(carlos.events.at(-1)!.type).toBe('not_selected');
-    expect(() => applyRequestAction(r.db, 'r-03', { type: 'accept_proposal' }, 'owner', now)).toThrow(DomainError);
-    expect(caseStatus(r.db.requests.filter((x) => x.caseId === 'r-03'))).toBe('booked');
+    expect(db.requests.every((r) => r.caseId === r.id)).toBe(true);
+    // Pablo asked Carlos and Nerea about the same bike: two independent requests, each with its own quote.
+    expect(['r-03', 'r-13'].map((id) => db.requests.find((r) => r.id === id)!.status)).toEqual(['proposal_received', 'proposal_received']);
+    const accepted = applyRequestAction(db, 'r-13', { type: 'accept_proposal' }, 'owner', now).db;
+    expect(accepted.requests.find((x) => x.id === 'r-03')!.status).toBe('proposal_received'); // untouched
+    expect(caseStatus(accepted.requests.filter((x) => x.caseId === 'r-13'))).toBe('booked');
   });
 
   it('versions quote revisions and needs a fresh approval', () => {

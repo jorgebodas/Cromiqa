@@ -4,15 +4,17 @@ import type { Bike, Mechanic, User } from '@/domain/types';
 import {
   BIKE_TYPES,
   CATEGORIES,
+  SERVICE_TOPICS,
   LOCATIONS,
   TIME_SLOTS,
   URGENCIES,
   bikeLabel,
   bikeTypeLabel,
-  categoryLabel,
   locationLabel,
   modeLabel,
+  serviceLabel,
   slotLabel,
+  topicLabel,
   urgencyLabel,
 } from '@/domain/catalog';
 import { formatLongDate, formatPrice, toISODate } from '@/domain/utils';
@@ -42,6 +44,12 @@ export function StepProblem({ draft, set, mechanic, errors }: StepProps) {
     <div className="space-y-6">
       <fieldset>
         <legend className="mb-3 text-sm font-medium">Tipo de servicio</legend>
+        {draft.topic && (
+          // Started from Home's carousel: the service stays chosen (changing the type clears it).
+          <p className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-lime px-3 py-1 text-sm font-semibold" data-testid="topic-chip">
+            {topicLabel(draft.topic)}
+          </p>
+        )}
         <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2" id="field-category" tabIndex={-1}>
           {CATEGORIES.map((c) => {
             const offered = !mechanic || mechanic.services.some((s) => s.category === c.id);
@@ -52,7 +60,7 @@ export function StepProblem({ draft, set, mechanic, errors }: StepProps) {
                 name="category"
                 value={c.id}
                 selected={draft.category === c.id}
-                onSelect={() => set({ category: c.id })}
+                onSelect={() => set({ category: c.id, topic: draft.topic && SERVICE_TOPICS.find((t) => t.id === draft.topic)?.category === c.id ? draft.topic : undefined })}
                 disabled={!offered}
                 icon={<Icon className="size-5" />}
                 title={c.pick[0]}
@@ -400,7 +408,7 @@ export function StepReview({
   const bike = garageBike ?? draft.bike;
   return (
     <div className="space-y-3">
-      <ReviewBlock title={recipients.length === 1 ? 'Se enviará a' : `Se enviará a ${recipients.length} mecánicos`} onEdit={() => goTo(5)}>
+      <ReviewBlock title="Se enviará a" onEdit={() => goTo(5)}>
         <ul className="space-y-2" data-testid="review-recipients">
           {recipients.map((m) => (
             <li key={m.id} className="flex items-center gap-3">
@@ -412,10 +420,9 @@ export function StepReview({
             </li>
           ))}
         </ul>
-        {recipients.length > 1 && <p className="mt-3 text-sm text-muted">Cada uno recibe una invitación independiente. Podrás comparar sus respuestas y contratar a uno.</p>}
       </ReviewBlock>
       <ReviewBlock title="El problema" onEdit={() => goTo(0)}>
-        <p className="font-semibold">{draft.category && categoryLabel(draft.category)}</p>
+        <p className="font-semibold">{draft.category && serviceLabel({ category: draft.category, topic: draft.topic })}</p>
         <p className="mt-1 whitespace-pre-line text-[15px]">{draft.description}</p>
       </ReviewBlock>
       <ReviewBlock title={draft.category === 'inspection' ? 'La bici que quieres comprar' : 'Tu bici'} onEdit={() => goTo(1)}>

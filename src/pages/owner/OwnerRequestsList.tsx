@@ -1,87 +1,84 @@
 import { useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Bike, ChevronRight, ClipboardList } from 'lucide-react';
+import { ChevronRight, ClipboardList } from 'lucide-react';
 import type { ServiceRequest } from '@/domain/types';
-import { categoryLabel, bikeLabel } from '@/domain/catalog';
+import { STATUSES, bikeLabel, serviceLabel } from '@/domain/catalog';
 import { currentProposal } from '@/domain/logic/requests';
-import { CASE_STATUS_LABEL, caseHref, caseStatus, groupCases, leadThread, type CaseStatus } from '@/domain/logic/cases';
-import { formatDate, formatPrice, relativeTime } from '@/domain/utils';
-import { useApp } from '@/state/store';
+import { caseHref, caseStatus, groupCases, leadThread, type CaseStatus } from '@/domain/logic/cases';
 import { attentionActionLabel, attentionFromActions, attentionHref, type CyclistAttention } from '@/domain/logic/home';
+import { formatPrice } from '@/domain/utils';
+import { useApp } from '@/state/store';
 import { useCurrentUser, useRequestsFor } from '@/state/selectors';
-import { EmptyState, TabBar, cx } from '@/components/ui';
+import { EmptyState, cx } from '@/components/ui';
 
-type Tab = 'activas' | 'completadas' | 'canceladas' | 'todas';
-const TABS: { id: Tab; label: string; statuses?: CaseStatus[] }[] = [
-  { id: 'activas', label: 'Activas', statuses: ['searching', 'proposals_received', 'booked'] },
-  { id: 'completadas', label: 'Completadas', statuses: ['completed'] },
-  { id: 'canceladas', label: 'Canceladas', statuses: ['canceled', 'unavailable'] },
-  { id: 'todas', label: 'Todas' },
-];
+type View = 'activas' | 'completadas' | 'canceladas';
+const VIEWS: Record<View, CaseStatus[]> = {
+  activas: ['searching', 'proposals_received', 'booked'],
+  completadas: ['completed'],
+  // Not a main tab: reached from the end of Completadas.
+  canceladas: ['canceled', 'unavailable'],
+};
+
+/** The status as the cyclist reads it on a card (one request = one mechanic). */
+function statusText(r: ServiceRequest): string {
+  if (r.status === 'confirmed') return 'Servicio contratado';
+  return STATUSES[r.status].label;
+}
 
 /**
- * One row per request: its derived status and a one-line summary of the answers. A request with
- * unresolved PendingActions of the cyclist (the same ones the Request Hub counts) stands out in
- * lime with "Requiere tu atención", the most urgent action, and opens straight on that action.
+ * One request, one line of each: the service (main), the bike, its status, and the mechanic
+ * with the price once there's a quote. A request with unresolved PendingActions of the cyclist
+ * (the same ones the Request Hub counts) shows a lime dot, "Requiere tu atención" and what to
+ * do instead of its status, and opens straight on that action. Finished ones are quieter.
  */
-function CaseCard({ threads, mechanicName, pending }: { threads: ServiceRequest[]; mechanicName: (id: string) => string; pending: CyclistAttention[] }) {
-  const status = caseStatus(threads);
+function RequestCard({ threads, mechanicName, pending }: { threads: ServiceRequest[]; mechanicName: (id: string) => string; pending: CyclistAttention[] }) {
   const lead = leadThread(threads);
-  const quotes = threads.filter((r) => r.status === 'proposal_received');
-  const p = currentProposal(lead);
+  const status = caseStatus(threads);
+  const quote = currentProposal(lead);
   const first = pending[0];
-  const summary = (() => {
-    if (status === 'booked' || status === 'completed') return `${mechanicName(lead.mechanicId)}${p ? ` · ${formatPrice(p.price)} · ${formatDate(p.date, { weekday: 'short', day: 'numeric', month: 'short' })}` : ''}`;
-    if (quotes.length > 1) return `${quotes.length} presupuestos · desde ${formatPrice(Math.min(...quotes.map((r) => currentProposal(r)?.price ?? 0)))}`;
-    if (quotes.length === 1) return `Presupuesto de ${mechanicName(quotes[0]!.mechanicId)} · ${formatPrice(currentProposal(quotes[0]!)?.price ?? 0)}`;
-    if (status === 'proposals_received') return 'Un mecánico necesita aclarar algo';
-    return threads.length === 1 ? `Enviada a ${mechanicName(lead.mechanicId)}` : `Enviada a ${threads.length} mecánicos`;
-  })();
+  const done = status === 'completed' || status === 'canceled' || status === 'unavailable';
+  const showPrice = quote && quote.status !== 'withdrawn' && quote.status !== 'rejected' && !(lead.status === 'cancelled' && quote.status !== 'accepted');
   return (
     <Link
       to={first ? attentionHref(first) : caseHref(lead)}
-      className={cx('surface group block p-4 sm:p-5', first && '!bg-[color-mix(in_srgb,var(--color-lime)_9%,var(--color-paper))] !shadow-[0_0_0_2px_var(--color-lime),var(--shadow-surface)]')}
+      className={cx('surface group flex items-center gap-3 px-5 py-4', first && '!shadow-[0_0_0_1.5px_var(--color-lime),var(--shadow-surface)]')}
       data-testid="case-card"
       data-case-id={lead.caseId}
       data-attention={first ? 'true' : undefined}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs text-muted">{relativeTime(threads.reduce((a, r) => (r.updatedAt > a ? r.updatedAt : a), ''))}</p>
-          <h3 className="mt-1 font-bold leading-snug">{categoryLabel(lead.category)}</h3>
-        </div>
-        <span className={cx('shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold', first ? 'bg-lime text-ink' : 'bg-canvas')} data-testid="case-status-chip">
-          {first ? 'Requiere tu atención' : CASE_STATUS_LABEL[status]}
+      <span className="min-w-0 flex-1">
+        <span className={cx('block font-display text-[17px] font-bold leading-snug tracking-tight', done && 'text-muted')}>{serviceLabel(lead)}</span>
+        <span className="mt-0.5 block truncate text-sm text-muted">{bikeLabel(lead.bike)}</span>
+        <span className="mt-2 flex items-start gap-1.5 text-sm" data-testid="case-status-chip">
+          <span className={cx('mt-1.5 size-2 shrink-0 rounded-full', first ? 'bg-lime ring-2 ring-ink/80' : done ? 'bg-line-strong' : 'bg-ink/35')} aria-hidden />
+          {first ? (
+            <span className="min-w-0" data-testid="case-action">
+              <span className="font-semibold">Requiere tu atención</span>
+              <span className="text-muted"> · {attentionActionLabel(first)}</span>
+            </span>
+          ) : (
+            <span className={cx('font-medium', done && 'text-muted')}>{statusText(lead)}</span>
+          )}
         </span>
-      </div>
-      <p className="mt-2 inline-flex items-center gap-1.5 text-sm text-muted">
-        <Bike className="size-4" aria-hidden />
-        {bikeLabel(lead.bike)}
-      </p>
-      <div className="mt-3 flex items-center justify-between gap-3 border-t border-line pt-3 text-sm">
-        {first ? (
-          <span className="min-w-0" data-testid="case-action">
-            <span className="font-semibold">{attentionActionLabel(first)}</span>
-            {pending.length > 1 && <span className="text-muted"> · {pending.length - 1 === 1 ? '1 acción más' : `${pending.length - 1} acciones más`}</span>}
-          </span>
-        ) : (
-          <span className="text-muted">{summary}</span>
-        )}
-        <ChevronRight className="size-4 shrink-0 text-muted transition-transform group-hover:translate-x-0.5" aria-hidden />
-      </div>
+        <span className="mt-0.5 block truncate text-sm text-muted">
+          {mechanicName(lead.mechanicId)}
+          {showPrice && ` · ${formatPrice(quote!.price)}`}
+        </span>
+      </span>
+      <ChevronRight className="size-5 shrink-0 text-muted transition-transform group-hover:translate-x-0.5" aria-hidden />
     </Link>
   );
 }
 
-/** The owner's requests, one card per request (all its invitations), with status segments in `?estado=`. */
-export function OwnerRequestsList({ onNewRequest }: { onNewRequest?: () => void }) {
+/** The cyclist's requests: Activas and Completadas (cancelled ones one tap further, from Completadas). */
+export function OwnerRequestsList() {
   const user = useCurrentUser()!;
   const requests = useRequestsFor({ ownerId: user.id });
   const mechanics = useApp((s) => s.db.mechanics);
   const mechanicName = (id: string) => mechanics.find((m) => m.id === id)?.name ?? 'Mecánico';
   const [params, setParams] = useSearchParams();
-  const tab = (TABS.find((t) => t.id === params.get('estado'))?.id ?? 'activas') as Tab;
-  const setTab = (t: Tab) => setParams(t === 'activas' ? {} : { estado: t }, { replace: true });
+  const view = (['activas', 'completadas', 'canceladas'].includes(params.get('estado') ?? '') ? params.get('estado') : 'activas') as View;
+  const setView = (v: View) => setParams(v === 'activas' ? {} : { estado: v }, { replace: true });
 
   const cases = useMemo(() => groupCases(requests).map((c) => ({ ...c, status: caseStatus(c.threads) })), [requests]);
   // The cyclist's unresolved PendingActions (the Request Hub's), per request, most urgent first.
@@ -92,47 +89,59 @@ export function OwnerRequestsList({ onNewRequest }: { onNewRequest?: () => void 
     for (const a of attentionFromActions({ requests: allRequests, pendingActions: actions }, user.id)) map.set(a.request.caseId, [...(map.get(a.request.caseId) ?? []), a]);
     return map;
   }, [allRequests, actions, user.id]);
-  const counts = useMemo(
-    () => Object.fromEntries(TABS.map((t) => [t.id, t.statuses ? cases.filter((c) => t.statuses!.includes(c.status)).length : cases.length])) as Record<Tab, number>,
-    [cases],
-  );
-  const statuses = TABS.find((t) => t.id === tab)!.statuses;
-  const visible = statuses ? cases.filter((c) => statuses.includes(c.status)) : cases;
+  const count = (v: View) => cases.filter((c) => VIEWS[v].includes(c.status)).length;
+  const visible = cases.filter((c) => VIEWS[view].includes(c.status));
   // Requests that need the cyclist go first, in the order of their most urgent action.
   const urgency = [...pendingByCase.keys()];
   const rank = (caseId: string) => (urgency.includes(caseId) ? urgency.indexOf(caseId) : urgency.length);
   const sorted = [...visible].sort((a, b) => rank(a.caseId) - rank(b.caseId));
 
+  if (requests.length === 0)
+    return <EmptyState icon={<ClipboardList className="size-6" />} title="Aún no tienes solicitudes" description="Pulsa + para pedir un servicio. Aquí verás su estado y la respuesta del mecánico." />;
+
+  const tab = (v: 'activas' | 'completadas', label: string) => (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={view === v || (v === 'completadas' && view === 'canceladas')}
+      onClick={() => setView(v)}
+      className={cx(
+        'relative pb-2 text-[15px] font-semibold transition-colors',
+        view === v || (v === 'completadas' && view === 'canceladas') ? 'text-ink after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:rounded-full after:bg-ink' : 'text-muted hover:text-ink',
+      )}
+    >
+      {label} <span className="font-normal text-muted">{count(v)}</span>
+    </button>
+  );
+
   return (
     <div>
-      {requests.length === 0 ? (
-        <EmptyState
-          icon={<ClipboardList className="size-6" />}
-          title="Aún no tienes solicitudes"
-          description="Cuando pidas un servicio, lo verás aquí con las respuestas de los mecánicos."
-          action={
-            onNewRequest && (
-              <button type="button" onClick={onNewRequest} className="inline-flex h-11 items-center rounded-full bg-lime px-5 font-semibold text-ink hover:bg-lime-deep">
-                ¿Qué necesita tu bici?
-              </button>
-            )
-          }
-        />
+      <div role="tablist" aria-label="Filtrar solicitudes" className="mb-5 flex gap-6 border-b border-line">
+        {tab('activas', 'Activas')}
+        {tab('completadas', 'Completadas')}
+      </div>
+      {view === 'canceladas' && (
+        <button type="button" onClick={() => setView('completadas')} className="mb-4 text-sm font-semibold text-muted hover:text-ink" data-testid="back-to-completed">
+          ← Canceladas · volver a completadas
+        </button>
+      )}
+      {sorted.length === 0 ? (
+        <p className="py-10 text-center text-[15px] text-muted" data-testid="requests-empty">
+          {view === 'activas' ? 'No tienes solicitudes activas. Pulsa + para pedir un servicio.' : view === 'completadas' ? 'Aún no has completado ningún servicio.' : 'No tienes solicitudes canceladas.'}
+        </p>
       ) : (
-        <>
-          <TabBar tabs={TABS} value={tab} onChange={setTab} counts={counts} />
-          {sorted.length === 0 ? (
-            <EmptyState icon={<ClipboardList className="size-6" />} title="Nada por aquí" description="No tienes solicitudes en este estado." />
-          ) : (
-            <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-              {sorted.map((c) => (
-                <li key={c.caseId}>
-                  <CaseCard threads={c.threads} mechanicName={mechanicName} pending={pendingByCase.get(c.caseId) ?? []} />
-                </li>
-              ))}
-            </ul>
-          )}
-        </>
+        <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          {sorted.map((c) => (
+            <li key={c.caseId}>
+              <RequestCard threads={c.threads} mechanicName={mechanicName} pending={pendingByCase.get(c.caseId) ?? []} />
+            </li>
+          ))}
+        </ul>
+      )}
+      {view === 'completadas' && count('canceladas') > 0 && (
+        <button type="button" onClick={() => setView('canceladas')} className="mt-6 text-sm font-semibold text-muted hover:text-ink" data-testid="show-cancelled">
+          Ver canceladas ({count('canceladas')})
+        </button>
       )}
     </div>
   );

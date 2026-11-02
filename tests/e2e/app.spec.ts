@@ -64,7 +64,6 @@ test.describe('Navegación', () => {
     if (mobile) await nav.getByRole('link', { name: 'Solicitudes' }).click();
     else await hubEntry.click();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Solicitudes');
-    await page.getByRole('tab', { name: /Todas/ }).click();
     await expect(page.getByTestId('case-card').first()).toBeVisible();
     // Inside Requests the Hub hides: the selected tab says where you are.
     await expect(hubEntry).toHaveCount(0);
@@ -122,7 +121,8 @@ test.describe('Navegación', () => {
     await page.getByRole('radio', { name: 'Ciclista' }).click();
     // Cyclist mode, new to it: the Home invites to a first request, with no fake activity.
     await expect(page).toHaveURL(/#\/$/);
-    await expect(page.getByText('Encuentra al mecánico adecuado.')).toBeVisible();
+    await expect(page.getByRole('heading', { name: '¿Qué necesita tu bici?' })).toBeVisible();
+    await expect(page.getByTestId('service-card')).toHaveCount(6);
     await expect(page.getByTestId('attention')).toHaveCount(0);
     await expect(page.getByTestId('discover')).not.toContainText('Carlos Ortega'); // never his own workshop
     await page.goto('./#/mecanicos');
@@ -259,11 +259,12 @@ test.describe('Navegación', () => {
     const chip = page.getByTestId(mobile ? 'pending-pill' : 'header-hub-chip');
     if (mobile) {
       // Phones: the pill only opens the preview; its last row leads to Solicitudes.
-      await expect(chip).toHaveAccessibleName('1 pendiente. Ver lo pendiente');
+      // Two requests (one mechanic each), one quote each: two decisions.
+      await expect(chip).toHaveAccessibleName('2 pendientes. Ver lo pendiente');
       await chip.click();
       await page.getByTestId('pending-all').click();
     } else {
-      await expect(chip).toHaveAccessibleName(/^2 presupuestos para comparar · Inspección antes de comprar\. 1 solicitud activa más/);
+      await expect(chip).toHaveAccessibleName(/^Nuevo presupuesto recibido · Inspección antes de comprar\. 2 solicitudes activas más/);
       await chip.click();
     }
     await expect(page).toHaveURL(/#\/solicitudes$/);
@@ -364,7 +365,7 @@ test.describe('Navegación', () => {
     // Reduced motion: no movement, the whole message still readable and in the accessible name.
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await expect(marquee).not.toHaveAttribute('data-moving', 'true');
-    await expect(chip()).toHaveAccessibleName(/^2 presupuestos para comparar/);
+    await expect(chip()).toHaveAccessibleName(/^Nuevo presupuesto recibido/);
     await page.emulateMedia({ reducedMotion: 'no-preference' });
 
     // From a lower to a higher priority: reporting a problem turns "terminada" into an incident.
@@ -426,7 +427,7 @@ test.describe('Navegación', () => {
     // A new user with nothing active (Álex, the clean test cyclist); a request from the Home hero turns the dock into the Hub.
     await freshDemo(page, 'u-test');
     await stateA();
-    await page.getByTestId('widget-need').getByRole('button', { name: 'Nueva solicitud' }).click();
+    await page.getByTestId('service-card').filter({ hasText: 'Frenos' }).click();
     await send();
     await stateB(/^Buscando mecánicos · Reparación\. Abrir$/);
     if (mobile) await expect(page.getByTestId('dock')).toHaveAttribute('data-state', 'hub');
@@ -450,12 +451,13 @@ test.describe('Navegación', () => {
     await expect(page).toHaveURL(/#\/solicitudes$/);
     await expect(page.getByTestId('case-card')).toHaveCount(2);
 
-    // Cancelling both: the last one brings back the three tabs and "+ Nueva".
+    // Cancelling both: the last one brings back "Nueva solicitud".
     for (let i = 0; i < 2; i++) {
       await page.goto('./#/solicitudes');
       await page.getByTestId('case-card').first().click();
-      await page.getByRole('button', { name: 'Retirar solicitud' }).first().click();
-      await page.getByRole('dialog').getByRole('button', { name: 'Retirar solicitud' }).click();
+      // The request opens on its mechanic, where it can be cancelled.
+      await page.getByRole('button', { name: 'Cancelar solicitud' }).first().click();
+      await page.getByRole('dialog').getByRole('button', { name: 'Cancelar solicitud' }).click();
       await expect(page.getByRole('dialog')).toHaveCount(0);
     }
     await page.goto('./#/');
@@ -531,12 +533,13 @@ test.describe('Navegación', () => {
       localStorage.setItem('cromiqa:demo:db', JSON.stringify(db));
     });
     await page.reload();
-    await expect(toggle).toHaveAccessibleName('2 pendientes. Ver lo pendiente');
+    // Pablo's two quotes (two requests) and the date: three decisions.
+    await expect(toggle).toHaveAccessibleName('3 pendientes. Ver lo pendiente');
     await toggle.click();
-    await expect(preview.getByTestId('pending-item')).toHaveCount(2);
+    await expect(preview.getByTestId('pending-item')).toHaveCount(3);
     await expect(preview.getByTestId('pending-item').nth(0)).toContainText('Cita');
     await expect(preview.getByTestId('pending-item').nth(1)).toContainText('Presupuestos');
-    await expect(preview.getByTestId('pending-item').nth(1)).toContainText('2 propuestas para comparar');
+    await expect(preview.getByTestId('pending-item').nth(2)).toContainText('Presupuestos');
     await page.keyboard.press('Escape');
 
     // More than three: the count keeps them all, the preview shows the three most urgent.
@@ -547,11 +550,11 @@ test.describe('Navegación', () => {
       localStorage.setItem('cromiqa:demo:db', JSON.stringify(db));
     });
     await page.reload();
-    await expect(toggle).toHaveAccessibleName('4 pendientes. Ver lo pendiente');
+    await expect(toggle).toHaveAccessibleName('5 pendientes. Ver lo pendiente');
     await toggle.click();
     await expect(preview.getByTestId('pending-item')).toHaveCount(3);
     for (const [i, title] of ['Incidencia', 'Cita', 'Presupuestos'].entries()) await expect(preview.getByTestId('pending-item').nth(i)).toContainText(title);
-    await expect(preview.getByTestId('pending-all')).toContainText('1 pendiente más');
+    await expect(preview.getByTestId('pending-all')).toContainText('2 pendientes más');
     await page.keyboard.press('Escape');
 
     // Narrow phone: the pill and its chevron fit inside the screen.
@@ -589,43 +592,39 @@ test.describe('Navegación', () => {
     await expect(page.getByTestId('new-request-fab')).toBeVisible();
   });
 
-  test('Solicitudes: the request that needs the cyclist stands out with its action; others look as before', async ({ page }) => {
+  test('Solicitudes: clean cards (service, bike, status, mechanic · price); requests that need the cyclist say so', async ({ page }) => {
     await freshDemo(page, 'u-pablo');
     await page.goto('./#/solicitudes');
+    // Compact header, two tabs, no big creation button.
+    await expect(page.getByText('Tus servicios y reparaciones.')).toBeVisible();
+    await expect(page.getByRole('tab')).toHaveText([/Activas/, /Completadas/]);
+    await expect(page.getByRole('main').getByRole('button', { name: /Nueva solicitud/ })).toHaveCount(0);
     const cards = page.getByTestId('case-card');
-    await expect(cards).toHaveCount(2);
-    // The one with a pending decision first, in lime, with what to do.
+    await expect(cards).toHaveCount(3);
+    // Requests with a pending decision first, with a discreet indicator and what to do.
     const first = cards.first();
     await expect(first).toHaveAttribute('data-attention', 'true');
-    await expect(first.getByTestId('case-status-chip')).toHaveText('Requiere tu atención');
-    await expect(first.getByTestId('case-action')).toHaveText('Revisa y compara los presupuestos');
-    // The other keeps its usual look and status.
-    await expect(cards.nth(1)).not.toHaveAttribute('data-attention', 'true');
-    await expect(cards.nth(1).getByTestId('case-status-chip')).toHaveText('Esperando respuestas');
-    // Opening it shows everything pending on that request.
+    await expect(first.getByTestId('case-action')).toHaveText('Requiere tu atención · Revisa el presupuesto');
+    await expect(first).toContainText('Inspección antes de comprar');
+    await expect(first).toContainText('€'); // mechanic · price
+    // The other keeps its usual look: status, mechanic, no price yet.
+    const plain = cards.last();
+    await expect(plain).not.toHaveAttribute('data-attention', 'true');
+    await expect(plain.getByTestId('case-status-chip')).toHaveText('Esperando presupuesto');
+    await expect(plain).not.toContainText('€');
+    // Opening it goes straight to that mechanic's quote.
     await first.click();
-    await expect(page.getByTestId('case-attention')).toContainText('Revisa y compara los presupuestos');
-
-    // Several actions on one request: highlighted once, the most urgent first, "+1 more", all listed inside.
-    await page.evaluate(() => {
-      const db = JSON.parse(localStorage.getItem('cromiqa:demo:db')!);
-      const quote = db.pendingActions.find((a: { requestId: string; type: string }) => a.requestId === 'r-03' && a.type === 'quote_decision');
-      const other = db.requests.find((r: { caseId: string; id: string }) => r.caseId === 'r-03' && r.id !== quote.threadId);
-      db.pendingActions.push({ ...quote, id: 'pa-extra', type: 'information_required', priority: 4, key: `information:${other.id}`, threadId: other.id, sourceEntityType: 'open_proposal', sourceEntityId: `${other.id}@x` });
-      localStorage.setItem('cromiqa:demo:db', JSON.stringify(db));
-    });
+    await expect(page).toHaveURL(/\/mecanico\//);
+    await expect(page.getByRole('button', { name: 'Aceptar presupuesto' })).toBeVisible();
+    // Completed ones in their tab; cancelled ones one tap further.
     await page.goto('./#/solicitudes');
-    await page.reload();
-    await expect(page.locator('[data-testid="case-card"][data-attention="true"]')).toHaveCount(1);
-    await expect(cards.first().getByTestId('case-action')).toHaveText('Revisa y compara los presupuestos · 1 acción más');
-    await cards.first().click();
-    await expect(page.getByTestId('case-attention').getByRole('listitem')).toHaveCount(2);
-    await expect(page.getByTestId('case-attention')).toContainText('Responde al mecánico');
+    await page.getByRole('tab', { name: /Completadas/ }).click();
+    await expect(cards.first().getByTestId('case-status-chip')).toHaveText('Completada');
 
     // Resolving the action removes the highlight at once.
     await freshDemo(page, 'u-dani');
     await page.goto('./#/solicitudes');
-    await expect(cards.first().getByTestId('case-action')).toHaveText('Confirma la fecha propuesta');
+    await expect(cards.first().getByTestId('case-action')).toHaveText('Requiere tu atención · Confirma la fecha propuesta');
     await cards.first().click(); // straight to the conversation where the date is confirmed
     await expect(page).toHaveURL(/#\/solicitudes\/r-dani\/mecanico\/r-dani$/);
     await page.getByRole('button', { name: 'Confirmar cita' }).click();
@@ -686,17 +685,38 @@ test.describe('Navegación', () => {
 });
 
 test.describe('Validación de formularios', () => {
-  test('cyclist home puts what needs you first, then a short summary and grounded suggestions', async ({ page }) => {
+  test('cyclist home: services to discover first, then what needs you, mechanics and a short summary', async ({ page }) => {
     await freshDemo(page, 'u-pablo');
     await expect(page.getByTestId('widget-need')).toBeVisible();
-    const proposal = page.getByTestId('attention-proposal');
-    // Pablo has two quotes for the same request: one card to compare them.
-    await expect(proposal).toContainText('2 presupuestos para comparar');
+    // Six fixed-width services in a horizontal row; the next one peeks in; the page itself doesn't scroll sideways.
+    const cards = page.getByTestId('service-card');
+    await expect(cards).toHaveText([/Mantenimiento/, /Frenos/, /Transmisión/, /Ruedas/, /Suspensión/, /Diagnóstico/]);
+    const vw = page.viewportSize()!.width;
+    if (vw < 768) {
+      const [a, b] = [await cards.nth(0).boundingBox(), await cards.nth(1).boundingBox()];
+      expect(a!.width).toBeGreaterThan(200);
+      expect(b!.x).toBeLessThan(vw); // part of the next card is visible
+      expect(b!.x + b!.width).toBeGreaterThan(vw);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+    // What needs Pablo: a quote from each mechanic he asked (two requests).
+    const proposals = page.getByTestId('attention-proposal');
+    await expect(proposals).toHaveCount(2);
     await expect(page.getByTestId('discover').getByRole('listitem')).toHaveCount(3);
     await expect(page.getByTestId('discover')).not.toContainText('★');
-    await proposal.click();
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Solicitud');
-    await expect(page.getByTestId('case-status')).toHaveText('Propuestas recibidas');
+    await proposals.first().click();
+    await expect(page).toHaveURL(/\/mecanico\//);
+  });
+
+  test('a service card opens the request flow with that service kept through the form', async ({ page }) => {
+    await freshDemo(page, 'u-ana');
+    await page.getByTestId('service-card').filter({ hasText: 'Suspensión' }).click();
+    const hub = page.getByTestId('request-hub');
+    await expect(hub.getByTestId('topic-chip')).toHaveText('Suspensión');
+    await expect(hub.getByRole('radio', { name: /^Mantenimiento/ })).toBeChecked();
+    // Changing the type of service drops the preselected one.
+    await hub.getByText('Reparación', { exact: true }).click();
+    await expect(hub.getByTestId('topic-chip')).toHaveCount(0);
   });
 
   test('mechanic home: to-do by urgency, counts open filtered lists, profile status', async ({ page }) => {

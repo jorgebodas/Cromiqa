@@ -59,7 +59,7 @@ export function validateStep(step: number, d: RequestDraft, m: Mechanic | undefi
   }
   if (step === STEP.providers) {
     if (d.mechanicIds.length === 0) e.mechanicIds = 'Elige al menos un mecánico.';
-    else if (d.mechanicIds.length > MAX_RECIPIENTS_PER_SEND) e.mechanicIds = `Elige ${MAX_RECIPIENTS_PER_SEND} como máximo.`;
+    else if (d.mechanicIds.length > MAX_RECIPIENTS_PER_SEND) e.mechanicIds = 'Elige un solo mecánico.';
   }
   return e;
 }
@@ -82,6 +82,7 @@ export function draftToInput(d: RequestDraft, ownerId: ID, ownerBikes: Bike[]): 
     ownerId,
     mechanicIds: d.mechanicIds,
     category: d.category!,
+    topic: d.topic,
     description: d.description,
     bikeId: garageBike?.id,
     bike: garageBike

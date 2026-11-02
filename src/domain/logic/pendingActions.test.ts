@@ -19,8 +19,9 @@ describe('PendingAction lifecycle: one request from start to finish', () => {
     const act = (id: string, action: RequestAction, by: Role, when = now) => {
       db = applyRequestAction(db, id, action, by, when).db;
     };
-    const [a, b] = db.requests.filter((r) => r.ownerId === 'u-bea').map((r) => r.id) as [string, string];
-    const caseId = 'r-bea-0';
+    // One request = one mechanic: Bea's first request.
+    const a = 'r-bea-0';
+    const caseId = a;
 
     // 1. Request created (and just waiting): nothing owed, the + stays.
     expect(hub(db, 'u-bea')).toEqual([]);
@@ -28,20 +29,19 @@ describe('PendingAction lifecycle: one request from start to finish', () => {
     act(a, { type: 'accept_for_review' }, 'mechanic');
     expect(hub(db, 'u-bea')).toEqual([]);
 
-    // 2. Two quotes: one comparison decision.
+    // 2. The mechanic's quote: one decision (the request has one mechanic).
     act(a, { type: 'send_proposal', proposal: quote(40) }, 'mechanic');
-    act(b, { type: 'send_proposal', proposal: quote(55) }, 'mechanic');
     expect(hub(db, 'u-bea')).toMatchObject([{ type: 'quote_decision', requestId: caseId, status: 'pending', priority: 3 }]);
-    expect(attentionFromActions(db, 'u-bea', now)[0]).toMatchObject({ kind: 'proposal', count: 2 });
+    expect(attentionFromActions(db, 'u-bea', now)[0]).toMatchObject({ kind: 'proposal', count: 1 });
 
     // 3. Opening the quotes changes nothing: re-syncing without an event keeps the same record.
     const before = db.pendingActions;
     expect(syncPendingActions(db, [caseId], { type: 'migration' }, at(1)).pendingActions).toBe(before);
 
-    // 4. Accepting one resolves the decision; the other invitation is not selected.
+    // 4. Accepting resolves the decision (Bea's other request, to another mechanic, is untouched).
     act(a, { type: 'accept_proposal' }, 'owner');
     expect(all(db, caseId).find((x) => x.type === 'quote_decision')).toMatchObject({ status: 'resolved', resolutionReason: 'quote_accepted' });
-    expect(db.requests.find((r) => r.id === b)!.status).toBe('not_selected');
+    expect(db.requests.find((r) => r.id === 'r-bea-1')!.status).toBe('sent');
     // (Hiring confirms price and scope, not the date: the quote's date becomes the mechanic's
     // first proposal, so a date confirmation is owed straight away.)
     expect(hub(db, 'u-bea').map((x) => x.type)).toEqual(['appointment_confirmation']);
@@ -138,9 +138,10 @@ describe('PendingAction lifecycle: one request from start to finish', () => {
   it('14. a revised quote supersedes the old decision', () => {
     let db = createSeed(now);
     const carla = db.requests.find((r) => r.ownerId === 'u-carla' && r.status === 'proposal_received')!;
-    const old = hub(db, 'u-carla')[0]!;
+    const ofRequest = () => hub(db, 'u-carla').filter((x) => x.requestId === carla.caseId);
+    const old = ofRequest()[0]!;
     db = applyRequestAction(db, carla.id, { type: 'revise_proposal', proposal: quote(30) }, 'mechanic', now).db;
-    const current = hub(db, 'u-carla');
+    const current = ofRequest();
     expect(current).toHaveLength(1);
     expect(current[0]!.id).not.toBe(old.id);
     expect(db.pendingActions.find((x) => x.id === old.id)).toMatchObject({ status: 'superseded', supersededByActionId: current[0]!.id });
@@ -184,11 +185,12 @@ describe('cancelling a request supersedes its outstanding actions (incidents exc
 
   it('1. a pending quote decision is superseded and leaves the Hub', () => {
     let db = createSeed(now);
-    const quoteDecision = hub(db, 'u-carla')[0]!;
-    expect(quoteDecision.type).toBe('quote_decision');
-    db = cancelAll(db, quoteDecision.requestId);
-    expect(superseded(db, quoteDecision.id)).toMatchObject({ status: 'superseded', resolutionReason: 'request_cancelled' });
-    expect(hub(db, 'u-carla')).toEqual([]);
+    const [quoteDecision, other] = hub(db, 'u-carla'); // two requests, one quote each
+    expect(quoteDecision!.type).toBe('quote_decision');
+    db = cancelAll(db, quoteDecision!.requestId);
+    expect(superseded(db, quoteDecision!.id)).toMatchObject({ status: 'superseded', resolutionReason: 'request_cancelled' });
+    // Her other request (another mechanic) keeps its own decision.
+    expect(hub(db, 'u-carla')).toEqual([other]);
     expect(db.pendingActions.length).toBe(createSeed(now).pendingActions.length); // nothing deleted
   });
 
@@ -203,7 +205,7 @@ describe('cancelling a request supersedes its outstanding actions (incidents exc
     }
   });
 
-  it('3. several pending actions on one request are all superseded; other requests are untouched', () => {
+  it('3. with several pending actions, cancelling one request supersedes only that request\'s', () => {
     let db = createSeed(now);
     const [a, b] = db.requests.filter((r) => r.ownerId === 'u-bea').map((r) => r.id) as [string, string];
     db = applyRequestAction(db, a, { type: 'send_open_proposal', message: '¿Es Shimano o SRAM el cambio?' }, 'mechanic', now).db;
@@ -211,8 +213,10 @@ describe('cancelling a request supersedes its outstanding actions (incidents exc
     const open = hub(db, 'u-bea');
     expect(open.map((x) => x.type)).toEqual(['quote_decision', 'information_required']);
     const carlaBefore = hub(db, 'u-carla');
-    db = cancelAll(db, 'r-bea-0');
-    for (const x of open) expect(superseded(db, x.id)).toMatchObject({ status: 'superseded', resolutionReason: 'request_cancelled' });
+    db = cancelAll(db, a);
+    expect(superseded(db, open.find((x) => x.requestId === a)!.id)).toMatchObject({ status: 'superseded', resolutionReason: 'request_cancelled' });
+    expect(hub(db, 'u-bea').map((x) => x.requestId)).toEqual([b]);
+    db = cancelAll(db, b);
     expect(hub(db, 'u-bea')).toEqual([]);
     expect(hub(db, 'u-carla')).toEqual(carlaBefore);
   });
@@ -237,7 +241,9 @@ describe('cancelling a request supersedes its outstanding actions (incidents exc
 
   it('5. cancelling the request with the last eligible action brings the + back', () => {
     let db = createSeed(now);
-    expect(hub(db, 'u-pablo')).toHaveLength(1); // the inspection's quotes
+    expect(hub(db, 'u-pablo')).toHaveLength(2); // two requests about the inspection, one quote each
+    db = cancelAll(db, hub(db, 'u-pablo')[0]!.requestId);
+    expect(hub(db, 'u-pablo')).toHaveLength(1);
     db = cancelAll(db, hub(db, 'u-pablo')[0]!.requestId);
     expect(hub(db, 'u-pablo')).toEqual([]); // 0 → the Hub shows the + again
   });

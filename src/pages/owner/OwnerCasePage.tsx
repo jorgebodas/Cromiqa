@@ -1,11 +1,10 @@
 import { useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
-import { ChevronRight, CircleCheckBig, Lightbulb, UserPlus, X } from 'lucide-react';
+import { ChevronRight, CircleCheckBig, Lightbulb, X } from 'lucide-react';
 import type { ServiceRequest } from '@/domain/types';
 import { categoryLabel } from '@/domain/catalog';
-import { currentProposal, isHired, MAX_RECIPIENTS_PER_SEND } from '@/domain/logic/requests';
+import { currentProposal, isHired } from '@/domain/logic/requests';
 import { CASE_STATUS_LABEL, caseStatus, leadThread, recoveryHint, threadHref } from '@/domain/logic/cases';
-import { matchProviders } from '@/domain/logic/matching';
 import { formatDate, formatPrice } from '@/domain/utils';
 import { useApp } from '@/state/store';
 import { attentionActionLabel, attentionFromActions, attentionHref } from '@/domain/logic/home';
@@ -15,7 +14,6 @@ import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { RequestSummary } from '@/components/domain/RequestParts';
 import { StatusBadge } from '@/components/domain/Status';
 import { Avatar, Button, Dialog, EmptyState, Field, LinkButton, Textarea, cx } from '@/components/ui';
-import { StepProviders } from './request/StepProviders';
 
 /** One provider's answer, as a row of the comparison. */
 function responseOf(r: ServiceRequest): { label: string; detail?: string; rank: number } {
@@ -35,59 +33,6 @@ const HINT_TEXT = {
   no_quote: 'Todavía no tienes un presupuesto. Puedes invitar a más mecánicos o aclarar tu solicitud.',
 } as const;
 
-function InviteMoreDialog({ open, onClose, threads }: { open: boolean; onClose: () => void; threads: ServiceRequest[] }) {
-  const mechanics = useApp((s) => s.db.mechanics);
-  const reviews = useApp((s) => s.db.reviews);
-  const user = useCurrentUser();
-  const inviteToCase = useApp((s) => s.inviteToCase);
-  const toast = useApp((s) => s.toast);
-  const [selected, setSelected] = useState<string[]>([]);
-  const [error, setError] = useState<string>();
-  const [busy, setBusy] = useState(false);
-  const base = threads[0]!;
-  const matches = useMemo(
-    () =>
-      matchProviders(mechanics, reviews, { category: base.category, bikeType: base.bike.type, mode: base.mode, location: base.location, description: base.description, excludeMechanicId: user?.mechanicId }).filter(
-        (m) => !threads.some((r) => r.mechanicId === m.mechanic.id),
-      ),
-    [mechanics, reviews, base, threads, user?.mechanicId],
-  );
-  const send = async () => {
-    if (!selected.length) return setError('Elige al menos un mecánico.');
-    setBusy(true);
-    try {
-      const sent = await inviteToCase(base.caseId, selected);
-      toast(sent.length === 1 ? 'Invitación enviada' : `${sent.length} invitaciones enviadas`);
-      setSelected([]);
-      onClose();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo enviar.');
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      title="Invitar a más mecánicos"
-      description={`Las invitaciones y presupuestos que ya tienes se mantienen. Hasta ${MAX_RECIPIENTS_PER_SEND} cada vez.`}
-      size="lg"
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button onClick={send} loading={busy} disabled={matches.length === 0}>
-            {selected.length > 1 ? `Invitar a ${selected.length}` : 'Invitar'}
-          </Button>
-        </>
-      }
-    >
-      <StepProviders matches={matches} selected={selected} onChange={(ids) => (setSelected(ids), setError(undefined))} error={error} />
-    </Dialog>
-  );
-}
 
 function Inner() {
   const { id } = useParams();
@@ -97,7 +42,6 @@ function Inner() {
   const withdrawCase = useApp((s) => s.withdrawCase);
   const toast = useApp((s) => s.toast);
   const navigate = useNavigate();
-  const [invite, setInvite] = useState(false);
   const [withdraw, setWithdraw] = useState(false);
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
@@ -122,6 +66,8 @@ function Inner() {
     );
   }
   if (id !== caseId) return <Navigate to={`/solicitudes/${caseId}`} replace />;
+  // One request = one mechanic: its page is the conversation with that mechanic.
+  if (threads.length === 1) return <Navigate to={threadHref(threads[0]!)} replace />;
 
   const status = caseStatus(threads);
   const hired = threads.find(isHired);
@@ -228,11 +174,6 @@ function Inner() {
                 <h2 id="responses-title" className="font-display text-[19px] font-bold tracking-tight">
                   {hired ? 'Otros mecánicos' : 'Respuestas'}
                 </h2>
-                {open && !hired && (
-                  <button type="button" onClick={() => setInvite(true)} className="inline-flex items-center gap-1.5 text-sm font-semibold hover:underline">
-                    <UserPlus className="size-4" aria-hidden /> Invitar a más
-                  </button>
-                )}
               </div>
               <ul className="surface divide-y divide-line overflow-hidden" data-testid="responses">
                 {rows
@@ -263,9 +204,6 @@ function Inner() {
           <aside className="space-y-3 lg:sticky lg:top-24 lg:self-start">
             {open && !hired && (
               <>
-                <Button block onClick={() => setInvite(true)} icon={<UserPlus className="size-4" aria-hidden />}>
-                  Invitar a más mecánicos
-                </Button>
                 <Button block variant="secondary" onClick={() => setWithdraw(true)}>
                   Retirar solicitud
                 </Button>
@@ -275,7 +213,6 @@ function Inner() {
           </aside>
         </div>
 
-        {open && <InviteMoreDialog open={invite} onClose={() => setInvite(false)} threads={threads} />}
         <Dialog
           open={withdraw}
           onClose={() => setWithdraw(false)}

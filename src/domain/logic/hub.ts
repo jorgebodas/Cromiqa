@@ -57,11 +57,13 @@ export interface Ranked {
   deadline?: boolean;
   /** Since when it has been waiting: the oldest pending action goes first. */
   at: string;
+  /** Last, stable tie-break (the request id), so every list orders equal items the same way. */
+  id?: string;
 }
 
 /** Priority, then a real deadline, then the oldest pending action. Stable for equal items. */
 export function compareRanked(a: Ranked, b: Ranked): number {
-  return a.priority - b.priority || (a.order ?? 0) - (b.order ?? 0) || Number(!!b.deadline) - Number(!!a.deadline) || a.at.localeCompare(b.at);
+  return a.priority - b.priority || (a.order ?? 0) - (b.order ?? 0) || Number(!!b.deadline) - Number(!!a.deadline) || a.at.localeCompare(b.at) || (a.id ?? '').localeCompare(b.id ?? '');
 }
 
 export interface HubItem extends Ranked {
@@ -192,6 +194,7 @@ export function hubItems(requests: ServiceRequest[], now = new Date()): HubItem[
         order: quick.order,
         deadline: quick.deadline,
         at: quick.at,
+        id: caseId,
         pending: quick.requiresAction,
         quick,
         updatedAt,

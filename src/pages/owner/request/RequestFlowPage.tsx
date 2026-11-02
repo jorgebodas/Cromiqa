@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Info, Send, X } from 'lucide-react';
 import type { ID, ServiceRequest } from '@/domain/types';
-import { DomainError, MAX_RECIPIENTS_PER_SEND } from '@/domain/logic/requests';
+import { DomainError } from '@/domain/logic/requests';
 import { matchProviders } from '@/domain/logic/matching';
 import { useApp, type RequestDraft } from '@/state/store';
 import { useCurrentUser, useMechanic, useOwnerBikes } from '@/state/selectors';
@@ -377,8 +377,8 @@ export function RequestForm({ variant, originMechanicId, params = new URLSearchP
             )}
             <ul className="mt-5 space-y-2 border-t border-line pt-4 text-sm">
               <li>1. Describes qué necesita tu bici.</li>
-              <li>2. Eliges hasta {MAX_RECIPIENTS_PER_SEND} mecánicos compatibles.</li>
-              <li>3. Comparas sus respuestas y contratas a uno.</li>
+              <li>2. Eliges un mecánico compatible.</li>
+              <li>3. Recibes su presupuesto y decides.</li>
             </ul>
           </div>
         </aside>

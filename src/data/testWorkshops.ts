@@ -135,8 +135,8 @@ export function stateProfiles(now: Date): { users: User[]; requests: ServiceRequ
 
   const person = (id: string, name: string, state: string): User => ({ id, name, role: 'owner', email: `${id.slice(2)}@demo.cromiqa.com`, location: 'rivas', demoBlurb: `Prueba · ${state}` });
   const users: User[] = [
-    person('u-bea', 'Bea Ortiz', 'esperando respuesta'),
-    person('u-carla', 'Carla Núñez', '2 presupuestos'),
+    person('u-bea', 'Bea Ortiz', 'esperando respuesta (2 solicitudes)'),
+    person('u-carla', 'Carla Núñez', '2 presupuestos (2 solicitudes)'),
     person('u-dani', 'Dani Ríos', 'confirmar cita'),
     person('u-eva', 'Eva Soler', 'en curso'),
     person('u-fran', 'Fran Gil', 'confirmar servicio'),

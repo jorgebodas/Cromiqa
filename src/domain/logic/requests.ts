@@ -218,7 +218,8 @@ export function caseThreads(db: Pick<DemoDatabase, 'requests'>, caseId: ID): Ser
   return db.requests.filter((r) => r.caseId === caseId);
 }
 
-export const MAX_RECIPIENTS_PER_SEND = 5;
+/** One request = one mechanic: to ask another one, the cyclist starts another request. */
+export const MAX_RECIPIENTS_PER_SEND = 1;
 export const MAX_PHOTOS = 3;
 
 /** The request's own fields, independent of who receives it. */
@@ -226,7 +227,7 @@ export function validateRequestInput(input: NewRequestInput, db: DemoDatabase): 
   const errors: Record<string, string> = {};
   const ids = new Set(input.mechanicIds);
   if (ids.size === 0) errors.mechanicIds = 'Elige al menos un mecánico.';
-  else if (ids.size > MAX_RECIPIENTS_PER_SEND) errors.mechanicIds = `Puedes enviarla a ${MAX_RECIPIENTS_PER_SEND} mecánicos como máximo cada vez.`;
+  else if (ids.size > MAX_RECIPIENTS_PER_SEND) errors.mechanicIds = 'Una solicitud va a un solo mecánico. Para consultar a otro, crea otra solicitud.';
   for (const id of errors.mechanicIds ? [] : ids) {
     const first = Object.values(validateForMechanic(input, id, db))[0];
     if (first) {
@@ -314,6 +315,7 @@ export function createRequest(
     caseId,
     ownerId: input.ownerId,
     category: input.category,
+    topic: input.topic,
     description: input.description.trim(),
     bikeId,
     bike: garageBike
@@ -361,6 +363,9 @@ export function inviteToCase(
   const threads = caseThreads(db, caseId);
   const first = threads[0];
   if (!first || first.ownerId !== ownerId) throw new DomainError('No encontramos esta solicitud.');
+  // One request = one mechanic: another mechanic means another request.
+  if (threads.length + new Set(mechanicIds).size > MAX_RECIPIENTS_PER_SEND)
+    throw new DomainError('Una solicitud va a un solo mecánico. Para consultar a otro, crea otra solicitud.');
   if (threads.some(isHired)) throw new DomainError('Esta solicitud ya tiene un servicio contratado.');
   if (threads.every((r) => r.status === 'cancelled' && r.events.some((e) => e.type === 'cancelled_by_owner')))
     throw new DomainError('Retiraste esta solicitud.');

@@ -1,5 +1,6 @@
 import { CircleHelp, ScanSearch, Settings2, Wrench } from 'lucide-react';
-import type { ServiceCategory } from '@/domain/types';
+import type { ServiceCategory, ServiceTopic } from '@/domain/types';
+import { SERVICE_TOPICS } from '@/domain/catalog';
 import { useApp } from '@/state/store';
 import { useNavUi } from '@/state/ui';
 
@@ -27,6 +28,19 @@ export function useStartRequest() {
   const openNewRequest = useNavUi((s) => s.openNewRequest);
   return (category: ServiceCategory) => {
     resetDraft({ category });
+    openNewRequest();
+  };
+}
+
+/**
+ * From Home's service carousel: the same new-request flow, with the service (and its category)
+ * already chosen; the cyclist then describes the actual problem.
+ */
+export function useStartService() {
+  const resetDraft = useApp((s) => s.resetDraft);
+  const openNewRequest = useNavUi((s) => s.openNewRequest);
+  return (topic: ServiceTopic) => {
+    resetDraft({ topic, category: SERVICE_TOPICS.find((t) => t.id === topic)!.category });
     openNewRequest();
   };
 }

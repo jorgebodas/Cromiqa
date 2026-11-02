@@ -73,7 +73,7 @@ export function cyclistAttention(requests: ServiceRequest[], reviews: Review[], 
       items.push({ kind: 'declined', request: declined, priority: 3, at: declinedAt });
     }
   }
-  return items.sort(compareRanked).map(({ kind, request, count, closingSoon }) => ({ kind, request, count, closingSoon }));
+  return items.map((i) => ({ ...i, id: i.request.caseId })).sort(compareRanked).map(({ kind, request, count, closingSoon }) => ({ kind, request, count, closingSoon }));
 }
 
 const ATTENTION_KIND: Record<PendingActionType, CyclistAttentionKind> = {
@@ -114,7 +114,7 @@ export function attentionActionLabel(item: CyclistAttention): string {
   const r = item.request;
   switch (item.kind) {
     case 'proposal':
-      return item.count && item.count > 1 ? 'Revisa y compara los presupuestos' : 'Revisa el presupuesto';
+      return 'Revisa el presupuesto';
     case 'appointment':
       return r.appointment?.confirmed ? 'Confirma la nueva fecha' : 'Confirma la fecha propuesta';
     case 'clarify':

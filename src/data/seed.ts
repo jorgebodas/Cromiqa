@@ -17,8 +17,8 @@ import type {
 import { addDays, toISODate } from '@/domain/utils';
 import { stateProfiles, testWorkshops } from './testWorkshops';
 
-/** v10: PendingActions (migrated from v9 by backfilling them from the stored requests). */
-export const SEED_VERSION = 10;
+/** v10: PendingActions. v11: one request = one mechanic (older data is migrated on load). */
+export const SEED_VERSION = 11;
 
 const weekdays = (slots: WeeklyAvailability['slots'], days: number[]): WeeklyAvailability[] =>
   days.map((d) => ({ day: d as WeeklyAvailability['day'], slots }));
@@ -563,7 +563,8 @@ export function createSeed(now: Date = new Date()): DemoDatabase {
     reviews,
     bikes,
     maintenance,
-    requests: [...requests, ...states.requests],
+    // One request = one mechanic: every invitation is its own request.
+    requests: [...requests, ...states.requests].map((r) => ({ ...r, caseId: r.id })),
   }, now);
 }
 

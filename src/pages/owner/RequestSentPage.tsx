@@ -47,9 +47,9 @@ export function RequestSentPage() {
         <h2 className="font-bold">Qué pasa ahora</h2>
         <ol className="mt-4 space-y-4">
           {[
-            ['Recibes respuestas', 'Presupuestos con precio y fecha, o preguntas para aclarar algo.'],
-            ['Comparas y eliges', 'Aceptas uno; los demás se cierran solos. Aceptar no es un pago.'],
-            ['Si nadie responde', 'Te sugeriremos invitar a más mecánicos, sin perder lo que ya tienes.'],
+            ['Recibes su respuesta', 'Un presupuesto con precio y fecha, o una pregunta para aclarar algo.'],
+            ['Decides', 'Aceptas o rechazas el presupuesto. Aceptar no es un pago.'],
+            ['¿Quieres otra opinión?', 'Crea otra solicitud para consultar a otro mecánico.'],
           ].map(([title, text], i) => (
             <li key={title} className="flex gap-4">
               <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-sand font-display text-sm font-bold">{i + 1}</span>
@@ -73,7 +73,7 @@ export function RequestSentPage() {
             {modeLabel(request.mode)} · {locationShort(request.location)}
           </KeyValue>
         </dl>
-        <h3 className="mt-5 text-sm font-semibold text-muted">Invitaciones enviadas</h3>
+        <h3 className="mt-5 text-sm font-semibold text-muted">Enviada a</h3>
         <ul className="mt-2 space-y-2" data-testid="sent-recipients">
           {recipients.map(({ thread, mechanic }) => (
             <li key={thread.id} className="flex items-center gap-3">

@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 import { Link, Navigate } from 'react-router-dom';
-import { ArrowRight, Bike, ChevronRight, Home as HomeIcon, Plus, Store, Wrench } from 'lucide-react';
+import { ArrowRight, Bike, ChevronRight, Home as HomeIcon, Store, Wrench } from 'lucide-react';
 import type { BikeType, LocationId, User } from '@/domain/types';
-import { bikeTypeLabel, categoryLabel, locationShort, specializationLabel } from '@/domain/catalog';
+import { bikeTypeLabel, categoryLabel, locationShort, serviceLabel, specializationLabel } from '@/domain/catalog';
 import { currentProposal } from '@/domain/logic/requests';
 import { searchMechanics, type MechanicResult } from '@/domain/logic/search';
 import { caseHref, caseStatus, groupCases, threadHref } from '@/domain/logic/cases';
@@ -11,10 +11,10 @@ import { formatDate, formatPrice, toISODate } from '@/domain/utils';
 import { useApp } from '@/state/store';
 import { useCurrentUser, useOwnerBikes, useRequestsFor } from '@/state/selectors';
 import { useMode } from '@/state/mode';
-import { useNavUi } from '@/state/ui';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { CyclistHeaderActions } from '@/components/layout/QuickActions';
-import { Feature, HeroWidget, Stat, Widget, WidgetGrid, heroButtonClass } from '@/components/home/Widget';
+import { Feature, Stat, Widget, WidgetGrid } from '@/components/home/Widget';
+import { ServiceCarousel } from '@/components/home/ServiceCarousel';
 import { Avatar, DemoTag, cx } from '@/components/ui';
 
 
@@ -23,22 +23,14 @@ function AttentionRow({ item, mechanicName }: { item: CyclistAttention; mechanic
   const r = item.request;
   const proposal = currentProposal(r);
   const content = {
-    proposal:
-      item.count && item.count > 1
-        ? {
-            title: `${item.count} presupuestos para comparar`,
-            detail: `${categoryLabel(r.category)} · Elige uno y los demás se cerrarán`,
-            cta: 'Comparar presupuestos',
-            to: caseHref(r),
-          }
-        : {
-            title: `Presupuesto de ${mechanicName}`,
-            detail: proposal ? `${categoryLabel(r.category)} · ${formatPrice(proposal.price)} · ${formatDate(proposal.date, { weekday: 'short', day: 'numeric', month: 'short' })}, ${proposal.time}` : categoryLabel(r.category),
-            cta: 'Revisar presupuesto',
-            to: caseHref(r),
-          },
+    proposal: {
+      title: `Presupuesto de ${mechanicName}`,
+      detail: proposal ? `${serviceLabel(r)} · ${formatPrice(proposal.price)} · ${formatDate(proposal.date, { weekday: 'short', day: 'numeric', month: 'short' })}, ${proposal.time}` : serviceLabel(r),
+      cta: 'Revisar presupuesto',
+      to: caseHref(r),
+    },
     clarify: {
-      title: item.count && item.count > 1 ? `${item.count} mecánicos necesitan aclarar algo` : `${mechanicName} necesita aclarar algo`,
+      title: `${mechanicName} necesita aclarar algo`,
       detail: `${categoryLabel(r.category)} · Respóndele en el chat`,
       cta: 'Abrir conversación',
       to: threadHref(r),
@@ -162,7 +154,6 @@ function CyclistHome({ user }: { user: User | null }) {
   const reviews = useApp((s) => s.db.reviews);
   const mechanics = useApp((s) => s.db.mechanics);
   const bikes = useOwnerBikes(user?.id);
-  const openNewRequest = useNavUi((s) => s.openNewRequest);
   const name = (id: string) => mechanics.find((m) => m.id === id)?.name ?? 'El mecánico';
   const first = (id: string) => name(id).split(' ')[0];
   const allRequests = useApp((s) => s.db.requests);
@@ -176,69 +167,73 @@ function CyclistHome({ user }: { user: User | null }) {
   const next = useMemo(() => upcomingAppointments(requests).find((r) => r.appointment!.confirmed!.date >= today), [requests, today]);
   const toSchedule = requests.find((r) => r.status === 'confirmed' && !r.appointment?.confirmed);
 
+  const hasRequests = requests.length > 0;
   return (
-    <WidgetGrid>
-      {/* 1 · Primary intent. The + in the bar opens the same sheet from anywhere. */}
-      <HeroWidget
-        testId="widget-need"
-        label="¿Qué necesita tu bici?"
-        icon={Wrench}
-        headline={requests.length === 0 ? 'Encuentra al mecánico adecuado.' : 'Pide otro servicio cuando lo necesites.'}
-        action={
-          <button type="button" onClick={openNewRequest} className={heroButtonClass}>
-            <Plus className="size-5" aria-hidden /> Nueva solicitud
-          </button>
-        }
-      />
+    <div className="space-y-8">
+      {/* 1 · Discover: what the bike needs, as a row of services. */}
+      <section aria-labelledby="need-title" data-testid="widget-need">
+        <h2 id="need-title" className="font-display text-[22px] font-bold tracking-tight">
+          ¿Qué necesita tu bici?
+        </h2>
+        <p className="mt-1 text-[15px] text-muted">Encuentra el servicio adecuado y conecta con un mecánico.</p>
+        <div className="mt-4">
+          <ServiceCarousel />
+        </div>
+      </section>
 
-      {/* 2 · Only what needs the cyclist now. */}
-      {attention.length > 0 && (
-        <Widget title="Requiere tu atención" wide testId="attention">
-          <ul className="mt-1 divide-y divide-line">
-            {attention.slice(0, 4).map((item) => (
-              <AttentionRow key={`${item.kind}-${item.request.id}`} item={item} mechanicName={name(item.request.mechanicId)} />
-            ))}
-          </ul>
+      <WidgetGrid>
+        {/* 2 · Only what needs the cyclist now. */}
+        {attention.length > 0 && (
+          <Widget title="Requiere tu atención" wide testId="attention">
+            <ul className="mt-1 divide-y divide-line">
+              {attention.slice(0, 4).map((item) => (
+                <AttentionRow key={`${item.kind}-${item.request.id}`} item={item} mechanicName={name(item.request.mechanicId)} />
+              ))}
+            </ul>
+          </Widget>
+        )}
+
+        {/* 3 · Find mechanics. */}
+        <DiscoverWidget user={user} />
+
+        {/* 4 · Their requests and the next appointment, once there are any. */}
+        {hasRequests && (
+          <>
+            <Widget title="Solicitudes" to="/solicitudes" testId="widget-requests">
+              {quotes > 0 ? (
+                <Stat value={quotes} caption={quotes === 1 ? 'Presupuesto por revisar' : 'Presupuestos por revisar'} accent />
+              ) : (
+                <Stat value={active} caption={active === 0 ? 'Ninguna activa' : active === 1 ? 'Activa' : 'Activas'} />
+              )}
+            </Widget>
+            <Widget title="Próxima cita" to={next ? threadHref(next) : toSchedule ? threadHref(toSchedule) : '/solicitudes'} testId="widget-appointment">
+              {next ? (
+                <Stat small value={shortDate(next.appointment!.confirmed!.date)} caption={`${next.appointment!.confirmed!.time} · ${serviceLabel(next)} con ${first(next.mechanicId)}`} />
+              ) : toSchedule ? (
+                <Stat small value="Por acordar" caption={`${serviceLabel(toSchedule)} con ${first(toSchedule.mechanicId)}`} accent />
+              ) : (
+                <Stat small value="—" caption="Sin citas por ahora" />
+              )}
+            </Widget>
+          </>
+        )}
+
+        <Widget title="Mi garaje" to="/garaje" wide testId="widget-garage">
+          <Feature
+            icon={Bike}
+            title={bikes.length === 0 ? 'Añade tu bici' : bikes.length === 1 ? bikes[0]!.name : `${bikes.length} bicicletas`}
+            subtitle={bikes.length === 0 ? 'Guarda sus datos para pedir servicios más rápido' : 'Historial y reparaciones'}
+          />
         </Widget>
-      )}
-
-      {/* 3 · Summary: requests and the next appointment. */}
-      <Widget title="Solicitudes" to="/solicitudes" testId="widget-requests">
-        {quotes > 0 ? (
-          <Stat value={quotes} caption={quotes === 1 ? 'Presupuesto por revisar' : 'Presupuestos por revisar'} accent />
-        ) : (
-          <Stat value={active} caption={active === 0 ? 'Ninguna activa' : active === 1 ? 'Activa' : 'Activas'} />
-        )}
-      </Widget>
-
-      <Widget title="Próxima cita" to={next ? threadHref(next) : toSchedule ? threadHref(toSchedule) : '/solicitudes'} testId="widget-appointment">
-        {next ? (
-          <Stat small value={shortDate(next.appointment!.confirmed!.date)} caption={`${next.appointment!.confirmed!.time} · ${categoryLabel(next.category)} con ${first(next.mechanicId)}`} />
-        ) : toSchedule ? (
-          <Stat small value="Por acordar" caption={`${categoryLabel(toSchedule.category)} con ${first(toSchedule.mechanicId)}`} accent />
-        ) : (
-          <Stat small value="—" caption="Sin citas por ahora" />
-        )}
-      </Widget>
-
-      {/* 4 · Discovery and the garage. */}
-      <DiscoverWidget user={user} />
-
-      <Widget title="Mi garaje" to="/garaje" wide testId="widget-garage">
-        <Feature
-          icon={Bike}
-          title={bikes.length === 0 ? 'Añade tu bici' : bikes.length === 1 ? bikes[0]!.name : `${bikes.length} bicicletas`}
-          subtitle={bikes.length === 0 ? 'Guarda sus datos para pedir servicios más rápido' : 'Historial y reparaciones'}
-        />
-      </Widget>
-    </WidgetGrid>
+      </WidgetGrid>
+    </div>
   );
 }
 
 /**
- * Cyclist Home as a grid of widgets: the request entry first; then only what needs the
- * person, a summary of requests and the next appointment, a few relevant mechanics and the
- * garage. New accounts and guests see the request entry, empty summaries and discovery.
+ * Cyclist Home: discovering services first (a carousel that opens the request flow); then
+ * only what needs the person, mechanics to discover, their requests and next appointment
+ * (once they have any) and the garage.
  */
 export function HomePage() {
   const user = useCurrentUser();

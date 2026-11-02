@@ -4,6 +4,7 @@ import { addBike, removeBike, updateBike, updateMechanic, updateUser } from '@/d
 import { approveProfessionalProfile, submitProfessionalProfile } from '@/domain/logic/onboarding';
 import { SEED_VERSION, createSeed } from '@/data/seed';
 import { backfillPendingActions } from '@/domain/logic/pendingActions';
+import { splitRequestsPerMechanic } from '@/data/migrations';
 import type { CromiqaBackend } from './backend';
 import { storage } from './storage';
 
@@ -22,8 +23,10 @@ export class LocalBackend implements CromiqaBackend {
 
   private read(): DemoDatabase | null {
     let parsed = storage.getJSON<DemoDatabase>(DB_KEY);
-    // Migration v9 → v10: same data plus PendingActions, backfilled from the stored requests.
-    if (parsed && parsed.version === 9 && Array.isArray(parsed.requests)) parsed = { ...backfillPendingActions(parsed, this.now()), version: SEED_VERSION };
+    // Migrations: v9 → v10 adds PendingActions (backfilled from the stored requests);
+    // v10 → v11 splits requests per mechanic. Same data, nothing reset.
+    if (parsed && parsed.version === 9 && Array.isArray(parsed.requests)) parsed = { ...backfillPendingActions(parsed, this.now()), version: 10 };
+    if (parsed && parsed.version === 10 && Array.isArray(parsed.requests)) parsed = { ...splitRequestsPerMechanic(parsed, this.now()), version: SEED_VERSION };
     if (!parsed || parsed.version !== SEED_VERSION || !Array.isArray(parsed.requests)) return null;
     // Time-based transitions (72 h closure) run on every read: idempotent and restart-safe.
     // Integration point: a real backend runs `runScheduledTransitions` from a server scheduler.

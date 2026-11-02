@@ -69,7 +69,6 @@ function Inner() {
   const { id, threadId } = useParams();
   const user = useCurrentUser()!;
   const request = useRequest(threadId);
-  const requests = useApp((s) => s.db.requests);
   const mechanic = useMechanic(request?.mechanicId);
   const actOnRequest = useApp((s) => s.actOnRequest);
   const toast = useApp((s) => s.toast);
@@ -96,7 +95,6 @@ function Inner() {
   }
 
   if (id !== request.caseId) return <Navigate to={threadHref(request)} replace />;
-  const siblings = requests.filter((r) => r.caseId === request.caseId && r.id !== request.id && !['cancelled', 'not_selected', 'completed'].includes(r.status));
 
   const run = async (action: RequestAction, success: string) => {
     setBusy(action.type);
@@ -142,7 +140,7 @@ function Inner() {
             <ProposalCard proposal={proposal} version={request.proposals.length} highlight>
               <p className="mb-4 text-sm text-muted">
                 {request.proposals.length > 1 ? `${first} ha revisado su presupuesto; necesita tu aprobación. ` : ''}
-                Al aceptar, contratas a {first} por este precio y alcance; la fecha la confirmáis después{siblings.length ? '; las demás invitaciones de esta solicitud se cerrarán' : ''}. Aceptar no es un pago. Si lo rechazas, solo se cierra esta invitación.
+                Al aceptar, contratas a {first} por este precio y alcance; la fecha la confirmáis después. Aceptar no es un pago. Si lo rechazas, la solicitud se cierra y puedes pedir otra a otro mecánico.
               </p>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <Button size="lg" onClick={() => run({ type: 'accept_proposal' }, 'Presupuesto aceptado. Ahora confirmad la cita.')} loading={busy === 'accept_proposal'} icon={<Check className="size-5" aria-hidden />}>
@@ -212,7 +210,7 @@ function Inner() {
           </Card>
           {canPerform(request, 'cancel_by_owner', 'owner') && (
             <Button variant="danger" block onClick={() => setDialog('cancel')}>
-              {request.status === 'confirmed' ? 'Cancelar servicio' : 'Cancelar invitación'}
+              {request.status === 'confirmed' ? 'Cancelar servicio' : 'Cancelar solicitud'}
             </Button>
           )}
           <div className="rounded-2xl border border-dashed border-line-strong p-4">
@@ -237,13 +235,13 @@ function Inner() {
       <Dialog
         open={dialog !== null}
         onClose={() => setDialog(null)}
-        title={dialog === 'reject' ? 'Rechazar presupuesto' : request.status === 'confirmed' ? 'Cancelar servicio' : 'Cancelar invitación'}
+        title={dialog === 'reject' ? 'Rechazar presupuesto' : request.status === 'confirmed' ? 'Cancelar servicio' : 'Cancelar solicitud'}
         description={
           dialog === 'reject'
-            ? `Se cerrará la invitación a ${first}. Tu solicitud y las demás invitaciones siguen abiertas.`
+            ? `Se cerrará esta solicitud a ${first}. Si quieres, puedes pedir el servicio a otro mecánico con una nueva solicitud.`
             : request.status === 'confirmed'
               ? `Se cancelará el servicio contratado con ${first}. Indica el motivo; en la demo no hay penalización ni cargos.`
-              : `${first} dejará de ver tu solicitud. Las demás invitaciones siguen abiertas.`
+              : `${first} dejará de ver tu solicitud y quedará cancelada.`
         }
         footer={
           <>
@@ -263,7 +261,7 @@ function Inner() {
                   run({ type: 'cancel_by_owner', reason: reason.trim() || undefined }, request.status === 'confirmed' ? 'Servicio cancelado' : 'Invitación cancelada');
                 }}
               >
-                {request.status === 'confirmed' ? 'Cancelar servicio' : 'Cancelar invitación'}
+                {request.status === 'confirmed' ? 'Cancelar servicio' : 'Cancelar solicitud'}
               </Button>
             )}
           </>

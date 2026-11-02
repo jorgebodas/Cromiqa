@@ -5,6 +5,7 @@ import type {
   RequestStatus,
   ServiceCategory,
   ServiceMode,
+  ServiceTopic,
   Specialization,
   TimeSlot,
   Weekday,
@@ -94,6 +95,22 @@ export const SPECIALIZATIONS: { id: Specialization; label: string; keywords: str
 
 export const specializationLabel = (s: Specialization) =>
   SPECIALIZATIONS.find((x) => x.id === s)?.label ?? s;
+
+/**
+ * Home's service carousel: what a cyclist recognises, each mapped to a request category (the
+ * model's own classification). Not every mechanic offers every service.
+ */
+export const SERVICE_TOPICS: { id: ServiceTopic; label: string; hint: string; category: ServiceCategory }[] = [
+  { id: 'maintenance', label: 'Mantenimiento', hint: 'Revisión y puesta a punto', category: 'maintenance' },
+  { id: 'brakes', label: 'Frenos', hint: 'Ajustes y reparaciones', category: 'repair' },
+  { id: 'drivetrain', label: 'Transmisión', hint: 'Cadena y cambios', category: 'repair' },
+  { id: 'wheels', label: 'Ruedas', hint: 'Neumáticos, pinchazos y tubeless', category: 'repair' },
+  { id: 'suspension', label: 'Suspensión', hint: 'Horquilla y amortiguador', category: 'maintenance' },
+  { id: 'diagnosis', label: 'Diagnóstico', hint: 'Ruidos y averías', category: 'diagnosis' },
+];
+export const topicLabel = (id: ServiceTopic) => SERVICE_TOPICS.find((t) => t.id === id)!.label;
+/** A request's name: the service picked on Home, else its category. */
+export const serviceLabel = (r: { topic?: ServiceTopic; category: ServiceCategory }) => (r.topic ? topicLabel(r.topic) : categoryLabel(r.category));
 
 export const LOCATIONS: { id: LocationId; label: string; short: string }[] = [
   { id: 'madrid-centro', label: 'Madrid · Centro', short: 'Madrid Centro' },

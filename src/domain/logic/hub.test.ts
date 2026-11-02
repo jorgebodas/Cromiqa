@@ -12,54 +12,51 @@ const quote = (price: number) => ({ price, date: '2026-10-20', time: '10:00', me
 describe('request hub: one message per request, from the stored lifecycle', () => {
   it('follows one request through its whole lifecycle with the right message and destination', () => {
     let db = createSeed(now);
-    const top = () => hubItems(forOwner(db, 'u-bea'), now)[0]!;
+    // One request = one mechanic: Bea's first request (to one mechanic) from start to finish.
+    const a = forOwner(db, 'u-bea')[0]!.id;
+    const top = (when = now) => hubItems(forOwner(db, 'u-bea'), when).find((i) => i.caseId === a)!;
     const act = (id: string, action: RequestAction, by: Role, at = now) => {
       db = applyRequestAction(db, id, action, by, at).db;
     };
-    const [a, b] = forOwner(db, 'u-bea').map((r) => r.id);
-    expect(a && b).toBeTruthy();
     const expectTop = (situation: HubSituation, label: string, pending: boolean) => expect(top(), situation).toMatchObject({ label, pending, quick: { situation } });
 
     expectTop('searching', 'Buscando mecánicos', false);
-    act(a!, { type: 'accept_for_review' }, 'mechanic');
+    act(a, { type: 'accept_for_review' }, 'mechanic');
     expectTop('waiting_quotes', 'Esperando presupuestos', false);
-    act(b!, { type: 'send_open_proposal', message: '¿Es Shimano o SRAM?' }, 'mechanic');
+    act(a, { type: 'send_open_proposal', message: '¿Es Shimano o SRAM?' }, 'mechanic');
     expectTop('message', 'Nuevo mensaje del mecánico', true);
-    expect(top().quick.href).toBe(`/solicitudes/${top().caseId}/mecanico/${b}`);
-    // A quote outranks a message (priority 3 vs 4).
-    act(a!, { type: 'send_proposal', proposal: quote(40) }, 'mechanic');
+    expect(top().quick.href).toBe(`/solicitudes/${a}/mecanico/${a}`);
+    act(a, { type: 'send_proposal', proposal: quote(40) }, 'mechanic');
     expectTop('quote', 'Nuevo presupuesto recibido', true);
-    act(b!, { type: 'send_proposal', proposal: quote(55) }, 'mechanic');
-    expectTop('quotes', '2 presupuestos para comparar', true);
     expect(top().quick.screen).toBe('compare');
     // Hired: the date is agreed afterwards.
     // Hiring turns the quote's date into the mechanic's first proposal.
-    act(a!, { type: 'accept_proposal' }, 'owner');
+    act(a, { type: 'accept_proposal' }, 'owner');
     expectTop('confirm_appointment', 'Confirma tu cita', true);
     // Without any date (stored state allows it): the cyclist proposes one.
     const saved = db;
     db = { ...db, requests: db.requests.map((r) => (r.id === a ? { ...r, appointment: undefined } : r)) };
     expectTop('propose_date', 'Elige fecha para la reparación', true);
     db = saved;
-    act(a!, { type: 'propose_appointment', slot: { date: '2026-10-21', time: '18:00' } }, 'owner');
+    act(a, { type: 'propose_appointment', slot: { date: '2026-10-21', time: '18:00' } }, 'owner');
     expectTop('waiting_confirmation', 'Esperando confirmación', false);
-    act(a!, { type: 'propose_appointment', slot: { date: '2026-10-22', time: '10:00' } }, 'mechanic');
+    act(a, { type: 'propose_appointment', slot: { date: '2026-10-22', time: '10:00' } }, 'mechanic');
     expectTop('new_date', 'Nueva fecha propuesta', true);
-    act(a!, { type: 'confirm_appointment' }, 'owner');
+    act(a, { type: 'confirm_appointment' }, 'owner');
     expectTop('appointment_confirmed', 'Cita confirmada', false);
-    act(a!, { type: 'start' }, 'mechanic');
+    act(a, { type: 'start' }, 'mechanic');
     expectTop('in_progress', 'Reparación en curso', false);
-    act(a!, { type: 'finish_work' }, 'mechanic');
+    act(a, { type: 'finish_work' }, 'mechanic');
     expectTop('work_finished', 'Reparación terminada', true);
     // Less than a day before the 72 h closure: a real deadline.
     const later = new Date(now.getTime() + 50 * 3600_000);
-    expect(hubItems(forOwner(db, 'u-bea'), later)[0]).toMatchObject({ label: 'Confirma la entrega', deadline: true, quick: { situation: 'confirm_delivery', screen: 'completion' } });
-    act(a!, { type: 'report_problem', text: 'Sigue saltando.' }, 'owner');
+    expect(top(later)).toMatchObject({ label: 'Confirma la entrega', deadline: true, quick: { situation: 'confirm_delivery', screen: 'completion' } });
+    act(a, { type: 'report_problem', text: 'Sigue saltando.' }, 'owner');
     expectTop('incident', 'Incidencia pendiente', true);
     // Nothing above executed anything on the cyclist's behalf: every change was an explicit action.
-    act(a!, { type: 'resolve_incident' }, 'owner');
-    act(a!, { type: 'confirm_completion' }, 'owner');
-    expect(hubItems(forOwner(db, 'u-bea'), now)).toEqual([]);
+    act(a, { type: 'resolve_incident' }, 'owner');
+    act(a, { type: 'confirm_completion' }, 'owner');
+    expect(hubItems(forOwner(db, 'u-bea'), now).some((i) => i.caseId === a)).toBe(false);
   });
 
   it('first date from the mechanic asks to confirm; every mechanic declining asks to choose another', () => {
@@ -75,7 +72,7 @@ describe('request hub: one message per request, from the stored lifecycle', () =
   it('is a + with nothing active, one message for one request, and a counter for the others', () => {
     const db = createSeed(now);
     expect(hubState(hubItems([], now))).toEqual({ kind: 'empty' });
-    expect(hubState(hubItems(forOwner(db, 'u-carla'), now))).toMatchObject({ kind: 'single' });
+    expect(hubState(hubItems(forOwner(db, 'u-dani'), now))).toMatchObject({ kind: 'single' });
     const diego = hubItems(forOwner(db, 'u-diego'), now);
     expect(diego.length).toBeGreaterThan(1);
     expect(hubState(diego)).toMatchObject({ kind: 'multiple', count: diego.length, top: diego[0] });
@@ -129,8 +126,8 @@ describe('test profiles: one cyclist per hub state', () => {
     const db = createSeed(now);
     const expected: Record<string, [string, string]> = {
       'u-test': ['', ''],
-      'u-bea': ['Buscando mecánicos', 'status'],
-      'u-carla': ['2 presupuestos para comparar', 'compare'],
+      'u-bea': ['Buscando mecánicos', 'status'], // two requests (one per mechanic)
+      'u-carla': ['Nuevo presupuesto recibido', 'compare'], // two requests, one quote each
       'u-dani': ['Confirma tu cita', 'appointment'],
       'u-eva': ['Reparación en curso', 'tracking'],
       'u-fran': ['Reparación terminada', 'completion'],
@@ -140,8 +137,8 @@ describe('test profiles: one cyclist per hub state', () => {
       const state = hubState(hubItems(forOwner(db, owner), now));
       if (!label) expect(state.kind, owner).toBe('empty');
       else {
-        expect(state.kind, owner).toBe('single');
-        if (state.kind === 'single') expect(state.item.quick, owner).toMatchObject({ label, screen });
+        const top = state.kind === 'single' ? state.item : state.kind === 'multiple' ? state.top : undefined;
+        expect(top?.quick, owner).toMatchObject({ label, screen });
       }
     }
   });

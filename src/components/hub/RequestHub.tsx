@@ -206,7 +206,7 @@ function pendingText(item: CyclistAttention, mechanic: string): string {
   const r = item.request;
   switch (item.kind) {
     case 'proposal':
-      return item.count && item.count > 1 ? `${item.count} propuestas para comparar` : `Nuevo presupuesto de ${mechanic}`;
+      return `Nuevo presupuesto de ${mechanic}`;
     case 'appointment':
       return r.appointment?.pending ? (r.appointment.confirmed ? 'Nueva fecha propuesta' : `${mechanic} propone una fecha`) : 'Elige fecha para el servicio';
     case 'clarify':

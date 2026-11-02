@@ -1,17 +1,18 @@
 import { expect, test } from '@playwright/test';
 import { freshDemo, isMobile, statusTitle, switchAccount } from './helpers';
 
-const caseStatus = (page: import('@playwright/test').Page) => page.getByTestId('case-status');
 
 test.describe('Escenarios A, B y C: reparación de principio a fin', () => {
-  test('guest sends a repair to two mechanics, one quotes, owner hires, the other is closed, job completes', async ({ page }) => {
+  test('a guest picks a service on Home, sends it to one mechanic, hires them and the job completes', async ({ page }) => {
     await freshDemo(page);
 
-    // A — the request comes first, in the Request Hub panel; mechanics are chosen later.
-    await page.getByTestId('widget-need').getByRole('button', { name: 'Nueva solicitud' }).click();
+    // A — Home's service carousel opens the request flow with the service already chosen.
+    await expect(page.getByTestId('service-card')).toHaveCount(6);
+    await page.getByTestId('service-card').filter({ hasText: 'Transmisión' }).click();
     const hub = page.getByTestId('request-hub');
     await expect(hub.getByText('Paso 1 de 7')).toBeVisible();
-    await hub.getByText('Reparación', { exact: true }).click();
+    await expect(hub.getByTestId('topic-chip')).toHaveText('Transmisión');
+    await expect(hub.getByRole('radio', { name: /^Reparación/ })).toBeChecked();
     await hub.getByLabel('Describe el problema').fill('Los cambios saltan al subir y la cadena hace ruido en los piñones grandes.');
     await hub.getByRole('button', { name: 'Continuar' }).click();
 
@@ -34,25 +35,21 @@ test.describe('Escenarios A, B y C: reparación de principio a fin', () => {
     await hub.getByRole('button', { name: /^Tarde/ }).click();
     await hub.getByRole('button', { name: 'Continuar' }).click();
 
-    // Choose recipients: nothing preselected, Carlos plus one more.
+    // One mechanic: nothing preselected; picking another replaces the choice.
     await expect(hub.getByText('Paso 6 de 7')).toBeVisible();
-    await expect(hub.getByTestId('selected-count')).toHaveText('0 de 5 seleccionados');
-    // Continuar looks disabled until someone is picked; pressing it anyway says what's missing.
     await expect(hub.getByTestId('hub-primary')).toHaveAttribute('aria-disabled', 'true');
     await hub.getByRole('button', { name: 'Continuar' }).click({ force: true });
     await expect(hub.getByText('Elige al menos un mecánico')).toBeVisible();
     const options = hub.getByTestId('provider-option');
+    await options.filter({ hasNotText: 'Carlos Ortega' }).first().click();
     await options.filter({ hasText: 'Carlos Ortega' }).click();
-    const other = options.filter({ hasNotText: 'Carlos Ortega' }).first();
-    const otherName = (await other.locator('.font-semibold').first().innerText()).trim();
-    await other.click();
-    await expect(hub.getByTestId('selected-count')).toHaveText('2 de 5 seleccionados');
+    await expect(hub.locator('[data-testid="provider-option"] input:checked')).toHaveCount(1);
     await hub.getByRole('button', { name: 'Continuar' }).click();
 
     await expect(hub.getByText('Paso 7 de 7')).toBeVisible();
     await expect(hub.getByText('Orbea Alma H50')).toBeVisible();
+    await expect(hub.getByTestId('review-recipients').getByRole('listitem')).toHaveCount(1);
     await expect(hub.getByTestId('review-recipients')).toContainText('Carlos Ortega');
-    await expect(hub.getByTestId('review-recipients')).toContainText(otherName);
     // Guest chooses a demo owner account instead of signing up
     await expect(hub.getByTestId('hub-primary')).toHaveAttribute('aria-disabled', 'true');
     await hub.getByRole('button', { name: 'Enviar solicitud' }).click({ force: true });
@@ -60,16 +57,17 @@ test.describe('Escenarios A, B y C: reparación de principio a fin', () => {
     await hub.locator('label', { hasText: 'Ana López' }).click();
     await hub.getByRole('button', { name: 'Enviar solicitud' }).click();
 
-    // Sent: the panel closes and the request shows up in Solicitudes.
+    // Sent: the panel closes and the request shows up in Solicitudes, named after the service.
     await expect(hub).toHaveCount(0);
     await page.goto('./#/solicitudes');
-    await page.getByTestId('case-card').filter({ hasText: 'Orbea Alma H50' }).click();
-    await expect(caseStatus(page)).toHaveText('Esperando respuestas');
-    await expect(page.getByTestId('response-row')).toHaveCount(2);
-    const caseUrl = page.url();
-
-    await page.goto('./#/solicitudes');
-    await expect(page.getByTestId('case-card').filter({ hasText: 'Orbea Alma H50' })).toContainText('Enviada a 2 mecánicos');
+    const card = page.getByTestId('case-card').filter({ hasText: 'Orbea Alma H50' });
+    await expect(card).toContainText('Transmisión');
+    await expect(card).toContainText('Carlos Ortega');
+    await expect(card).toContainText('Solicitud enviada');
+    await card.click();
+    // The request is the conversation with its one mechanic.
+    await expect(page).toHaveURL(/\/mecanico\//);
+    await expect(statusTitle(page)).toHaveText('Solicitud enviada');
 
     // B — Carlos answers with a closed quote
     await switchAccount(page, 'Carlos Ortega');
@@ -101,14 +99,7 @@ test.describe('Escenarios A, B y C: reparación de principio a fin', () => {
     await expect(page.getByTestId('appointment-confirmed')).toContainText('18:30');
     const threadUrl = page.url();
 
-    // Only one booking: the other invitation is closed as not selected.
-    await page.goto(caseUrl);
-    await expect(caseStatus(page)).toHaveText('Servicio contratado');
-    await expect(page.getByTestId('hired-card')).toContainText('Carlos Ortega');
-    await expect(page.getByTestId('response-row').filter({ hasText: otherName })).toContainText('No seleccionado');
-
     // C — completion
-    await page.getByTestId('hired-card').click();
     await page.getByRole('button', { name: 'Ver como Carlos' }).click();
     await page.getByRole('button', { name: 'Empezar trabajo' }).click();
     await expect(statusTitle(page)).toHaveText('En curso');
@@ -136,28 +127,29 @@ test.describe('Escenarios A, B y C: reparación de principio a fin', () => {
   });
 });
 
-test.describe('Varios mecánicos por solicitud', () => {
-  test('the request hub compares quotes; rejecting one closes only that invitation', async ({ page }) => {
+test.describe('Una solicitud, un mecánico', () => {
+  test('two requests to two mechanics are independent: rejecting one leaves the other open', async ({ page }) => {
+    // Pablo asked Carlos (r-03) and Nerea (r-13) about the same bike: two requests.
     await freshDemo(page, 'u-pablo');
+    await page.goto('./#/solicitudes');
+    await expect(page.getByTestId('case-card').filter({ hasText: 'Carlos Ortega' })).toContainText('40');
+    await expect(page.getByTestId('case-card').filter({ hasText: 'Nerea Campos' })).toContainText('50');
+    // A request opens straight on its mechanic: no list of responses, no comparison, no "invite more".
     await page.goto('./#/solicitudes/r-03');
-    await expect(caseStatus(page)).toHaveText('Propuestas recibidas');
-    const rows = page.getByTestId('response-row');
-    await expect(rows).toHaveCount(2);
-    // Cheapest quote first.
-    await expect(rows.first()).toContainText('Carlos Ortega');
-    await expect(rows.first()).toContainText('40');
-    await expect(rows.nth(1)).toContainText('Nerea Campos');
-
-    await rows.first().click();
+    await expect(page).toHaveURL(/\/solicitudes\/r-03\/mecanico\/r-03$/);
+    await expect(page.getByTestId('response-row')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Invitar a más/ })).toHaveCount(0);
     await page.getByRole('button', { name: 'Rechazar' }).click();
     const dialog = page.getByRole('dialog', { name: 'Rechazar presupuesto' });
     await dialog.getByLabel(/Motivo/).fill('Se me va de presupuesto.');
     await dialog.getByRole('button', { name: 'Rechazar presupuesto' }).click();
     await expect(statusTitle(page)).toHaveText('Cancelada');
 
-    await page.goto('./#/solicitudes/r-03');
-    await expect(caseStatus(page)).toHaveText('Propuestas recibidas');
-    await expect(rows.filter({ hasText: 'Nerea Campos' })).toContainText('50');
+    await page.goto('./#/solicitudes/r-13');
+    await expect(statusTitle(page)).toHaveText('Presupuesto recibido');
+    // Accepting Nerea's doesn't close anything else.
+    await page.getByRole('button', { name: 'Aceptar presupuesto' }).click();
+    await expect(statusTitle(page)).toHaveText('Contratado');
 
     await switchAccount(page, 'Carlos Ortega');
     await page.goto('./#/pro/solicitudes/r-03');
@@ -165,48 +157,10 @@ test.describe('Varios mecánicos por solicitud', () => {
     await expect(page.getByTestId('respond-options')).toHaveCount(0);
   });
 
-  test('accepting one quote closes the others as not selected', async ({ page }) => {
-    await freshDemo(page, 'u-pablo');
-    await page.goto('./#/solicitudes/r-03');
-    await page.getByTestId('response-row').filter({ hasText: 'Nerea Campos' }).click();
-    await expect(page.getByText('las demás invitaciones de esta solicitud se cerrarán')).toBeVisible();
-    await page.getByRole('button', { name: 'Aceptar presupuesto' }).click();
-    await expect(statusTitle(page)).toHaveText('Contratado');
-
-    await page.goto('./#/solicitudes/r-03');
-    await expect(caseStatus(page)).toHaveText('Servicio contratado');
-    await expect(page.getByTestId('hired-card')).toContainText('Nerea Campos');
-    await expect(page.getByTestId('response-row').filter({ hasText: 'Carlos Ortega' })).toContainText('No seleccionado');
-    await expect(page.getByRole('button', { name: 'Invitar a más mecánicos' })).toHaveCount(0);
-
-    await switchAccount(page, 'Carlos Ortega');
-    await page.goto('./#/pro/solicitudes/r-03');
-    await expect(page.getByTestId('not-selected')).toBeVisible();
-    await page.goto('./#/pro/solicitudes?estado=cerradas');
-    await expect(page.getByTestId('request-card').filter({ hasText: 'CRQ-1010' })).toBeVisible();
-  });
-
-  test('inviting more mechanics adds invitations without duplicates', async ({ page }) => {
-    await freshDemo(page, 'u-ana');
-    await page.goto('./#/solicitudes/r-01');
-    await expect(page.getByTestId('response-row')).toHaveCount(1);
-    await page.getByRole('button', { name: 'Invitar a más mecánicos' }).first().click();
-    const dialog = page.getByRole('dialog', { name: 'Invitar a más mecánicos' });
-    const options = dialog.getByTestId('provider-option');
-    await expect(options.first()).toBeVisible();
-    await expect(options.filter({ hasText: 'Carlos Ortega' })).toHaveCount(0);
-    await options.first().click();
-    await dialog.getByRole('button', { name: 'Invitar' }).click();
-    await expect(dialog).toBeHidden();
-    await expect(page.getByTestId('response-row')).toHaveCount(2);
-    await expect(page.getByTestId('response-row').filter({ hasText: 'Pendiente de respuesta' })).toHaveCount(2);
-  });
-
   test('open proposal: opens the chat before any price, without hiring anyone', async ({ page }) => {
     // Seeded: Carlos asked Diego a question on r-02.
     await freshDemo(page, 'u-diego');
     await page.goto('./#/solicitudes/r-02');
-    await page.getByTestId('response-row').first().click();
     await expect(page.getByTestId('open-proposal')).toBeVisible();
     await expect(page.getByTestId('chat-locked')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Aceptar presupuesto' })).toHaveCount(0);
@@ -377,7 +331,7 @@ test('Escenario E: inspección antes de comprar, empezando desde el perfil de Ne
 
   await expect(page.getByTestId('sent-title')).toHaveText('Solicitud enviada a Nerea');
   await page.getByRole('link', { name: 'Ver mi solicitud' }).click();
-  await expect(caseStatus(page)).toHaveText('Esperando respuestas');
+  await expect(statusTitle(page)).toHaveText('Solicitud enviada');
   await expect(page.getByText('Bici a inspeccionar')).toBeVisible();
   await expect(page.getByText('Precio pedido: 1200 €')).toBeVisible();
 });

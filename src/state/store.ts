@@ -10,6 +10,7 @@ import type {
   NewRequestInput,
   Role,
   ServiceCategory,
+  ServiceTopic,
   ServiceMode,
   ServiceRequest,
   TimeSlot,
@@ -30,6 +31,8 @@ export interface RequestDraft {
   /** Set when the request started from a provider's profile (mechanic-first). */
   originMechanicId?: ID;
   category?: ServiceCategory;
+  /** The service picked on Home's carousel (kept unless the cyclist changes the category). */
+  topic?: ServiceTopic;
   description: string;
   bikeChoice: 'garage' | 'new';
   bikeId?: ID;

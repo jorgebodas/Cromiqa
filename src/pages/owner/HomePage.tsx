@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Link, Navigate } from 'react-router-dom';
-import { Bike, ChevronRight, Home as HomeIcon, Mic, Search, Store, Wrench } from 'lucide-react';
+import { Bike, ChevronRight, Home as HomeIcon, Store, Wrench } from 'lucide-react';
 import type { BikeType, LocationId, User } from '@/domain/types';
 import { bikeTypeLabel, categoryLabel, locationShort, serviceLabel, specializationLabel } from '@/domain/catalog';
 import { currentProposal } from '@/domain/logic/requests';
@@ -11,7 +11,6 @@ import { formatDate, formatPrice, toISODate } from '@/domain/utils';
 import { useApp } from '@/state/store';
 import { useCurrentUser, useOwnerBikes, useRequestsFor } from '@/state/selectors';
 import { useMode } from '@/state/mode';
-import { useNavUi } from '@/state/ui';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { CyclistHeaderActions } from '@/components/layout/QuickActions';
 import { Feature, Stat, Widget, WidgetGrid } from '@/components/home/Widget';
@@ -103,29 +102,6 @@ function AttentionSection({ items, name }: { items: CyclistAttention[]; name: (i
   );
 }
 
-/** A tap target that reads as a search field: it opens the usual new-request flow. */
-function AskBar() {
-  const openNewRequest = useNavUi((s) => s.openNewRequest);
-  const resetDraft = useApp((s) => s.resetDraft);
-  return (
-    <button
-      type="button"
-      onClick={() => {
-        resetDraft({});
-        openNewRequest();
-      }}
-      className="surface flex h-[54px] w-full items-center gap-2.5 rounded-full pl-[18px] pr-[7px] text-left text-[15px] text-muted transition-transform active:scale-[0.99]"
-      data-testid="ask-bar"
-    >
-      <Search className="size-[18px] shrink-0 text-muted" aria-hidden />
-      <span className="flex-1">Describe el problema</span>
-      <span className="flex size-10 items-center justify-center rounded-full bg-ink text-lime" aria-hidden>
-        <Mic className="size-[18px]" strokeWidth={1.9} />
-      </span>
-    </button>
-  );
-}
-
 /** Why this mechanic is suggested, only from facts in their profile. */
 function reasonsFor(result: MechanicResult, location?: LocationId, bikeType?: BikeType): string[] {
   const m = result.mechanic;
@@ -203,21 +179,13 @@ function CyclistHome({ user }: { user: User | null }) {
   const hasRequests = requests.length > 0;
   return (
     <div className="space-y-8">
-      {/* 1 · The question, and a way to answer it in your own words. */}
-      <section aria-labelledby="need-title" className="space-y-[18px]">
-        <h2 id="need-title" className="max-w-[16ch] font-display text-[30px] font-bold leading-[1.12] tracking-[-0.025em]">
-          ¿Qué le pasa a tu bici{user ? `, ${user.name.split(' ')[0]}` : ''}?
-        </h2>
-        <AskBar />
-      </section>
-
-      {/* 2 · Only what needs the cyclist now. */}
+      {/* 1 · Only what needs the cyclist now. */}
       {attention.length > 0 && <AttentionSection items={attention} name={name} />}
 
-      {/* 3 · Services, as a row of photos that open the request flow. */}
-      <section aria-labelledby="services-title" data-testid="widget-need">
-        <h2 id="services-title" className="mb-3 font-display text-[19px] font-bold tracking-tight">
-          Servicios
+      {/* 2 · The question, answered by picking a service: each photo opens the request flow. */}
+      <section aria-labelledby="need-title" data-testid="widget-need">
+        <h2 id="need-title" className="mb-3 font-display text-[19px] font-bold tracking-tight">
+          ¿Qué le pasa a tu bici?
         </h2>
         <ServiceCarousel />
       </section>

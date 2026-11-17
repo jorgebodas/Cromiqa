@@ -40,7 +40,9 @@ Success means the cyclist has their bike fixed without uncertainty about price, 
 - Current state: a functional prototype in a demo environment. Mechanics, users, reviews, prices and verifications are fictitious, and no payments are processed.
 
 ## Brand Commitments
-Nothing is fixed. Name, logo, colour and tone can all be reconsidered (as confirmed by the user). The product copy is in Spanish (Spain), addresses the user as "tú" and uses short sentences.
+- **Lime colour stays:** lime `#c7ff2f` is the brand colour. The user tried alternative palettes (Azulejo, Ticket de taller, Ruta, Esmalte and the category standard) and rejected them all.
+- **Look and feel:** the soft look of the first proposal (`docs/design/board-1.png`, `board-2.png`, `board-v2.png`, `board-v3-lima.png`): light grey ground, very rounded corners, soft lime light, and lime as a fill for whatever needs the user's action.
+- Name and logo can still be reconsidered. The product copy is in Spanish (Spain), addresses the user as "tú" and uses short sentences.
 
 ## Evidence on Hand
 - Real photography of mechanics and services in `src/assets/mechanics/` and `src/assets/services/`.

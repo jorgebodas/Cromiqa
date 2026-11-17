@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Link, Navigate } from 'react-router-dom';
-import { Bike, ChevronRight, Home as HomeIcon, Store, Wrench } from 'lucide-react';
+import { Bike, CalendarClock, ChevronRight, CircleCheck, Home as HomeIcon, MessageCircle, ReceiptText, Star, Store, TriangleAlert, UserX, Wrench } from 'lucide-react';
 import type { BikeType, LocationId, User } from '@/domain/types';
 import { bikeTypeLabel, categoryLabel, locationShort, serviceLabel, specializationLabel } from '@/domain/catalog';
 import { currentProposal } from '@/domain/logic/requests';
@@ -15,89 +15,79 @@ import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { CyclistHeaderActions } from '@/components/layout/QuickActions';
 import { Feature, Stat, Widget, WidgetGrid } from '@/components/home/Widget';
 import { ServiceCarousel } from '@/components/home/ServiceCarousel';
-import { Avatar, DemoTag } from '@/components/ui';
+import { Avatar, DemoTag, cx } from '@/components/ui';
 
 
-/** One item that only the cyclist can move forward, as a row of the attention widget. */
-function AttentionRow({ item, mechanicName }: { item: CyclistAttention; mechanicName: string }) {
+const shortDay = (d: string) => formatDate(d, { weekday: 'short', day: 'numeric' }).replace(',', '');
+const shortDate = (d: string) => formatDate(d, { day: 'numeric', month: 'short' }).replace('.', '');
+
+/**
+ * One thing only the cyclist can move forward, as a square card (Insights-style): what it is
+ * on top, the one fact that matters big at the bottom, and a line of detail under it.
+ */
+function AttentionCard({ item, mechanicName }: { item: CyclistAttention; mechanicName: string }) {
   const r = item.request;
   const proposal = currentProposal(r);
-  const content = {
+  const first = mechanicName.split(' ')[0];
+  const pendingSlot = r.appointment?.pending;
+  const c: { label: string; icon: typeof ReceiptText; big: string; sub: string } = {
     proposal: {
-      title: proposal ? `${mechanicName} · ${formatPrice(proposal.price)}` : `Presupuesto de ${mechanicName}`,
-      detail: proposal ? `Presupuesto · ${formatDate(proposal.date, { weekday: 'short', day: 'numeric', month: 'short' })}` : serviceLabel(r),
+      label: 'Presupuesto pendiente',
+      icon: ReceiptText,
+      big: proposal ? formatPrice(proposal.price) : first!,
+      sub: proposal ? `${mechanicName} · ${shortDay(proposal.date)}` : `${mechanicName} · ${serviceLabel(r)}`,
     },
-    clarify: {
-      title: `${mechanicName} necesita aclarar algo`,
-      detail: `${categoryLabel(r.category)} · Respóndele en el chat`,
-    },
-    appointment: r.appointment?.pending
-      ? {
-          title: `${mechanicName} propone una cita`,
-          detail: `${categoryLabel(r.category)} · ${formatDate(r.appointment.pending.date, { weekday: 'short', day: 'numeric', month: 'short' })}, ${r.appointment.pending.time}`,
-        }
-      : {
-          title: `Acuerda la cita con ${mechanicName}`,
-          detail: `${categoryLabel(r.category)} · Servicio contratado, falta la fecha`,
-        },
+    clarify: { label: 'Mensaje', icon: MessageCircle, big: first!, sub: `Necesita aclarar algo · ${serviceLabel(r)}` },
+    appointment: pendingSlot
+      ? { label: 'Cita por confirmar', icon: CalendarClock, big: shortDay(pendingSlot.date), sub: `${mechanicName} propone una cita · ${pendingSlot.time}` }
+      : { label: 'Cita por acordar', icon: CalendarClock, big: 'Sin fecha', sub: `Acuerda la cita con ${mechanicName}` },
     confirm: {
-      title: `${mechanicName} ha terminado el trabajo`,
-      detail: item.closingSoon
-        ? `${categoryLabel(r.category)} · Se cerrará automáticamente en menos de 24 h`
-        : `${categoryLabel(r.category)} · Confirma que está bien o reporta un problema`,
+      label: 'Trabajo terminado',
+      icon: CircleCheck,
+      big: item.closingSoon ? '< 24 h' : first!,
+      sub: item.closingSoon ? 'Confírmalo: se cerrará en menos de 24 h' : `${serviceLabel(r)} · confirma que está bien`,
     },
-    incident: {
-      title: 'Problema abierto',
-      detail: `${categoryLabel(r.category)} · Con ${mechanicName}. El cierre automático está en pausa`,
-    },
-    declined: {
-      title: `${mechanicName} no ha podido atenderte`,
-      detail: `${serviceLabel(r)} · Puedes pedírselo a otro mecánico con una nueva solicitud`,
-    },
-    review: {
-      title: `¿Qué tal con ${mechanicName}?`,
-      detail: `${categoryLabel(r.category)} · Servicio completado`,
-    },
+    incident: { label: 'Incidencia', icon: TriangleAlert, big: 'Abierta', sub: `Con ${mechanicName} · cierre en pausa` },
+    declined: { label: 'No disponible', icon: UserX, big: first!, sub: 'Pídeselo a otro mecánico' },
+    review: { label: 'Valora el servicio', icon: Star, big: first!, sub: `${categoryLabel(r.category)} · completado` },
   }[item.kind];
+  const lime = item.kind !== 'review' && item.kind !== 'declined';
   return (
     <li>
-      <Link to={attentionHref(item)} className="flex min-h-16 items-center gap-3 px-4 py-3.5 transition-colors hover:bg-black/[0.03]" data-testid={`attention-${item.kind}`}>
-        <span className="min-w-0 flex-1">
-          <span className="block text-[15px] font-semibold leading-snug">{content.title}</span>
-          <span className="mt-0.5 block text-[13px] leading-snug opacity-70">{content.detail}</span>
+      <Link
+        to={attentionHref(item)}
+        className={cx('flex h-full min-h-[172px] flex-col justify-between rounded-[22px] p-4 transition-transform active:scale-[0.98]', lime ? 'action-fill lifted' : 'surface')}
+        data-testid={`attention-${item.kind}`}
+      >
+        <span className="flex items-start justify-between gap-2">
+          <span className="flex min-w-0 items-start gap-1.5 text-[14px] font-semibold leading-tight">
+            <c.icon className="mt-px size-4 shrink-0" strokeWidth={2} aria-hidden />
+            {c.label}
+          </span>
+          <span className={cx('flex size-6 shrink-0 items-center justify-center rounded-full', lime ? 'bg-ink/10' : 'bg-canvas')} aria-hidden>
+            <ChevronRight className="size-3.5" strokeWidth={2.4} />
+          </span>
         </span>
-        <ChevronRight className="size-[18px] shrink-0" aria-hidden />
+        <span className="mt-6 block">
+          <span className="block truncate font-display text-[30px] font-extrabold leading-none tracking-[-0.03em] tabular-nums">{c.big}</span>
+          <span className={cx('mt-1.5 line-clamp-2 block min-h-[2lh] text-[13px] leading-snug', lime ? 'text-ink/65' : 'text-muted')}>{c.sub}</span>
+        </span>
       </Link>
     </li>
   );
 }
 
-/** What needs the cyclist: the decisions in lime (the one lime surface of Home), then gentle nudges. */
+/** What needs the cyclist, as square cards side by side: decisions in lime first, gentle nudges after. */
 function AttentionSection({ items, name }: { items: CyclistAttention[]; name: (id: string) => string }) {
   const urgent = items.filter((i) => i.kind !== 'review' && i.kind !== 'declined').slice(0, 4);
   const later = items.filter((i) => i.kind === 'review' || i.kind === 'declined').slice(0, 2);
   return (
-    <section aria-label="Te toca a ti" className="space-y-6" data-testid="attention">
-      {urgent.length > 0 && (
-        <div>
-          <h2 className="mb-3 font-display text-[19px] font-bold tracking-tight">Te toca decidir</h2>
-          <ul className="action-fill lifted divide-y divide-ink/10 overflow-hidden">
-            {urgent.map((item) => (
-              <AttentionRow key={`${item.kind}-${item.request.id}`} item={item} mechanicName={name(item.request.mechanicId)} />
-            ))}
-          </ul>
-        </div>
-      )}
-      {later.length > 0 && (
-        <div>
-          <h2 className="mb-3 font-display text-[19px] font-bold tracking-tight">Cuando puedas</h2>
-          <ul className="surface divide-y divide-line overflow-hidden">
-            {later.map((item) => (
-              <AttentionRow key={`${item.kind}-${item.request.id}`} item={item} mechanicName={name(item.request.mechanicId)} />
-            ))}
-          </ul>
-        </div>
-      )}
+    <section aria-label="Pendiente de ti" data-testid="attention">
+      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        {[...urgent, ...later].map((item) => (
+          <AttentionCard key={`${item.kind}-${item.request.id}`} item={item} mechanicName={name(item.request.mechanicId)} />
+        ))}
+      </ul>
     </section>
   );
 }
@@ -155,8 +145,6 @@ function DiscoverWidget({ user }: { user: User | null }) {
     </Widget>
   );
 }
-
-const shortDate = (d: string) => formatDate(d, { day: 'numeric', month: 'short' }).replace('.', '');
 
 function CyclistHome({ user }: { user: User | null }) {
   const requests = useRequestsFor({ ownerId: user?.id ?? '__guest__' });

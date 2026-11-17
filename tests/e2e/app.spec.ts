@@ -668,15 +668,17 @@ test.describe('Navegación', () => {
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Garaje');
   });
 
-  test('phones: scrolling shrinks the title into the pinned bar and the tabs into a circle', async ({ page }) => {
+  test('phones: scrolling down shrinks the title into the bar and hides the dock; scrolling up brings the dock back', async ({ page }) => {
     test.skip(!isMobile(page), 'Phone-only behaviour');
     await freshDemo(page, 'u-ana');
     await page.goto('./#/mecanicos');
+    const dock = page.getByTestId('dock');
+    const nav = page.getByRole('navigation', { name: 'Principal (móvil)' });
+    await expect(nav.getByRole('link', { name: 'Mecánicos' })).toBeInViewport();
     await page.mouse.wheel(0, 700);
-    const condensed = page.getByTestId('nav-condensed');
-    await expect(condensed).toBeVisible();
-    await expect(condensed).toHaveAccessibleName(/Mecánicos/);
-    await expect.poll(async () => (await condensed.boundingBox())?.width).toBeLessThanOrEqual(68); // one circle
+    // Reading down: the dock slides out of view (and can't be reached by keyboard meanwhile).
+    await expect(dock.locator('xpath=..')).toHaveAttribute('data-hidden', 'true');
+    await expect(nav.getByRole('link', { name: 'Mecánicos' })).not.toBeInViewport();
     // The large title has shrunk into the pinned bar, which keeps its buttons.
     const bar = page.getByTestId('screen-bar');
     await expect(bar).toHaveAttribute('data-compact', 'true');
@@ -685,11 +687,10 @@ test.describe('Navegación', () => {
       return t && b ? Math.abs(t.y + t.height / 2 - (b.y + b.height / 2)) : 99;
     }).toBeLessThan(3);
     await expect(page.getByTestId('account-link').filter({ visible: true })).toBeVisible();
-    // Tapping the circle brings the full bar back.
-    await page.mouse.wheel(0, 300);
-    await expect.poll(async () => (await condensed.boundingBox())?.width).toBeLessThanOrEqual(68);
-    await condensed.click();
-    await expect(page.getByRole('navigation', { name: 'Principal (móvil)' }).getByRole('link', { name: 'Mecánicos' })).toBeVisible();
+    // A little scroll up brings the dock back.
+    await page.mouse.wheel(0, -120);
+    await expect(nav.getByRole('link', { name: 'Mecánicos' })).toBeInViewport();
+    await expect(dock.locator('xpath=..')).not.toHaveAttribute('data-hidden', 'true');
   });
 
   test('role gates offer a demo account instead of a fake login', async ({ page }) => {

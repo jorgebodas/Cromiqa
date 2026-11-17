@@ -231,7 +231,7 @@ a.surface:active, button.surface:active { transform: scale(0.99); }
 @keyframes cq-sheet-up { from { transform: translateY(28px); opacity: 0.6; } to { transform: none; opacity: 1; } }
 @keyframes cq-panel-in { from { transform: translateX(36px); opacity: 0.6; } to { transform: none; opacity: 1; } }
 @keyframes cq-fade { from { opacity: 0; } to { opacity: 1; } }
-.cq-sheet-up { animation: cq-sheet-up 320ms cubic-bezier(.2, .9, .3, 1); }
+.cq-sheet-up { animation: cq-sheet-up 380ms cubic-bezier(.32, .72, 0, 1); }
 .cq-fade-in { animation: cq-fade 200ms ease-out; }
 @media (min-width: 768px) { .cq-sheet-up { animation-name: cq-panel-in; } }
 @media (prefers-reduced-motion: reduce) { .cq-sheet-up, .cq-fade-in { animation: none; } }
@@ -306,3 +306,43 @@ select.cq-control[aria-invalid='true'] { background-position: right 40px center;
   50% { transform: scale(1.04); opacity: 0.9; }
 }
 @media (prefers-reduced-motion: reduce) { .cq-orb { animation: none; } }
+
+/* Screen header: transparent at rest; once the title has settled in it, a light material
+   with a scroll-edge fade below. Background and fade arrive together, quickly. */
+.screen-bar {
+  background-color: rgb(242 242 240 / 0);
+  transition: background-color 240ms cubic-bezier(.32, .72, 0, 1), backdrop-filter 240ms cubic-bezier(.32, .72, 0, 1);
+}
+.screen-bar::after {
+  content: '';
+  position: absolute;
+  inset: 100% 0 auto;
+  height: 14px;
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgb(242 242 240 / 0.82), rgb(242 242 240 / 0));
+  opacity: 0;
+  transition: opacity 240ms cubic-bezier(.32, .72, 0, 1);
+}
+.screen-bar.is-compact {
+  background-color: rgb(242 242 240 / 0.82);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+}
+.screen-bar.is-compact::after { opacity: 1; }
+@media (prefers-reduced-transparency: reduce) {
+  .screen-bar.is-compact { background-color: var(--color-page); -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+
+/* Floating chrome: a frosted white material rather than opaque white. */
+.float-pill {
+  background-color: rgb(255 255 255 / 0.86);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  backdrop-filter: blur(18px) saturate(160%);
+}
+@media (prefers-reduced-transparency: reduce) {
+  .float-pill { background-color: #fff; -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+
+/* Press feedback on the dock: instant on touch-down, released with a short ease. */
+.dock-btn-lime, .float-pill a, .float-pill button { -webkit-tap-highlight-color: transparent; }
+.dock-btn-lime:active { transform: scale(0.96); transition: transform 90ms ease-out; }

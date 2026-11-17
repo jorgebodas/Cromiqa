@@ -121,8 +121,10 @@ export function ScreenHeader({ title, back, leading, actions, description }: Scr
       <div
         ref={bar}
         className={cx(
-          'sticky top-0 z-30 transition-[background-color,box-shadow] duration-200 md:top-16',
-          compact ? 'bg-paper shadow-[0_1px_0_var(--color-line)]' : 'bg-transparent',
+          // Settled: a translucent material the content scrolls under, with a soft fade at its
+          // edge instead of a hard divider (Apple's scroll edge effect).
+          'screen-bar sticky top-0 z-30 md:top-16',
+          compact && 'is-compact',
         )}
         data-testid="screen-bar"
         data-compact={compact || undefined}

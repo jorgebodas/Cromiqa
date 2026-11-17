@@ -121,7 +121,7 @@ test.describe('Navegación', () => {
     await page.getByRole('radio', { name: 'Ciclista' }).click();
     // Cyclist mode, new to it: the Home invites to a first request, with no fake activity.
     await expect(page).toHaveURL(/#\/$/);
-    await expect(page.getByRole('heading', { name: '¿Qué necesita tu bici?' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /^¿Qué le pasa a tu bici/ })).toBeVisible();
     await expect(page.getByTestId('service-card')).toHaveCount(6);
     await expect(page.getByTestId('attention')).toHaveCount(0);
     await expect(page.getByTestId('discover')).not.toContainText('Carlos Ortega'); // never his own workshop
@@ -604,7 +604,7 @@ test.describe('Navegación', () => {
     // Requests with a pending decision first, with a discreet indicator and what to do.
     const first = cards.first();
     await expect(first).toHaveAttribute('data-attention', 'true');
-    await expect(first.getByTestId('case-action')).toHaveText('Requiere tu atención · Revisa el presupuesto');
+    await expect(first.getByTestId('case-action')).toHaveText('Requiere tu atención: Revisa el presupuesto');
     await expect(first).toContainText('Inspección antes de comprar');
     await expect(first).toContainText('€'); // mechanic · price
     // The other keeps its usual look: status, mechanic, no price yet.
@@ -624,7 +624,7 @@ test.describe('Navegación', () => {
     // Resolving the action removes the highlight at once.
     await freshDemo(page, 'u-dani');
     await page.goto('./#/solicitudes');
-    await expect(cards.first().getByTestId('case-action')).toHaveText('Requiere tu atención · Confirma la fecha propuesta');
+    await expect(cards.first().getByTestId('case-action')).toHaveText('Requiere tu atención: Confirma la fecha propuesta');
     await cards.first().click(); // straight to the conversation where the date is confirmed
     await expect(page).toHaveURL(/#\/solicitudes\/r-dani$/);
     await page.getByRole('button', { name: 'Confirmar cita' }).click();
@@ -693,10 +693,10 @@ test.describe('Validación de formularios', () => {
     await expect(cards).toHaveText([/Mantenimiento/, /Frenos/, /Transmisión/, /Ruedas/, /Suspensión/, /Diagnóstico/]);
     const vw = page.viewportSize()!.width;
     if (vw < 768) {
-      const [a, b] = [await cards.nth(0).boundingBox(), await cards.nth(1).boundingBox()];
-      expect(a!.width).toBeGreaterThan(200);
-      expect(b!.x).toBeLessThan(vw); // part of the next card is visible
-      expect(b!.x + b!.width).toBeGreaterThan(vw);
+      // Small photo tiles: a few fit, and one is cut by the screen edge (the row scrolls).
+      const boxes = await Promise.all([0, 1, 2, 3].map((i) => cards.nth(i).boundingBox()));
+      expect(boxes[0]!.width).toBeGreaterThan(100);
+      expect(boxes.some((b) => b!.x < vw && b!.x + b!.width > vw)).toBe(true);
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
     // What needs Pablo: a quote from each mechanic he asked (two requests).

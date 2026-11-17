@@ -1,5 +1,5 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
-import { CalendarDays, Clock, MessageSquare, Send } from 'lucide-react';
+import { CalendarDays, Check, Clock, Loader2, MessageSquare, Send } from 'lucide-react';
 import type { Proposal, RequestEvent, Role, ServiceRequest } from '@/domain/types';
 import { bikeTypeLabel, categoryLabel, locationLabel, modeLabel, slotLabel, bikeLabel, urgencyLabel } from '@/domain/catalog';
 import { AUTO_CLOSE_HOURS, canPerform } from '@/domain/logic/requests';
@@ -121,6 +121,78 @@ export function ProposalCard({
       </div>
       <blockquote className="mt-4 rounded-2xl bg-sand p-4 text-[15px] leading-relaxed">“{proposal.message}”</blockquote>
       {children && <div className="mt-5">{children}</div>}
+    </section>
+  );
+}
+
+/**
+ * The quote waiting for the cyclist, as the screen's one lime surface: the price first, then
+ * when and what, and the two answers. Accepting hires the mechanic; it is never a payment.
+ */
+export function QuoteDecision({
+  proposal,
+  version,
+  mechanicName,
+  onAccept,
+  onReject,
+  accepting,
+}: {
+  proposal: Proposal;
+  version: number;
+  mechanicName: string;
+  onAccept: () => void;
+  onReject: () => void;
+  accepting?: boolean;
+}) {
+  const first = mechanicName.split(' ')[0];
+  return (
+    <section className="action-fill lifted p-3.5 pt-6" aria-labelledby={`proposal-${proposal.id}`} data-testid="proposal-card">
+      <h2 id={`proposal-${proposal.id}`} className="sr-only">
+        Presupuesto cerrado{version > 1 ? ` · versión ${version}` : ''}
+      </h2>
+      <div className="text-center">
+        <p className="font-display text-[64px] font-extrabold leading-none tracking-[-0.04em] tabular-nums" data-testid="proposal-price">
+          {formatPrice(proposal.price)}
+        </p>
+        <p className="mt-2.5 text-sm text-ink/65">
+          {mechanicName} · precio cerrado{version > 1 ? ` · versión ${version}` : ''}
+        </p>
+      </div>
+      <ul className="mt-5 divide-y divide-ink/10 rounded-[14px] bg-white/45">
+        <li className="flex items-center gap-3 px-4 py-3">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-[14px] bg-white" aria-hidden>
+            <CalendarDays className="size-[18px]" strokeWidth={1.8} />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-[15px] font-semibold first-letter:uppercase">
+              {formatLongDate(proposal.date)} · {proposal.time}
+            </span>
+            <span className="block text-[13px] text-ink/65">{proposal.durationMinutes ? `Unos ${proposal.durationMinutes} min · ` : ''}la fecha se confirma tras contratar</span>
+          </span>
+        </li>
+        <li className="flex items-start gap-3 px-4 py-3">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-[14px] bg-white" aria-hidden>
+            <Check className="size-[18px]" strokeWidth={1.8} />
+          </span>
+          <span className="min-w-0 self-center text-[15px] leading-snug">“{proposal.message}”</span>
+        </li>
+      </ul>
+      {version > 1 && <p className="mt-3 px-1 text-[13px] text-ink/65">{first} ha revisado su presupuesto; necesita tu aprobación.</p>}
+      <div className="mt-3 flex gap-2">
+        <button type="button" onClick={onReject} className="h-[50px] flex-1 rounded-full bg-ink/[0.08] text-[15px] font-semibold transition-colors hover:bg-ink/[0.13] active:scale-[0.97]">
+          Rechazar
+        </button>
+        <button
+          type="button"
+          onClick={onAccept}
+          disabled={accepting}
+          aria-label="Aceptar presupuesto"
+          className="flex h-[50px] flex-[2] items-center justify-center gap-2 rounded-full bg-white text-[15px] font-semibold shadow-[0_1px_2px_rgb(17_17_17/0.08)] transition-transform active:scale-[0.97] disabled:opacity-60"
+        >
+          {accepting && <Loader2 className="size-4 animate-spin" aria-hidden />}
+          Aceptar
+        </button>
+      </div>
     </section>
   );
 }

@@ -10,6 +10,7 @@ import { formatPrice } from '@/domain/utils';
 import { useApp } from '@/state/store';
 import { useCurrentUser, useRequestsFor } from '@/state/selectors';
 import { EmptyState, cx } from '@/components/ui';
+import { servicePhoto } from '@/components/home/servicePhotos';
 
 type View = 'activas' | 'completadas' | 'canceladas';
 const VIEWS: Record<View, RequestStage[]> = {
@@ -40,31 +41,39 @@ function RequestCard({ request: lead, mechanicName, pending }: { request: Servic
   return (
     <Link
       to={first ? attentionHref(first) : requestHref(lead)}
-      className={cx('surface group flex items-center gap-3 px-5 py-4', first && '!shadow-[0_0_0_1.5px_var(--color-lime),var(--shadow-surface)]')}
+      className={cx('group flex items-center gap-3.5 py-3.5 pl-3.5 pr-4', first ? 'action-fill lifted' : 'surface')}
       data-testid="case-card"
       data-request-id={lead.id}
       data-attention={first ? 'true' : undefined}
     >
+      <img src={servicePhoto(lead)} alt="" width={56} height={56} loading="lazy" className={cx('size-14 shrink-0 rounded-2xl object-cover', done && 'opacity-60 grayscale')} />
       <span className="min-w-0 flex-1">
-        <span className={cx('block font-display text-[17px] font-bold leading-snug tracking-tight', done && 'text-muted')}>{serviceLabel(lead)}</span>
-        <span className="mt-0.5 block truncate text-sm text-muted">{bikeLabel(lead.bike)}</span>
-        <span className="mt-2 flex items-start gap-1.5 text-sm" data-testid="case-status-chip">
-          <span className={cx('mt-1.5 size-2 shrink-0 rounded-full', first ? 'bg-lime ring-2 ring-ink/80' : done ? 'bg-line-strong' : 'bg-ink/35')} aria-hidden />
+        <span className={cx('block text-[15px] font-semibold leading-snug', done && 'text-muted')}>
+          {serviceLabel(lead)}
+          {showPrice && <span className="tabular-nums"> · {formatPrice(quote!.price)}</span>}
+        </span>
+        <span className={cx('mt-0.5 block truncate text-[13px]', first ? 'text-ink/65' : 'text-muted')}>
+          {mechanicName(lead.mechanicId)} · {bikeLabel(lead.bike)}
+        </span>
+        <span className="mt-2 flex items-center gap-[7px] text-[13px]" data-testid="case-status-chip">
+          {/* A filled dot: it's your turn; a ring: waiting; nothing: settled. Never colour alone. */}
           {first ? (
-            <span className="min-w-0" data-testid="case-action">
-              <span className="font-semibold">Requiere tu atención</span>
-              <span className="text-muted"> · {attentionActionLabel(first)}</span>
-            </span>
+            <>
+              <span className="size-2 shrink-0 rounded-full bg-ink" aria-hidden />
+              <span className="min-w-0 font-semibold" data-testid="case-action">
+                <span className="sr-only">Requiere tu atención: </span>
+                {attentionActionLabel(first)}
+              </span>
+            </>
           ) : (
-            <span className={cx('font-medium', done && 'text-muted')}>{statusText(lead)}</span>
+            <>
+              {status === 'searching' && <span className="size-2 shrink-0 rounded-full ring-[1.5px] ring-inset ring-subtle" aria-hidden />}
+              <span className={cx('font-medium text-muted')}>{statusText(lead)}</span>
+            </>
           )}
         </span>
-        <span className="mt-0.5 block truncate text-sm text-muted">
-          {mechanicName(lead.mechanicId)}
-          {showPrice && ` · ${formatPrice(quote!.price)}`}
-        </span>
       </span>
-      <ChevronRight className="size-5 shrink-0 text-muted transition-transform group-hover:translate-x-0.5" aria-hidden />
+      <ChevronRight className={cx('size-[18px] shrink-0 transition-transform group-hover:translate-x-0.5', first ? 'text-ink' : 'text-subtle')} aria-hidden />
     </Link>
   );
 }
@@ -129,7 +138,7 @@ export function OwnerRequestsList() {
           {view === 'activas' ? 'No tienes solicitudes activas. Pulsa + para pedir un servicio.' : view === 'completadas' ? 'Aún no has completado ningún servicio.' : 'No tienes solicitudes canceladas.'}
         </p>
       ) : (
-        <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <ul className="grid grid-cols-1 gap-2.5 lg:grid-cols-2">
           {sorted.map((c) => (
             <li key={c.request.id}>
               <RequestCard request={c.request} mechanicName={mechanicName} pending={pendingByRequest.get(c.request.id) ?? []} />

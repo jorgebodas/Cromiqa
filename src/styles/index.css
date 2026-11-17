@@ -11,9 +11,9 @@
   --color-sand: #f6f4ef;
   --color-sand-deep: #ece9e1;
   /* App background: light grey under white cards (Airbnb-style). */
-  --color-canvas: #f4f4f2;
+  --color-canvas: #f2f2f0;
   /* App background: pure white; cards stand out by their shadow alone (Airbnb-style). */
-  --color-page: #ffffff;
+  --color-page: #f2f2f0;
   --color-ink: #171717;
   --color-ink-soft: #2a2a2a;
   --color-muted: #6b6b6b;
@@ -27,6 +27,12 @@
   --color-danger: #b42318;
   --color-danger-soft: #fdecea;
   --color-success: #2f6b1f;
+  /* Layers that float above the page (sheets, the chat, "sent"): black. */
+  --color-layer: #101010;
+  --color-layer-card: #1b1b1b;
+  --color-layer-well: #262626;
+  --color-layer-ink: #f5f5f3;
+  --color-layer-ink-2: #9b9b97;
 
   --radius-xl: 1rem;
   --radius-2xl: 1.25rem;
@@ -35,8 +41,8 @@
   --shadow-card: 0 1px 2px rgb(23 23 23 / 0.04), 0 4px 16px -8px rgb(23 23 23 / 0.08);
   --shadow-pop: 0 12px 40px -12px rgb(23 23 23 / 0.25);
   /* Cards on white: a near-invisible hairline plus a wide, soft halo (Airbnb-style elevation). */
-  --shadow-surface: 0 0 0 1px rgb(0 0 0 / 0.03), 0 2px 6px rgb(0 0 0 / 0.04), 0 8px 24px rgb(0 0 0 / 0.1);
-  --shadow-surface-hover: 0 0 0 1px rgb(0 0 0 / 0.03), 0 4px 10px rgb(0 0 0 / 0.05), 0 14px 36px rgb(0 0 0 / 0.14);
+  --shadow-surface: 0 1px 2px rgb(17 17 17 / 0.05), 0 8px 24px -12px rgb(17 17 17 / 0.16);
+  --shadow-surface-hover: 0 1px 2px rgb(17 17 17 / 0.06), 0 12px 30px -12px rgb(17 17 17 / 0.22);
 }
 
 @layer base {
@@ -129,11 +135,27 @@
   .cq-draw { stroke-dashoffset: 0; }
 }
 
+/* Lime as a fill: the one surface per screen that needs the cyclist (a decision, a quote).
+   Ink text on top; secondary text is ink at 62 %, never grey. */
+.action-fill {
+  background-color: var(--color-lime);
+  color: var(--color-ink);
+  border-radius: 22px;
+}
+.action-fill.lifted { box-shadow: 0 1px 2px rgb(80 110 0 / 0.12), 0 14px 30px -14px rgb(110 150 0 / 0.55); }
+
+/* Black layer: floating sheets above the page. */
+.layer {
+  background-color: var(--color-layer);
+  color: var(--color-layer-ink);
+  box-shadow: 0 30px 60px -20px rgb(0 0 0 / 0.55);
+}
+
 /* Content card: white, rounded, softly lifted off the grey canvas. Links and buttons lift a
    little more on hover. */
 .surface {
   background-color: var(--color-paper);
-  border-radius: 1.5rem;
+  border-radius: 22px;
   box-shadow: var(--shadow-surface);
 }
 a.surface, button.surface { transition: box-shadow 200ms ease, transform 150ms ease; }
@@ -259,3 +281,28 @@ a.surface:active, button.surface:active { transform: scale(0.99); }
 }
 textarea.cq-control[aria-invalid='true'] { background-position: right 14px top 14px; }
 select.cq-control[aria-invalid='true'] { background-position: right 40px center; padding-right: 68px; }
+
+/* "Sent": a lime orb that breathes slowly on the black layer. */
+.cq-orb {
+  position: relative;
+  display: block;
+  width: 168px;
+  height: 168px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 38%, #fbffe9 0%, #e5ff9a 32%, rgb(199 255 47 / 0.6) 58%, transparent 72%);
+  animation: cq-breathe 3.6s ease-in-out infinite;
+}
+.cq-orb::after {
+  content: '';
+  position: absolute;
+  inset: -46px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(199 255 47 / 0.32), transparent 66%);
+  filter: blur(22px);
+  z-index: -1;
+}
+@keyframes cq-breathe {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.04); opacity: 0.9; }
+}
+@media (prefers-reduced-motion: reduce) { .cq-orb { animation: none; } }

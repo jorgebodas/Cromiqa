@@ -204,7 +204,7 @@ function FloatingTabs({ tabs, className, hidden }: { hidden?: boolean; tabs: { k
             className="pointer-events-none absolute inset-y-0 left-0 flex items-center justify-center transition-transform duration-300 ease-[cubic-bezier(.3,1.25,.4,1)]"
             style={{ width: `${100 / tabs.length}%`, transform: `translateX(${index * 100}%)` }}
           >
-            <span className="aspect-square h-full rounded-full bg-[#efefef]" />
+            <span className="aspect-square h-full rounded-full bg-ink" />
           </li>
         )}
         {tabs.map((t) => (
@@ -214,10 +214,10 @@ function FloatingTabs({ tabs, className, hidden }: { hidden?: boolean; tabs: { k
               state={t.state}
               aria-label={t.badge ? `${t.label} (${t.badge} sin responder)` : t.label}
               aria-current={t.active ? 'page' : undefined}
-              className={cx('flex h-full items-center justify-center rounded-full transition-colors', t.active ? 'text-[#3b3b3b]' : 'text-[#7a7a7a] hover:text-[#3b3b3b]')}
+              className={cx('flex h-full items-center justify-center rounded-full transition-colors', t.active ? 'text-lime' : 'text-[#8c8c89] hover:text-ink')}
             >
               <span className="relative">
-                <t.icon className="size-[26px]" strokeWidth={2} aria-hidden />
+                <t.icon className="size-6" strokeWidth={1.9} aria-hidden />
                 {!!t.badge && (
                   <span className="absolute -right-2.5 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-lime px-1 text-[10px] font-bold text-ink ring-2 ring-paper" aria-hidden>
                     {t.badge}

@@ -1,5 +1,5 @@
 import { useParams } from 'react-router-dom';
-import { ArrowRight, Check, FlaskConical, Repeat } from 'lucide-react';
+import { Check, FlaskConical, Repeat } from 'lucide-react';
 import { bikeTypeLabel, locationShort, modeLabel, bikeLabel, serviceLabel } from '@/domain/catalog';
 import { requestHref } from '@/domain/logic/cases';
 import { useApp } from '@/state/store';
@@ -27,37 +27,23 @@ export function RequestSentPage() {
   const first = mechanic?.name.split(' ')[0] ?? 'el mecánico';
 
   return (
-    <div className="container-page max-w-2xl py-10 sm:py-16">
-      <div className="text-center">
-        <span className="mx-auto flex size-16 items-center justify-center rounded-full bg-lime" aria-hidden>
-          <Check className="size-8 text-ink" strokeWidth={3} />
-        </span>
-        <h1 className="mt-6 text-3xl font-extrabold sm:text-4xl" data-testid="sent-title">
+    <div className="container-page max-w-2xl py-6 sm:py-12">
+      {/* A calm moment on a black layer: the lime orb breathes slowly (still with reduced motion). */}
+      <section className="layer flex flex-col items-center overflow-hidden rounded-[32px] px-6 pb-6 pt-16 text-center sm:pt-20">
+        <span className="cq-orb" aria-hidden />
+        <h1 className="mt-14 font-display text-[30px] font-bold leading-tight tracking-[-0.025em] sm:text-4xl" data-testid="sent-title">
           Solicitud enviada a {first}
         </h1>
-        <p className="mx-auto mt-3 max-w-md text-muted">
-          Todavía no hay nada contratado. {first} revisará tu caso y te responderá con un presupuesto, una pregunta o un “no puedo”.
-        </p>
-      </div>
-
-      <Card className="mt-10 p-5 sm:p-6">
-        <h2 className="font-bold">Qué pasa ahora</h2>
-        <ol className="mt-4 space-y-4">
-          {[
-            ['Recibes su respuesta', 'Un presupuesto con precio y fecha, o una pregunta para aclarar algo.'],
-            ['Decides', 'Aceptas o rechazas el presupuesto. Aceptar no es un pago.'],
-            ['¿Quieres otra opinión?', 'Crea otra solicitud para consultar a otro mecánico.'],
-          ].map(([title, text], i) => (
-            <li key={title} className="flex gap-4">
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-sand font-display text-sm font-bold">{i + 1}</span>
-              <div>
-                <p className="font-semibold">{title}</p>
-                <p className="text-sm text-muted">{text}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
-      </Card>
+        <p className="mt-2 max-w-sm text-[15px] text-layer-ink-2">Te avisamos cuando responda. Aún no hay nada contratado.</p>
+        <div className="mt-10 flex w-full flex-col gap-2.5 sm:max-w-sm">
+          <LinkButton to={requestHref(request)} size="lg" block>
+            Ver mi solicitud
+          </LinkButton>
+          <LinkButton to="/" size="lg" block className="!bg-layer-well !text-layer-ink hover:!bg-white/15">
+            Volver al inicio
+          </LinkButton>
+        </div>
+      </section>
 
       <Card className="mt-4 p-5 sm:p-6">
         <h2 className="font-bold">Resumen</h2>
@@ -79,15 +65,6 @@ export function RequestSentPage() {
           </p>
         )}
       </Card>
-
-      <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
-        <LinkButton to={requestHref(request)} size="lg" icon={<ArrowRight className="order-last size-5" aria-hidden />}>
-          Ver mi solicitud
-        </LinkButton>
-        <LinkButton to="/" size="lg" variant="secondary">
-          Volver al inicio
-        </LinkButton>
-      </div>
 
       {mechanic && (
         <div className="mt-10 flex flex-col items-start gap-3 rounded-2xl border border-dashed border-line-strong p-5 sm:flex-row sm:items-center sm:justify-between">

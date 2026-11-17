@@ -174,18 +174,20 @@ export function PendingPill({
       aria-expanded={open}
       aria-controls="pending-preview"
       className={cx(
-        'float-pill pointer-events-auto flex h-16 items-center gap-1 rounded-full pl-5 pr-4 font-display text-[15px] font-bold tracking-[-0.01em] text-ink transition-transform active:scale-[0.97] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink max-[359px]:pl-4 max-[359px]:pr-3',
+        'dock-btn-lime pointer-events-auto flex h-16 items-center gap-1 rounded-full pl-4 pr-4 font-sans text-[15px] font-semibold tracking-[-0.01em] text-ink transition-transform active:scale-[0.97] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink max-[359px]:pl-4 max-[359px]:pr-3',
         className,
       )}
-      style={{ backgroundColor: 'var(--color-lime)', ...style }}
+      style={style}
       data-testid="pending-pill"
     >
-      <span className="whitespace-nowrap max-[359px]:hidden">{pendingLabel(count)}</span>
-      {/* Narrow phones: just the number (the full label is the accessible name). */}
-      <span className="hidden text-[17px] max-[359px]:inline" aria-hidden>
+      {/* The count in an ink badge, then the word; narrow phones keep just the badge. */}
+      <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-ink px-1.5 text-[12px] font-bold text-lime tabular-nums" aria-hidden>
         {count}
       </span>
-      <ChevronDown className={cx('size-5 shrink-0 transition-transform duration-200', open && 'rotate-180')} strokeWidth={2.4} aria-hidden />
+      <span className="ml-1 whitespace-nowrap max-[359px]:hidden" aria-hidden>
+        {count === 1 ? 'pendiente' : 'pendientes'}
+      </span>
+      <ChevronDown className={cx('size-4 shrink-0 transition-transform duration-200', !open && 'rotate-180')} strokeWidth={2.4} aria-hidden />
     </button>
   );
 }
@@ -235,33 +237,40 @@ export function PendingPreview({ items, onClose }: { items: CyclistAttention[]; 
     if (to !== '/solicitudes') navigate(to);
   };
   return (
-    <section id="pending-preview" aria-label="Pendiente de ti" className="pointer-events-auto rounded-[28px] bg-paper p-2 shadow-[0_0_0_1px_rgb(0_0_0/0.04),0_8px_24px_rgb(0_0_0/0.10),0_24px_48px_rgb(0_0_0/0.12)]" data-testid="pending-preview">
-      <h2 className="px-3 pb-1 pt-3 font-display text-[17px] font-bold tracking-tight">Pendiente de ti</h2>
-      <ul className="max-h-[min(52dvh,360px)] overflow-y-auto">
+    <section id="pending-preview" aria-label="Pendiente de ti" className="layer pointer-events-auto rounded-[32px] p-3" data-testid="pending-preview">
+      <div className="mx-auto mb-2 h-[5px] w-[38px] rounded-full bg-white/15" aria-hidden />
+      <div className="flex items-center justify-between px-0.5 pb-3">
+        <button type="button" onClick={onClose} aria-label="Cerrar" className="flex size-10 items-center justify-center rounded-full bg-layer-well text-layer-ink hover:bg-white/15">
+          <X className="size-4" strokeWidth={2.2} aria-hidden />
+        </button>
+        <h2 className="text-[15px] font-semibold tracking-normal" style={{ fontFamily: 'var(--font-sans)' }}>Pendiente de ti</h2>
+        <span className="size-10" aria-hidden />
+      </div>
+      <ul className="action-fill max-h-[min(52dvh,360px)] overflow-y-auto rounded-[22px]">
         {shown.map((item) => {
           const k = PENDING_KIND[item.kind]!;
           return (
-            <li key={`${item.kind}-${item.request.id}`}>
-              <button type="button" onClick={() => open(attentionHref(item))} className="flex w-full items-center gap-3 rounded-[20px] px-3 py-2.5 text-left hover:bg-canvas" data-testid="pending-item">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-lime/70" aria-hidden>
-                  <k.icon className="size-5" strokeWidth={2} />
+            <li key={`${item.kind}-${item.request.id}`} className="border-ink/10 [&+&]:border-t">
+              <button type="button" onClick={() => open(attentionHref(item))} className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-white/25" data-testid="pending-item">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-[14px] bg-white/45" aria-hidden>
+                  <k.icon className="size-5" strokeWidth={1.9} />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-[15px] font-semibold leading-snug">{k.title}</span>
-                  <span className="line-clamp-2 text-sm leading-snug text-muted">
+                  <span className="line-clamp-2 text-[13px] leading-snug text-ink/65">
                     {pendingText(item, name(item.request.mechanicId))} · {serviceLabel(item.request)}
                   </span>
                 </span>
-                <ChevronRight className="size-4 shrink-0 text-muted" aria-hidden />
+                <ChevronRight className="size-4 shrink-0" aria-hidden />
               </button>
             </li>
           );
         })}
       </ul>
-      <button type="button" onClick={() => open('/solicitudes')} className="mt-1 flex h-12 w-full items-center justify-center rounded-[20px] text-[15px] font-semibold hover:bg-canvas" data-testid="pending-all">
+      <button type="button" onClick={() => open('/solicitudes')} className="mt-2.5 flex h-12 w-full items-center justify-center rounded-full bg-layer-well text-[15px] font-semibold text-layer-ink transition-colors hover:bg-white/15" data-testid="pending-all">
         Ver todas las solicitudes
         {items.length > PREVIEW_MAX && (
-          <span className="ml-1.5 font-normal text-muted">
+          <span className="ml-1.5 font-normal text-layer-ink-2">
             · {items.length - PREVIEW_MAX} {items.length - PREVIEW_MAX === 1 ? 'pendiente más' : 'pendientes más'}
           </span>
         )}
@@ -279,8 +288,8 @@ export function NewRequestPill({ className, style, pillRef }: { className?: stri
       type="button"
       onClick={() => openHub({ kind: 'new' })}
       aria-label="Nueva solicitud"
-      className={cx('float-pill pointer-events-auto flex size-16 shrink-0 items-center justify-center rounded-full text-ink transition-transform active:scale-95', className)}
-      style={{ backgroundColor: 'var(--color-lime)', ...style }}
+      className={cx('dock-btn-lime pointer-events-auto flex size-16 shrink-0 items-center justify-center rounded-full text-ink transition-transform active:scale-95', className)}
+      style={style}
       data-testid="new-request-fab"
     >
       <Plus className="size-7" strokeWidth={2.25} aria-hidden />

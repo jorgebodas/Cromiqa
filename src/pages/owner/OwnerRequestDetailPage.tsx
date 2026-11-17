@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
-import { Bike, Check, CircleCheckBig, FlaskConical, Repeat, Star, X } from 'lucide-react';
+import { Bike, CircleCheckBig, FlaskConical, Repeat, Star, X } from 'lucide-react';
 import { STATUSES } from '@/domain/catalog';
 import { canPerform, currentProposal, DomainError, type RequestAction } from '@/domain/logic/requests';
 import { requestHref } from '@/domain/logic/cases';
@@ -8,9 +8,9 @@ import { useApp } from '@/state/store';
 import { useCurrentUser, useMechanic, useRequest } from '@/state/selectors';
 import { RoleGate } from '@/components/layout/RoleGate';
 import { useSwitchAccount } from '@/components/layout/AccountSwitcher';
-import { StatusBadge, StatusProgress } from '@/components/domain/Status';
+import { StatusProgress } from '@/components/domain/Status';
 import { AppointmentCard, CompletionCard } from '@/components/domain/ServiceParts';
-import { OpenProposalCard, ProposalCard, RequestSummary, RequestTimeline } from '@/components/domain/RequestParts';
+import { OpenProposalCard, ProposalCard, QuoteDecision, RequestSummary, RequestTimeline } from '@/components/domain/RequestParts';
 import { Avatar, Button, Card, Dialog, EmptyState, Field, LinkButton, Textarea, cx } from '@/components/ui';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 
@@ -122,10 +122,7 @@ function Inner() {
       <ScreenHeader title={mechanic.name} back="/solicitudes" />
       <div className="container-page pb-8 sm:pb-10">
       <header className="mb-8">
-        <div className="flex flex-wrap items-center gap-3">
-          <p className="text-sm text-muted">{request.code}</p>
-          <StatusBadge status={request.status} />
-        </div>
+        <p className="text-sm text-muted tabular-nums">{request.code}</p>
         <h2 className="mt-2 text-2xl font-extrabold sm:text-3xl" data-testid="request-status-title">
           {STATUSES[request.status].label}
         </h2>
@@ -138,20 +135,17 @@ function Inner() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_340px]">
         <div className="min-w-0 space-y-6">
           {pending && proposal && (
-            <ProposalCard proposal={proposal} version={request.proposals.length} highlight>
-              <p className="mb-4 text-sm text-muted">
-                {request.proposals.length > 1 ? `${first} ha revisado su presupuesto; necesita tu aprobación. ` : ''}
-                Al aceptar, contratas a {first} por este precio y alcance; la fecha la confirmáis después. Aceptar no es un pago. Si lo rechazas, la solicitud se cierra y puedes pedir otra a otro mecánico.
-              </p>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <Button size="lg" onClick={() => run({ type: 'accept_proposal' }, 'Presupuesto aceptado. Ahora confirmad la cita.')} loading={busy === 'accept_proposal'} icon={<Check className="size-5" aria-hidden />}>
-                  Aceptar presupuesto
-                </Button>
-                <Button size="lg" variant="secondary" onClick={() => setDialog('reject')}>
-                  Rechazar
-                </Button>
-              </div>
-            </ProposalCard>
+            <div>
+              <QuoteDecision
+                proposal={proposal}
+                version={request.proposals.length}
+                mechanicName={mechanic.name}
+                accepting={busy === 'accept_proposal'}
+                onAccept={() => run({ type: 'accept_proposal' }, 'Presupuesto aceptado. Ahora confirmad la cita.')}
+                onReject={() => setDialog('reject')}
+              />
+              <p className="mt-3 text-center text-[13px] text-muted">Aceptar no es un pago.</p>
+            </div>
           )}
 
           <OpenProposalCard request={request} mechanicName={mechanic.name} />

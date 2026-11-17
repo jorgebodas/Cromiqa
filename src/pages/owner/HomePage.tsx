@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Link, Navigate } from 'react-router-dom';
-import { ArrowRight, Bike, ChevronRight, Home as HomeIcon, Store, Wrench } from 'lucide-react';
+import { Bike, ChevronRight, Home as HomeIcon, Mic, Search, Store, Wrench } from 'lucide-react';
 import type { BikeType, LocationId, User } from '@/domain/types';
 import { bikeTypeLabel, categoryLabel, locationShort, serviceLabel, specializationLabel } from '@/domain/catalog';
 import { currentProposal } from '@/domain/logic/requests';
@@ -11,11 +11,12 @@ import { formatDate, formatPrice, toISODate } from '@/domain/utils';
 import { useApp } from '@/state/store';
 import { useCurrentUser, useOwnerBikes, useRequestsFor } from '@/state/selectors';
 import { useMode } from '@/state/mode';
+import { useNavUi } from '@/state/ui';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { CyclistHeaderActions } from '@/components/layout/QuickActions';
 import { Feature, Stat, Widget, WidgetGrid } from '@/components/home/Widget';
 import { ServiceCarousel } from '@/components/home/ServiceCarousel';
-import { Avatar, DemoTag, cx } from '@/components/ui';
+import { Avatar, DemoTag } from '@/components/ui';
 
 
 /** One item that only the cyclist can move forward, as a row of the attention widget. */
@@ -24,72 +25,104 @@ function AttentionRow({ item, mechanicName }: { item: CyclistAttention; mechanic
   const proposal = currentProposal(r);
   const content = {
     proposal: {
-      title: `Presupuesto de ${mechanicName}`,
-      detail: proposal ? `${serviceLabel(r)} · ${formatPrice(proposal.price)} · ${formatDate(proposal.date, { weekday: 'short', day: 'numeric', month: 'short' })}, ${proposal.time}` : serviceLabel(r),
-      cta: 'Revisar presupuesto',
-      to: requestHref(r),
+      title: proposal ? `${mechanicName} · ${formatPrice(proposal.price)}` : `Presupuesto de ${mechanicName}`,
+      detail: proposal ? `Presupuesto · ${formatDate(proposal.date, { weekday: 'short', day: 'numeric', month: 'short' })}` : serviceLabel(r),
     },
     clarify: {
       title: `${mechanicName} necesita aclarar algo`,
       detail: `${categoryLabel(r.category)} · Respóndele en el chat`,
-      cta: 'Abrir conversación',
-      to: requestHref(r),
     },
     appointment: r.appointment?.pending
       ? {
           title: `${mechanicName} propone una cita`,
           detail: `${categoryLabel(r.category)} · ${formatDate(r.appointment.pending.date, { weekday: 'short', day: 'numeric', month: 'short' })}, ${r.appointment.pending.time}`,
-          cta: 'Confirmar o proponer otra',
-          to: requestHref(r),
         }
       : {
           title: `Acuerda la cita con ${mechanicName}`,
           detail: `${categoryLabel(r.category)} · Servicio contratado, falta la fecha`,
-          cta: 'Proponer fecha',
-          to: requestHref(r),
         },
     confirm: {
       title: `${mechanicName} ha terminado el trabajo`,
       detail: item.closingSoon
         ? `${categoryLabel(r.category)} · Se cerrará automáticamente en menos de 24 h`
         : `${categoryLabel(r.category)} · Confirma que está bien o reporta un problema`,
-      cta: 'Revisar y confirmar',
-      to: requestHref(r),
     },
     incident: {
       title: 'Problema abierto',
       detail: `${categoryLabel(r.category)} · Con ${mechanicName}. El cierre automático está en pausa`,
-      cta: 'Ver incidencia',
-      to: requestHref(r),
     },
     declined: {
       title: `${mechanicName} no ha podido atenderte`,
       detail: `${serviceLabel(r)} · Puedes pedírselo a otro mecánico con una nueva solicitud`,
-      cta: 'Ver la solicitud',
-      to: requestHref(r),
     },
     review: {
       title: `¿Qué tal con ${mechanicName}?`,
       detail: `${categoryLabel(r.category)} · Servicio completado`,
-      cta: 'Valorar el servicio',
-      to: requestHref(r),
     },
   }[item.kind];
-  const urgent = item.kind !== 'review' && item.kind !== 'declined';
   return (
     <li>
-      <Link to={attentionHref(item)} className="flex items-center gap-3 py-3 hover:opacity-80" data-testid={`attention-${item.kind}`}>
-        <span className={cx('size-2.5 shrink-0 rounded-full', urgent ? 'bg-lime ring-2 ring-ink' : 'bg-line-strong')} aria-hidden />
+      <Link to={attentionHref(item)} className="flex min-h-16 items-center gap-3 px-4 py-3.5 transition-colors hover:bg-black/[0.03]" data-testid={`attention-${item.kind}`}>
         <span className="min-w-0 flex-1">
-          <span className="block font-semibold leading-snug">{content.title}</span>
-          <span className="mt-0.5 block text-sm text-muted">{content.detail}</span>
-          <span className="mt-1 inline-flex items-center gap-1 text-sm font-semibold">
-            {content.cta} <ArrowRight className="size-4" aria-hidden />
-          </span>
+          <span className="block text-[15px] font-semibold leading-snug">{content.title}</span>
+          <span className="mt-0.5 block text-[13px] leading-snug opacity-70">{content.detail}</span>
         </span>
-        <ChevronRight className="size-4 shrink-0 text-muted" aria-hidden />
+        <ChevronRight className="size-[18px] shrink-0" aria-hidden />
       </Link>
     </li>
+  );
+}
+
+/** What needs the cyclist: the decisions in lime (the one lime surface of Home), then gentle nudges. */
+function AttentionSection({ items, name }: { items: CyclistAttention[]; name: (id: string) => string }) {
+  const urgent = items.filter((i) => i.kind !== 'review' && i.kind !== 'declined').slice(0, 4);
+  const later = items.filter((i) => i.kind === 'review' || i.kind === 'declined').slice(0, 2);
+  return (
+    <section aria-label="Te toca a ti" className="space-y-6" data-testid="attention">
+      {urgent.length > 0 && (
+        <div>
+          <h2 className="mb-3 font-display text-[19px] font-bold tracking-tight">Te toca decidir</h2>
+          <ul className="action-fill lifted divide-y divide-ink/10 overflow-hidden">
+            {urgent.map((item) => (
+              <AttentionRow key={`${item.kind}-${item.request.id}`} item={item} mechanicName={name(item.request.mechanicId)} />
+            ))}
+          </ul>
+        </div>
+      )}
+      {later.length > 0 && (
+        <div>
+          <h2 className="mb-3 font-display text-[19px] font-bold tracking-tight">Cuando puedas</h2>
+          <ul className="surface divide-y divide-line overflow-hidden">
+            {later.map((item) => (
+              <AttentionRow key={`${item.kind}-${item.request.id}`} item={item} mechanicName={name(item.request.mechanicId)} />
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** A tap target that reads as a search field: it opens the usual new-request flow. */
+function AskBar() {
+  const openNewRequest = useNavUi((s) => s.openNewRequest);
+  const resetDraft = useApp((s) => s.resetDraft);
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        resetDraft({});
+        openNewRequest();
+      }}
+      className="surface flex h-[54px] w-full items-center gap-2.5 rounded-full pl-[18px] pr-[7px] text-left text-[15px] text-muted transition-transform active:scale-[0.99]"
+      data-testid="ask-bar"
+    >
+      <Search className="size-[18px] shrink-0 text-muted" aria-hidden />
+      <span className="flex-1">Describe el problema</span>
+      <span className="flex size-10 items-center justify-center rounded-full bg-ink text-lime" aria-hidden>
+        <Mic className="size-[18px]" strokeWidth={1.9} />
+      </span>
+    </button>
   );
 }
 
@@ -170,33 +203,30 @@ function CyclistHome({ user }: { user: User | null }) {
   const hasRequests = requests.length > 0;
   return (
     <div className="space-y-8">
-      {/* 1 · Discover: what the bike needs, as a row of services. */}
-      <section aria-labelledby="need-title" data-testid="widget-need">
-        <h2 id="need-title" className="font-display text-[22px] font-bold tracking-tight">
-          ¿Qué necesita tu bici?
+      {/* 1 · The question, and a way to answer it in your own words. */}
+      <section aria-labelledby="need-title" className="space-y-[18px]">
+        <h2 id="need-title" className="max-w-[16ch] font-display text-[30px] font-bold leading-[1.12] tracking-[-0.025em]">
+          ¿Qué le pasa a tu bici{user ? `, ${user.name.split(' ')[0]}` : ''}?
         </h2>
-        <p className="mt-1 text-[15px] text-muted">Encuentra el servicio adecuado y conecta con un mecánico.</p>
-        <div className="mt-4">
-          <ServiceCarousel />
-        </div>
+        <AskBar />
+      </section>
+
+      {/* 2 · Only what needs the cyclist now. */}
+      {attention.length > 0 && <AttentionSection items={attention} name={name} />}
+
+      {/* 3 · Services, as a row of photos that open the request flow. */}
+      <section aria-labelledby="services-title" data-testid="widget-need">
+        <h2 id="services-title" className="mb-3 font-display text-[19px] font-bold tracking-tight">
+          Servicios
+        </h2>
+        <ServiceCarousel />
       </section>
 
       <WidgetGrid>
-        {/* 2 · Only what needs the cyclist now. */}
-        {attention.length > 0 && (
-          <Widget title="Requiere tu atención" wide testId="attention">
-            <ul className="mt-1 divide-y divide-line">
-              {attention.slice(0, 4).map((item) => (
-                <AttentionRow key={`${item.kind}-${item.request.id}`} item={item} mechanicName={name(item.request.mechanicId)} />
-              ))}
-            </ul>
-          </Widget>
-        )}
-
-        {/* 3 · Find mechanics. */}
+        {/* Find mechanics. */}
         <DiscoverWidget user={user} />
 
-        {/* 4 · Their requests and the next appointment, once there are any. */}
+        {/* Their requests and the next appointment, once there are any. */}
         {hasRequests && (
           <>
             <Widget title="Solicitudes" to="/solicitudes" testId="widget-requests">

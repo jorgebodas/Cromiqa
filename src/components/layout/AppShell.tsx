@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, Outlet, matchPath, useLocation, useNavigationType } from 'react-router-dom';
-import { ClipboardList, FlaskConical, Hammer, House, Inbox, Plus, RefreshCw, UserRound, Wrench } from 'lucide-react';
+import { ClipboardList, FlaskConical, Hammer, House, Inbox, Menu, Plus, RefreshCw, UserRound, Wrench } from 'lucide-react';
 import { Wordmark } from '@/brand/Wordmark';
 import { useCurrentUser } from '@/state/selectors';
 import { useApp } from '@/state/store';
@@ -100,12 +100,11 @@ function AccountLink({ className, unread = 0 }: { className?: string; unread?: n
 }
 
 /**
- * Phones only, Safari-style: scrolling down (reading) hides the dock to free the screen;
- * scrolling up a little, reaching the top or the end of the page, or changing screen brings
- * it back. A small dead zone ignores jitter.
+ * Phones only: scrolling down shrinks the tab bar to one circle showing where you are;
+ * scrolling up, reaching the top, or tapping the circle brings it back.
  */
-function useDockHidden() {
-  const [hidden, setHidden] = useState(false);
+function useCondensedChrome() {
+  const [condensed, setCondensed] = useState(false);
   const { pathname } = useLocation();
   useEffect(() => {
     let last = window.scrollY;
@@ -115,11 +114,10 @@ function useDockHidden() {
       frame = requestAnimationFrame(() => {
         const y = window.scrollY;
         const delta = y - last;
-        const atEnd = window.innerHeight + y >= document.documentElement.scrollHeight - 8;
-        if (y < 48 || atEnd) setHidden(false);
-        else if (delta > 8) setHidden(true);
-        else if (delta < -8) setHidden(false);
-        if (Math.abs(delta) > 8) last = y;
+        if (y < 48) setCondensed(false);
+        else if (delta > 6) setCondensed(true);
+        else if (delta < -6) setCondensed(false);
+        if (Math.abs(delta) > 6) last = y;
       });
     };
     window.addEventListener('scroll', onScroll, { passive: true });
@@ -128,16 +126,9 @@ function useDockHidden() {
       window.removeEventListener('scroll', onScroll);
     };
   }, []);
-  useEffect(() => setHidden(false), [pathname]);
-  return hidden;
+  useEffect(() => setCondensed(false), [pathname]);
+  return [condensed, () => setCondensed(false)] as const;
 }
-
-/** The dock slides down out of view and back up along the same path (iOS sheet curve). */
-const DOCK_EASE = 'cubic-bezier(.32,.72,0,1)';
-const dockStyle = (hidden: boolean) => ({
-  transform: hidden ? 'translate3d(0, calc(100% + 24px), 0)' : 'none',
-  transition: `transform ${hidden ? 280 : 420}ms ${DOCK_EASE}`,
-});
 
 /** Desktop only: logo · destinations · new request, activity, account. Phones use each screen's header. */
 function OwnerHeader({ tabHref, onNewRequest }: { tabHref: (t: OwnerTab) => string; onNewRequest: () => void }) {
@@ -242,8 +233,15 @@ function FloatingTabs({ tabs, className, hidden }: { hidden?: boolean; tabs: { k
 }
 
 const NAV_W = OWNER_TABS.length * TAB_W + PILL_PAD * 2;
-/** The dock's own swaps (+ ⇄ pill): critically damped, no bounce. */
-const MORPH_EASE = DOCK_EASE;
+const PREVIEW_FROM: Keyframe = { opacity: 0, transform: 'translate3d(0, 14px, 0) scale(.94)', filter: 'blur(6px)' };
+const PREVIEW_TO: Keyframe = { opacity: 1, transform: 'none', filter: 'blur(0px)' };
+/**
+ * The dock's transitions, Apple-style: critically damped (no bounce), the iOS sheet curve.
+ * Collapsing into the current section's icon is a little quicker than opening back up.
+ */
+const MORPH_EASE = 'cubic-bezier(.32,.72,0,1)';
+const COLLAPSE_MS = 320;
+const EXPAND_MS = 420;
 
 /**
  * The phone dock: the white tab bar on the left and, floating apart on the right:
@@ -252,7 +250,7 @@ const MORPH_EASE = DOCK_EASE;
  *    above the dock, each row going straight to that pending action.
  * Inside Solicitudes: the + (the page itself shows what's pending, request by request).
  */
-function OwnerBottomNav({ tabHref, hidden }: { tabHref: (t: OwnerTab) => string; hidden: boolean }) {
+function OwnerBottomNav({ tabHref, condensed, expand }: { tabHref: (t: OwnerTab) => string; condensed: boolean; expand: () => void }) {
   const { pathname } = useLocation();
   const pending = usePendingActions();
   const reduced = useReducedMotion();
@@ -268,25 +266,23 @@ function OwnerBottomNav({ tabHref, hidden }: { tabHref: (t: OwnerTab) => string;
   // The preview closes on navigation, when the pill goes away, on Escape and on a tap outside.
   useEffect(() => setPreviewOpen(false), [pathname]);
   useEffect(() => {
-    if (right !== 'pending' || hidden) setPreviewOpen(false);
-  }, [right, hidden]);
-  // "Pendiente de ti" grows out of the pill (anchored bottom-right) and goes back into it
-  // along the same path; a close while it is still opening reverses from where it is.
+    if (right !== 'pending') setPreviewOpen(false);
+  }, [right]);
+  // "Pendiente de ti" grows out of the pill (anchored to it) and goes back into it along the
+  // same path; a close while it is still opening reverses from where it is.
   const previewRef = useRef<HTMLDivElement>(null);
   const motion = useRef<Animation | null>(null);
-  const PREVIEW_FROM: Keyframe = { opacity: 0, transform: 'translate3d(0, 14px, 0) scale(.94)', filter: 'blur(6px)' };
-  const PREVIEW_TO: Keyframe = { opacity: 1, transform: 'none', filter: 'blur(0)' };
   useLayoutEffect(() => {
     const el = previewRef.current;
     if (!previewOpen || !el || reduced || typeof el.animate !== 'function') return;
-    motion.current = el.animate([PREVIEW_FROM, PREVIEW_TO], { duration: 380, easing: DOCK_EASE });
+    motion.current = el.animate([PREVIEW_FROM, PREVIEW_TO], { duration: 380, easing: MORPH_EASE });
   }, [previewOpen, reduced]);
   const closePreview = () => {
     const el = previewRef.current;
     if (!el || reduced || typeof el.animate !== 'function') return setPreviewOpen(false);
     const now = getComputedStyle(el);
     motion.current?.cancel();
-    const a = el.animate([{ opacity: now.opacity, transform: now.transform === 'none' ? 'none' : now.transform, filter: now.filter }, PREVIEW_FROM], { duration: 200, easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards' });
+    const a = el.animate([{ opacity: now.opacity, transform: now.transform, filter: now.filter }, PREVIEW_FROM], { duration: 200, easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards' });
     motion.current = a;
     a.onfinish = () => setPreviewOpen(false);
   };
@@ -310,13 +306,11 @@ function OwnerBottomNav({ tabHref, hidden }: { tabHref: (t: OwnerTab) => string;
     return () => a.cancel();
   }, [right, reduced]);
 
+  const current = OWNER_TABS.find((t) => t.owns(pathname));
+  const CurrentIcon = current?.icon ?? Menu;
+
   return (
-    <div
-      className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(12px,env(safe-area-inset-bottom))] motion-reduce:!transition-none md:hidden"
-      style={dockStyle(hidden)}
-      data-hidden={hidden || undefined}
-      {...(hidden ? { inert: '' } : {})}
-    >
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(12px,env(safe-area-inset-bottom))] md:hidden">
       <div ref={dockRef} className="relative mx-auto flex h-16 max-w-[380px] items-center justify-between gap-2" data-testid="dock" data-state={right}>
         {/* "Pendiente de ti": above the dock, as part of it (not a modal). */}
         {previewOpen && right === 'pending' && (
@@ -324,8 +318,32 @@ function OwnerBottomNav({ tabHref, hidden }: { tabHref: (t: OwnerTab) => string;
             <PendingPreview items={pending} onClose={closePreview} />
           </div>
         )}
-        <div className="float-pill pointer-events-auto relative h-16 shrink-0 overflow-hidden rounded-full" style={{ width: NAV_W }}>
-          <FloatingTabs tabs={OWNER_TABS.map((t) => ({ key: t.id, to: tabHref(t), label: t.label, icon: t.icon, active: t.owns(pathname), state: { tab: true } }))} />
+        <div
+          className="float-pill pointer-events-auto relative h-16 shrink-0 overflow-hidden rounded-full transition-[width] motion-reduce:transition-none"
+          style={{ width: condensed ? 64 : NAV_W, transitionDuration: `${condensed ? COLLAPSE_MS : EXPAND_MS}ms`, transitionTimingFunction: MORPH_EASE }}
+        >
+          <FloatingTabs
+            className={cx('transition-[opacity,filter] ease-out', condensed ? 'opacity-0 blur-[2px] duration-150' : 'opacity-100 blur-0 delay-100 duration-300')}
+            tabs={OWNER_TABS.map((t) => ({ key: t.id, to: tabHref(t), label: t.label, icon: t.icon, active: t.owns(pathname), state: { tab: true } }))}
+            hidden={condensed}
+          />
+          {/* Condensed: one circle with the current section; tapping it opens the bar again. */}
+          <button
+            type="button"
+            onClick={expand}
+            aria-label={`${current ? current.label : 'Menú'}. Mostrar menú`}
+            tabIndex={condensed ? 0 : -1}
+            aria-hidden={!condensed || undefined}
+            className={cx(
+              'absolute inset-0 flex items-center justify-center text-ink transition-[opacity,transform] ease-[cubic-bezier(.32,.72,0,1)]',
+              condensed ? 'scale-100 opacity-100 delay-100 duration-300' : 'pointer-events-none scale-75 opacity-0 duration-150',
+            )}
+            data-testid="nav-condensed"
+          >
+            <span className="flex size-14 items-center justify-center rounded-full bg-ink text-lime">
+              <CurrentIcon className="size-6" strokeWidth={1.9} aria-hidden />
+            </span>
+          </button>
         </div>
         {right === 'pending' && (
           <PendingPill
@@ -425,15 +443,11 @@ function MechanicHeader({ items }: { items: NavItem[] }) {
   );
 }
 
-function MechanicBottomTabs({ items, hidden }: { items: NavItem[]; hidden: boolean }) {
+function MechanicBottomTabs({ items }: { items: NavItem[] }) {
   const { pathname } = useLocation();
   const isActive = (i: NavItem) => (i.end ? pathname === i.to : pathname === i.to || pathname.startsWith(i.to + '/'));
   return (
-    <div
-      className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(12px,env(safe-area-inset-bottom))] motion-reduce:!transition-none md:hidden"
-      style={dockStyle(hidden)}
-      {...(hidden ? { inert: '' } : {})}
-    >
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(12px,env(safe-area-inset-bottom))] md:hidden">
       <div className="mx-auto flex items-center justify-center gap-3">
         <div className="float-pill pointer-events-auto h-16 rounded-full" style={{ width: items.length * TAB_W + PILL_PAD * 2 }}>
           <FloatingTabs tabs={items.map((i) => ({ key: i.to, to: i.to, label: i.label, icon: i.icon, active: isActive(i), badge: i.badge }))} />
@@ -501,7 +515,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const tabHref = useTabMemory();
   const { pathname } = useLocation();
   useScrollMemory();
-  const dockHidden = useDockHidden();
+  const [condensed, expand] = useCondensedChrome();
 
   const focused = FOCUSED_ROUTES.some((r) => matchPath(r, pathname));
   const ownAction = OWN_ACTION_ROUTES.some((r) => matchPath(r, pathname));
@@ -522,7 +536,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
         <ErrorBoundary>{children ?? <Outlet />}</ErrorBoundary>
       </main>
       <Footer />
-      {isPro ? <MechanicBottomTabs items={mechanicItems} hidden={dockHidden} /> : showOwnerBar && <OwnerBottomNav tabHref={tabHref} hidden={dockHidden} />}
+      {isPro ? <MechanicBottomTabs items={mechanicItems} /> : showOwnerBar && <OwnerBottomNav tabHref={tabHref} condensed={condensed} expand={expand} />}
       <Toaster />
       <AccountSwitcherDialog open={switcherOpen} onClose={() => setSwitcherOpen(false)} />
       {!isPro && (

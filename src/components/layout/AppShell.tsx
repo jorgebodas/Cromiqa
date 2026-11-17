@@ -249,8 +249,10 @@ function OwnerBottomNav({ tabHref, condensed, expand }: { tabHref: (t: OwnerTab)
   const pending = usePendingActions();
   const reduced = useReducedMotion();
   const onRequests = OWNER_TABS.find((t) => t.id === 'solicitudes')!.owns(pathname);
-  // Inside Solicitudes the page shows what's pending; the dock offers the + to start another.
-  const right: 'pending' | 'new' = onRequests || !pending.length ? 'new' : 'pending';
+  // Inside Solicitudes, and while Home's pending cards are on screen, the page already shows
+  // what's pending: the dock offers the + to start another.
+  const cardsInView = useNavUi((s) => s.pendingCardsInView);
+  const right: 'pending' | 'new' = onRequests || cardsInView || !pending.length ? 'new' : 'pending';
   const [previewOpen, setPreviewOpen] = useState(false);
   const rightRef = useRef<HTMLElement | null>(null);
   const dockRef = useRef<HTMLDivElement>(null);

@@ -9,6 +9,9 @@ interface NavUiState {
   closeHub(): void;
   /** Shortcut used by every "Nueva solicitud" entry point. */
   openNewRequest(): void;
+  /** Home's pending cards are on screen: the dock then offers + instead of "N pendientes". */
+  pendingCardsInView: boolean;
+  setPendingCardsInView(v: boolean): void;
 }
 
 export const useNavUi = create<NavUiState>((set) => ({
@@ -16,4 +19,6 @@ export const useNavUi = create<NavUiState>((set) => ({
   openHub: (view) => set({ hub: view }),
   closeHub: () => set({ hub: null }),
   openNewRequest: () => set({ hub: { kind: 'new' } }),
+  pendingCardsInView: false,
+  setPendingCardsInView: (v) => set({ pendingCardsInView: v }),
 }));

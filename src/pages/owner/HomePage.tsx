@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { Bike, CalendarClock, ChevronRight, CircleCheck, Home as HomeIcon, MessageCircle, ReceiptText, Star, Store, TriangleAlert, UserX, Wrench } from 'lucide-react';
 import type { BikeType, LocationId, User } from '@/domain/types';
@@ -11,6 +11,7 @@ import { formatDate, formatPrice, toISODate } from '@/domain/utils';
 import { useApp } from '@/state/store';
 import { useCurrentUser, useOwnerBikes, useRequestsFor } from '@/state/selectors';
 import { useMode } from '@/state/mode';
+import { useNavUi } from '@/state/ui';
 import { ScreenHeader } from '@/components/layout/ScreenHeader';
 import { CyclistHeaderActions } from '@/components/layout/QuickActions';
 import { Feature, Stat, Widget, WidgetGrid } from '@/components/home/Widget';
@@ -81,8 +82,22 @@ function AttentionCard({ item, mechanicName }: { item: CyclistAttention; mechani
 function AttentionSection({ items, name }: { items: CyclistAttention[]; name: (id: string) => string }) {
   const urgent = items.filter((i) => i.kind !== 'review' && i.kind !== 'declined').slice(0, 4);
   const later = items.filter((i) => i.kind === 'review' || i.kind === 'declined').slice(0, 2);
+  // While these cards are on screen the dock shows + (they already say what's pending); once
+  // they scroll away, or on any other screen, it turns back into "N pendientes".
+  const ref = useRef<HTMLElement>(null);
+  const setInView = useNavUi((s) => s.setPendingCardsInView);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(([e]) => setInView(!!e?.isIntersecting), { rootMargin: '0px 0px -96px 0px' });
+    io.observe(el);
+    return () => {
+      io.disconnect();
+      setInView(false);
+    };
+  }, [setInView]);
   return (
-    <section aria-label="Pendiente de ti" data-testid="attention">
+    <section ref={ref} aria-label="Pendiente de ti" data-testid="attention">
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {[...urgent, ...later].map((item) => (
           <AttentionCard key={`${item.kind}-${item.request.id}`} item={item} mechanicName={name(item.request.mechanicId)} />

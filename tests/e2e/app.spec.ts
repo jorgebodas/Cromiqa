@@ -57,8 +57,14 @@ test.describe('Navegación', () => {
     const hubEntry = page.getByTestId(mobile ? 'pending-pill' : 'header-hub-chip');
     await freshDemo(page, 'u-ana');
     await expect(links).toHaveCount(3);
+    if (mobile) {
+      // On Home the pending cards already say it, so the dock keeps the +; anywhere else, the pill.
+      await expect(page.getByTestId('attention')).toBeVisible();
+      await expect(page.getByTestId('new-request-fab')).toBeVisible();
+      await nav.getByRole('link', { name: 'Mecánicos' }).click();
+    }
     await expect(hubEntry).toBeVisible();
-    await expect(page.getByTestId('new-request-fab')).toHaveCount(0);
+    if (mobile) await expect(page.getByTestId('new-request-fab')).toHaveCount(0);
     if (!mobile) await expect(page.getByRole('banner').getByRole('button', { name: 'Nueva solicitud' })).toHaveCount(0);
     // The full Requests section (history included): the tab on phones, the chip on desktop.
     if (mobile) await nav.getByRole('link', { name: 'Solicitudes' }).click();
@@ -69,7 +75,7 @@ test.describe('Navegación', () => {
     await expect(hubEntry).toHaveCount(0);
     await expect(nav.getByRole('link', { name: 'Solicitudes' })).toHaveAttribute('aria-current', 'page');
     // Leaving brings it back.
-    await nav.getByRole('link', { name: 'Inicio' }).click();
+    await nav.getByRole('link', { name: mobile ? 'Mecánicos' : 'Inicio' }).click();
     await expect(hubEntry).toBeVisible();
 
     // No general search: searching lives in Mecánicos.
@@ -258,6 +264,7 @@ test.describe('Navegación', () => {
     const mobile = isMobile(page);
     const chip = page.getByTestId(mobile ? 'pending-pill' : 'header-hub-chip');
     if (mobile) {
+      await page.goto('./#/mecanicos'); // on Home the cards show it and the dock offers +
       // Phones: the pill only opens the preview; its last row leads to Solicitudes.
       // Two requests (one mechanic each), one quote each: two decisions.
       await expect(chip).toHaveAccessibleName('2 pendientes. Ver lo pendiente');
@@ -484,8 +491,16 @@ test.describe('Navegación', () => {
     await expect(page.getByTestId('pending-pill')).toHaveCount(0);
     await expect(page.getByTestId('new-request-fab')).toBeVisible();
 
-    // One pending action: the lime pill floats where the + was.
+    // One pending action. On Home its card is on screen, so the dock keeps the +; scrolling
+    // the card away (or any other screen) turns it into the lime pill.
     await freshDemo(page, 'u-ana');
+    await expect(page.getByTestId('attention-confirm')).toBeVisible();
+    await expect(page.getByTestId('new-request-fab')).toBeVisible();
+    await page.mouse.wheel(0, 1200);
+    await expect(toggle).toHaveAccessibleName('1 pendiente. Ver lo pendiente');
+    await page.mouse.wheel(0, -2400);
+    await expect(page.getByTestId('new-request-fab')).toBeVisible();
+    await nav.getByRole('link', { name: 'Mecánicos' }).click();
     await expect(toggle).toHaveAccessibleName('1 pendiente. Ver lo pendiente');
     await expect(page.getByTestId('new-request-fab')).toHaveCount(0);
     // The pill only opens the preview (no navigation), and closes it again.
@@ -513,18 +528,19 @@ test.describe('Navegación', () => {
     await expect(page.getByTestId('new-request-fab')).toBeVisible();
     await expect(nav.getByRole('link', { name: 'Solicitudes' })).toHaveAttribute('aria-current', 'page');
     // "Ver todas las solicitudes" opens the list.
-    await nav.getByRole('link', { name: 'Inicio' }).click();
+    await nav.getByRole('link', { name: 'Mecánicos' }).click();
     await toggle.click();
     await preview.getByTestId('pending-all').click();
     await expect(page).toHaveURL(/#\/solicitudes$/);
     // Escape and navigation close the preview.
-    await nav.getByRole('link', { name: 'Inicio' }).click();
+    await nav.getByRole('link', { name: 'Mecánicos' }).click();
     await toggle.click();
     await page.keyboard.press('Escape');
     await expect(preview).toHaveCount(0);
 
     // Several pending actions in different categories: plural, one row each, grouped.
     await freshDemo(page, 'u-pablo');
+    await page.goto('./#/mecanicos');
     await page.evaluate(() => {
       const db = JSON.parse(localStorage.getItem('cromiqa:demo:db')!);
       // Diego's date proposal, now Pablo's (the request and the decision he owes on it).
@@ -580,6 +596,7 @@ test.describe('Navegación', () => {
   test('phone dock: cancelling the request with the last pending decision brings the + back', async ({ page }) => {
     test.skip(!isMobile(page), 'Phone dock');
     await freshDemo(page, 'u-dani');
+    await page.goto('./#/mecanicos');
     await expect(page.getByTestId('pending-pill')).toHaveAccessibleName('1 pendiente. Ver lo pendiente');
     await page.goto('./#/solicitudes/r-dani');
     await page.getByRole('button', { name: 'Cancelar servicio' }).click();

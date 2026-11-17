@@ -1,6 +1,6 @@
 # Prompt · Nuevo look & feel de Cromiqa
 
-Copy everything below the line into Claude, Figma Make, v0, Lovable or a similar tool. Attach the reference screenshot and the mockups (board.png and board2.png) if the tool accepts images.
+Copy everything below the line into Claude, Figma Make, v0, Lovable or a similar tool. Attach the reference screenshot and the mockups (board-v2.png first, then board-1.png and board-2.png) if the tool accepts images.
 
 ---
 
@@ -22,7 +22,11 @@ Take the feel of the attached reference (an AI assistant UI): calm, soft, premiu
 ## Colour: use Cromiqa's lime and yellow, never purple
 - Lime `#c7ff2f` (deep `#a8e000`; text on light backgrounds `#557a00`), soft yellow `#f6ff9a` / `#e4ff6e`.
 - Ink `#141414`, muted `#75757a`, subtle `#a6a6ab`.
-- Lime is **light and signal**, not paint: dots, glows, the current step, the cyclist's own chat bubbles, the + button. Primary buttons are ink (black) on light surfaces and off-white on dark sheets.
+- Lime is **light and signal**: dots, glows, the current step, the cyclist's own chat bubbles, and **primary buttons (lime with ink text)**.
+- Black is used sparingly. There are two options to choose from (see board-v2.png):
+  - **A · No black:** everything light, with floating sheets in frosted white glass. Ink is used only for text.
+  - **B · Black only for layers:** floating sheets ("Pendiente de ti", "Revisa y envía"), the chat and the "request sent" screen are dark (#111113); every other screen is light.
+  In both options, black is never used for buttons, tabs or selected chips (those use lime or a soft lime, #eaffb3).
 - Every glow uses lime → yellow → transparent radial gradients with a 10–30 px blur.
 
 ## Type
@@ -50,6 +54,14 @@ Inter for UI text (13–15 px body; 12 px for secondary text), Manrope Bold for 
 9. **Mensajes:** the dark chat with an inline revised-quote card ("Mantener 75 €" / "Aprobar 103 €").
 10. **Mecánicos:** a zone search, filter chips and mechanic cards.
 Also show the desktop (1280 px) version of Inicio and Presupuesto: the same components in a centred column; the "pendientes" pill lives in the header.
+
+## Copy: say it once
+- Each piece of information appears **once** per screen. If the price is the headline, it doesn't come back in a row or a button ("Aceptar", not "Aceptar presupuesto 50 €").
+- A status pill, a title and a paragraph never say the same thing. Pick one. (Before: pill "Presupuesto recibido" + title "Presupuesto recibido" + text "Revisa el precio…". After: pill "Te toca decidir" + price as the title.)
+- Leave out the obvious: no "Pendiente de ti" tag inside a list already titled "Pendiente de ti", and no explanation sentence above a card that already explains itself.
+- Buttons are 1–2 words: Aceptar, Rechazar, Enviar, Cambiar, Ver solicitud.
+- Subtitles hold one fact, not a sentence: "Unos 75 min", "De tu garaje", "Responde en ~2 h".
+- Keep only the reassurances that matter, in one short line: "Aceptar no es un pago."
 
 ## Rules (do not break)
 - All copy is in Spanish (Spain). Sentence case. Short, human sentences.
